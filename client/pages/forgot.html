@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forgot Password — PrimeSpace</title>
+  <meta name="description" content="Reset your PrimeSpace account password.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/global.css">
+</head>
+<body>
+
+  <div class="auth-layout">
+
+    <!-- Visual panel -->
+    <div
+      class="auth-visual"
+      style="background-image:url('https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85')"
+      role="img"
+      aria-label="Dubai luxury property exterior"
+    >
+      <div>
+        <div class="smallcaps" style="color:#d9c89d">PrimeSpace · Dubai</div>
+        <h1 class="serif" style="font-size:clamp(36px,4vw,52px);margin:12px 0;line-height:1.06">A calmer way to manage your property journey.</h1>
+        <p style="line-height:1.8;color:#d4dfda;font-size:14px">A focused, premium member experience for Dubai property projects.</p>
+      </div>
+    </div>
+
+    <!-- Form panel -->
+    <div class="auth-panel">
+      <div class="auth-box card">
+        <a class="brand" href="../index.html" aria-label="Return to PrimeSpace home">
+          <span class="logo">PS</span>
+          <span>PrimeSpace</span>
+        </a>
+
+        <h2 style="font-size:29px;color:var(--g);margin:28px 0 6px">Reset your password</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:22px">Enter your registered UAE mobile number and we will send a reset link.</p>
+
+        <form class="fields" id="forgot-form" novalidate>
+          <div class="field">
+            <label for="forgot-mobile">UAE Mobile Number</label>
+            <input
+              id="forgot-mobile"
+              type="tel"
+              required
+              placeholder="+971 50 000 0000"
+              autocomplete="tel"
+              inputmode="tel"
+            >
+          </div>
+          <button class="btn primary btn-full" type="submit" id="forgot-submit-btn">Send reset link</button>
+        </form>
+
+        <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--muted)">
+          Remembered it? <a style="color:var(--g);font-weight:700" href="login.html">Back to login</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/auth.js"></script>
+</body>
+</html>

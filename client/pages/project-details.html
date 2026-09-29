@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Details — PrimeSpace | Member Workspace</title>
+  <meta name="description" content="Detailed view of a Dubai property project in your PrimeSpace workspace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/global.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Member navigation">
+    <div class="sidebrand">
+      <a class="brand" href="dashboard.html" aria-label="Dashboard home">
+        <span class="logo">PS</span>
+        <span>
+          PrimeSpace
+          <small style="display:block;font-size:8px;letter-spacing:.16em;color:#8b9892">MEMBER WORKSPACE</small>
+        </span>
+      </a>
+    </div>
+    <nav class="sidenav" aria-label="Workspace navigation">
+      <div class="sidetitle">Workspace</div>
+      <a class="sidelink" href="dashboard.html"><span class="sideicon" aria-hidden="true">⌂</span>Dashboard</a>
+      <a class="sidelink active" href="projects.html"><span class="sideicon" aria-hidden="true">▦</span>Projects</a>
+      <a class="sidelink" href="orders.html"><span class="sideicon" aria-hidden="true">◷</span>Order activity</a>
+      <a class="sidelink" href="earnings.html"><span class="sideicon" aria-hidden="true">◈</span>Earnings</a>
+      <a class="sidelink" href="wallet.html"><span class="sideicon" aria-hidden="true">◉</span>Wallet</a>
+      <div class="sidetitle">Account</div>
+      <a class="sidelink" href="profile.html"><span class="sideicon" aria-hidden="true">○</span>Profile</a>
+    </nav>
+    <div class="sidebottom">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div style="flex:1;min-width:0">
+          <b style="font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Alex Member</b>
+          <small style="color:#9aa59f">Junior Projects</small>
+        </div>
+        <a href="../index.html" title="Return to public site" style="color:var(--muted);font-size:16px" aria-label="Return to public site">↪</a>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <div class="main">
+    <header class="dashbar" aria-label="Workspace header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light mobile-only" onclick="toggleSide()" aria-label="Open menu" aria-expanded="false" id="menu-toggle">☰</button>
+        <div>
+          <div class="smallcaps">Member workspace</div>
+          <b class="js-greeting-short" style="font-size:14px">Good morning, Alex</b>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light" onclick="toast('No new notifications')" id="notifications-btn">
+          ♢ <span style="font-size:11px">Notifications</span>
+        </button>
+        <div class="avatar" aria-label="User avatar">A</div>
+      </div>
+    </header>
+
+    <main class="page" id="main-content">
+
+      <div class="page-head">
+        <div>
+          <div class="smallcaps">Project details</div>
+          <h2 class="serif">Rove Home Marasi Drive</h2>
+          <p>Dubai, UAE · Featured project</p>
+        </div>
+        <a class="btn light" href="projects.html" id="back-btn">← Back to projects</a>
+      </div>
+
+      <!-- Detail Grid -->
+      <div class="detail-grid">
+
+        <!-- Project Image -->
+        <div class="detail-img">
+          <img
+            src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1400&q=85"
+            alt="Rove Home Marasi Drive — Dubai"
+            onerror="this.style.background='linear-gradient(135deg,#dfece4,#123f32)'"
+          >
+        </div>
+
+        <!-- Project Info Card -->
+        <section class="card" style="padding:28px" aria-labelledby="project-name">
+          <span class="prop-tag" style="position:static;display:inline-block">Featured</span>
+          <h3 id="project-name" class="serif" style="font-size:29px;color:var(--g);margin:16px 0 8px">Rove Home Marasi Drive</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.8">
+            A premium property project on Marasi Drive, Dubai. Review all project information before continuing through your member journey.
+          </p>
+
+          <div class="stat-grid">
+            <div class="stat-item">Project value<b>AED 1.25M</b></div>
+            <div class="stat-item">Commission<b>0.26%</b></div>
+            <div class="stat-item">Sold<b>87</b></div>
+          </div>
+
+          <dl style="border-top:1px solid var(--line);padding-top:14px;font-size:12px;display:grid;gap:8px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between">
+              <dt style="color:var(--muted)">Location</dt>
+              <dd style="font-weight:700;margin:0">Dubai, UAE</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <dt style="color:var(--muted)">Project type</dt>
+              <dd style="font-weight:700;margin:0">Residential</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <dt style="color:var(--muted)">Currency</dt>
+              <dd style="font-weight:700;margin:0">AED</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <dt style="color:var(--muted)">Availability</dt>
+              <dd style="font-weight:700;margin:0">Available</dd>
+            </div>
+          </dl>
+
+          <form id="project-continue-form" style="margin-top:20px">
+            <button class="btn primary btn-full" type="submit" id="continue-project-btn">Continue with project →</button>
+          </form>
+        </section>
+
+      </div>
+
+      <!-- Project Overview -->
+      <section class="card box" style="margin-top:18px" aria-labelledby="overview-heading">
+        <div class="smallcaps">Overview</div>
+        <h3 id="overview-heading" style="margin:8px 0 10px">Project information</h3>
+        <p style="color:var(--muted);font-size:13px;line-height:1.8">
+          Full project information will be loaded dynamically via <code>ProjectsAPI.getById()</code> once the backend is connected. This section displays the complete property details, payment plan, and developer information.
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/project-details.js"></script>
+</body>
+</html>

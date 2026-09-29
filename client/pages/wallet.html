@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wallet — PrimeSpace | Member Workspace</title>
+  <meta name="description" content="Review your available and held AED wallet balance in your PrimeSpace workspace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/global.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Member navigation">
+    <div class="sidebrand">
+      <a class="brand" href="dashboard.html" aria-label="Dashboard home">
+        <span class="logo">PS</span>
+        <span>
+          PrimeSpace
+          <small style="display:block;font-size:8px;letter-spacing:.16em;color:#8b9892">MEMBER WORKSPACE</small>
+        </span>
+      </a>
+    </div>
+    <nav class="sidenav" aria-label="Workspace navigation">
+      <div class="sidetitle">Workspace</div>
+      <a class="sidelink" href="dashboard.html"><span class="sideicon" aria-hidden="true">⌂</span>Dashboard</a>
+      <a class="sidelink" href="projects.html"><span class="sideicon" aria-hidden="true">▦</span>Projects</a>
+      <a class="sidelink" href="orders.html"><span class="sideicon" aria-hidden="true">◷</span>Order activity</a>
+      <a class="sidelink" href="earnings.html"><span class="sideicon" aria-hidden="true">◈</span>Earnings</a>
+      <a class="sidelink active" href="wallet.html"><span class="sideicon" aria-hidden="true">◉</span>Wallet</a>
+      <div class="sidetitle">Account</div>
+      <a class="sidelink" href="profile.html"><span class="sideicon" aria-hidden="true">○</span>Profile</a>
+    </nav>
+    <div class="sidebottom">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div style="flex:1;min-width:0">
+          <b style="font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Alex Member</b>
+          <small style="color:#9aa59f">Junior Projects</small>
+        </div>
+        <a href="../index.html" title="Return to public site" style="color:var(--muted);font-size:16px" aria-label="Return to public site">↪</a>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <div class="main">
+    <header class="dashbar" aria-label="Workspace header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light mobile-only" onclick="toggleSide()" aria-label="Open menu" aria-expanded="false" id="menu-toggle">☰</button>
+        <div>
+          <div class="smallcaps">Member workspace</div>
+          <b class="js-greeting-short" style="font-size:14px">Good morning, Alex</b>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light" onclick="toast('No new notifications')" id="notifications-btn">
+          ♢ <span style="font-size:11px">Notifications</span>
+        </button>
+        <div class="avatar" aria-label="User avatar">A</div>
+      </div>
+    </header>
+
+    <main class="page" id="main-content">
+
+      <div class="page-head">
+        <div>
+          <div class="smallcaps">Balance</div>
+          <h2 class="serif">Wallet</h2>
+          <p>Review your available and held AED balance.</p>
+        </div>
+        <button class="btn primary" id="wallet-action-btn">Request action</button>
+      </div>
+
+      <div class="twocol">
+
+        <!-- Wallet Balance Card -->
+        <section class="card wallet-card" aria-labelledby="balance-heading">
+          <div>
+            <small style="opacity:.7">Available balance</small>
+            <div id="balance-heading" class="wallet-balance" aria-label="AED 1,265 available">AED 1,265</div>
+          </div>
+          <div class="wallet-footer">
+            <span>Currency <b>AED</b></span>
+            <span>On hold <b>AED 134,981</b></span>
+          </div>
+        </section>
+
+        <!-- Wallet Summary Card -->
+        <section class="card box" aria-labelledby="summary-heading">
+          <div class="boxhead">
+            <h3 id="summary-heading">Wallet summary</h3>
+            <span class="status">Current</span>
+          </div>
+
+          <dl style="font-size:12px">
+            <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)">
+              <dt style="color:var(--muted)">Available balance</dt>
+              <dd style="font-weight:700;margin:0">AED 1,265</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)">
+              <dt style="color:var(--muted)">On-hold amount</dt>
+              <dd style="font-weight:700;margin:0">AED 134,981</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)">
+              <dt style="color:var(--muted)">Currency</dt>
+              <dd style="font-weight:700;margin:0">AED</dd>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)">
+              <dt style="color:var(--muted)">Current level</dt>
+              <dd style="font-weight:700;margin:0">Junior Projects</dd>
+            </div>
+          </dl>
+        </section>
+
+      </div>
+
+    </main>
+  </div>
+
+  <div class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/wallet.js"></script>
+</body>
+</html>

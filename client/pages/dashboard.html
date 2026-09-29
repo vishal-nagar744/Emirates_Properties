@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — PrimeSpace | Member Workspace</title>
+  <meta name="description" content="Your PrimeSpace member workspace overview — projects, revenue, and wallet.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/global.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Member navigation">
+    <div class="sidebrand">
+      <a class="brand" href="dashboard.html" aria-label="Dashboard home">
+        <span class="logo">PS</span>
+        <span>
+          PrimeSpace
+          <small style="display:block;font-size:8px;letter-spacing:.16em;color:#8b9892">MEMBER WORKSPACE</small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="sidenav" aria-label="Workspace navigation">
+      <div class="sidetitle">Workspace</div>
+      <a class="sidelink" href="dashboard.html"><span class="sideicon" aria-hidden="true">⌂</span>Dashboard</a>
+      <a class="sidelink" href="projects.html"><span class="sideicon" aria-hidden="true">▦</span>Projects</a>
+      <a class="sidelink" href="orders.html"><span class="sideicon" aria-hidden="true">◷</span>Order activity</a>
+      <a class="sidelink" href="earnings.html"><span class="sideicon" aria-hidden="true">◈</span>Earnings</a>
+      <a class="sidelink" href="wallet.html"><span class="sideicon" aria-hidden="true">◉</span>Wallet</a>
+      <div class="sidetitle">Account</div>
+      <a class="sidelink" href="profile.html"><span class="sideicon" aria-hidden="true">○</span>Profile</a>
+    </nav>
+
+    <div class="sidebottom">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div style="flex:1;min-width:0">
+          <b style="font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Alex Member</b>
+          <small style="color:#9aa59f">Junior Projects</small>
+        </div>
+        <a href="../index.html" title="Return to public site" style="color:var(--muted);font-size:16px" aria-label="Return to public site">↪</a>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ── Main Content ────────────────────────────────────────── -->
+  <div class="main">
+
+    <header class="dashbar" aria-label="Workspace header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button
+          class="btn light mobile-only"
+          onclick="toggleSide()"
+          aria-label="Open navigation menu"
+          aria-expanded="false"
+          id="menu-toggle"
+        >☰</button>
+        <div>
+          <div class="smallcaps">Member workspace</div>
+          <b class="js-greeting-short" style="font-size:14px">Good morning, Alex</b>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light" onclick="toast('No new notifications')" id="notifications-btn">
+          ♢ <span style="font-size:11px">Notifications</span>
+        </button>
+        <div class="avatar" aria-label="User avatar">A</div>
+      </div>
+    </header>
+
+    <main class="page" id="main-content">
+
+      <!-- Welcome Banner -->
+      <section class="welcome-banner" aria-labelledby="welcome-heading">
+        <div class="smallcaps">Your member overview</div>
+        <h1 id="welcome-heading" class="serif js-greeting">Good morning, Alex.</h1>
+        <p style="color:var(--muted);max-width:620px;line-height:1.75;font-size:13px;margin-top:8px">
+          Your workspace gives you a clear view of active projects, current revenue, held amounts and wallet balance.
+        </p>
+        <div style="display:flex;gap:9px;margin-top:19px;flex-wrap:wrap">
+          <a class="btn primary" href="projects.html" id="explore-projects-btn">Explore projects</a>
+          <a class="btn light" href="wallet.html" id="view-wallet-btn">View wallet</a>
+        </div>
+      </section>
+
+      <!-- KPI Grid -->
+      <div class="kpis" role="list" aria-label="Key performance indicators">
+        <div class="card kpi" role="listitem">
+          <small>Current projects</small>
+          <b aria-label="4 out of 20 projects active">4 / 20</b>
+          <span>Active capacity</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>Today's revenue</small>
+          <b aria-label="AED 14,702 revenue today">14,702</b>
+          <span>Current earning (AED)</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>On-hold amount</small>
+          <b aria-label="AED 134,981 on hold">134,981</b>
+          <span>Currently on hold (AED)</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>Wallet balance</small>
+          <b aria-label="AED 1,265 wallet balance">1,265</b>
+          <span>Available (AED)</span>
+        </div>
+      </div>
+
+      <!-- Two Column Row -->
+      <div class="twocol">
+
+        <!-- Current Projects -->
+        <section class="card box" aria-labelledby="current-projects-heading">
+          <div class="boxhead">
+            <div>
+              <h3 id="current-projects-heading">Current projects</h3>
+              <small style="color:var(--muted)">Projects in your current level</small>
+            </div>
+            <a style="font-size:11px;color:var(--g);font-weight:700" href="projects.html">View all →</a>
+          </div>
+
+          <a class="mini-row" href="project-details.html" id="proj-row-1">
+            <img
+              src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=200&q=70"
+              alt="Rove Home Marasi Drive"
+              loading="lazy"
+              onerror="this.style.background='linear-gradient(135deg,#dfece4,#123f32)'"
+            >
+            <div>
+              <b style="font-size:13px">Rove Home Marasi Drive</b>
+              <small style="display:block;color:var(--muted);margin-top:4px">Dubai · AED 1.25M</small>
+            </div>
+            <span class="status">Featured</span>
+          </a>
+
+          <a class="mini-row" href="project-details.html" id="proj-row-2">
+            <img
+              src="https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=200&q=70"
+              alt="Belgrave Gardens"
+              loading="lazy"
+              onerror="this.style.background='linear-gradient(135deg,#dfece4,#123f32)'"
+            >
+            <div>
+              <b style="font-size:13px">Belgrave Gardens</b>
+              <small style="display:block;color:var(--muted);margin-top:4px">Dubai · AED 980K</small>
+            </div>
+            <span class="status">New</span>
+          </a>
+
+          <a class="mini-row" href="project-details.html" id="proj-row-3">
+            <img
+              src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=200&q=70"
+              alt="Six Senses Residences"
+              loading="lazy"
+              onerror="this.style.background='linear-gradient(135deg,#dfece4,#123f32)'"
+            >
+            <div>
+              <b style="font-size:13px">Six Senses Residences</b>
+              <small style="display:block;color:var(--muted);margin-top:4px">Dubai · AED 5.20M</small>
+            </div>
+            <span class="status">Premium</span>
+          </a>
+        </section>
+
+        <!-- Level Progress -->
+        <section class="card box" aria-labelledby="level-heading">
+          <div class="boxhead">
+            <h3 id="level-heading">Level progress</h3>
+            <span class="status">Junior Projects</span>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:23px 0 7px">
+            <span>4 active</span>
+            <span>20 capacity</span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" aria-label="Level progress 20%">
+            <span style="width:20%"></span>
+          </div>
+
+          <div style="margin-top:24px;background:var(--pale);padding:18px;border-radius:17px">
+            <small style="color:var(--muted)">Wallet available</small>
+            <b style="display:block;font-size:25px;color:var(--g);margin:5px 0">AED 1,265</b>
+            <a style="font-size:11px;color:var(--g);font-weight:700" href="wallet.html">View wallet →</a>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Recent Activity Table -->
+      <section class="card box" style="margin-top:18px" aria-labelledby="activity-heading">
+        <div class="boxhead">
+          <div>
+            <h3 id="activity-heading">Recent activity</h3>
+            <small style="color:var(--muted)">Latest project actions</small>
+          </div>
+          <a style="font-size:11px;color:var(--g);font-weight:700" href="orders.html">See all →</a>
+        </div>
+
+        <div class="tablewrap">
+          <table class="data-table" aria-label="Recent project activity">
+            <thead>
+              <tr>
+                <th scope="col">Project</th>
+                <th scope="col">Activity</th>
+                <th scope="col">Amount (AED)</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Definer Dolce Vita</b></td>
+                <td>Project submitted</td>
+                <td>108.80 commission</td>
+                <td><span class="status">Submitted</span></td>
+              </tr>
+              <tr>
+                <td><b>Rove Home Marasi Drive</b></td>
+                <td>Project activity</td>
+                <td>—</td>
+                <td><span class="status">Active</span></td>
+              </tr>
+              <tr>
+                <td><b>Belgrave Gardens</b></td>
+                <td>Project activity</td>
+                <td>—</td>
+                <td><span class="status">Active</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/dashboard.js"></script>
+</body>
+</html>

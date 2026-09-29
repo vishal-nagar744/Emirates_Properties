@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earnings — PrimeSpace | Member Workspace</title>
+  <meta name="description" content="Review your financial earnings summary in your PrimeSpace member workspace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/global.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Member navigation">
+    <div class="sidebrand">
+      <a class="brand" href="dashboard.html" aria-label="Dashboard home">
+        <span class="logo">PS</span>
+        <span>
+          PrimeSpace
+          <small style="display:block;font-size:8px;letter-spacing:.16em;color:#8b9892">MEMBER WORKSPACE</small>
+        </span>
+      </a>
+    </div>
+    <nav class="sidenav" aria-label="Workspace navigation">
+      <div class="sidetitle">Workspace</div>
+      <a class="sidelink" href="dashboard.html"><span class="sideicon" aria-hidden="true">⌂</span>Dashboard</a>
+      <a class="sidelink" href="projects.html"><span class="sideicon" aria-hidden="true">▦</span>Projects</a>
+      <a class="sidelink" href="orders.html"><span class="sideicon" aria-hidden="true">◷</span>Order activity</a>
+      <a class="sidelink active" href="earnings.html"><span class="sideicon" aria-hidden="true">◈</span>Earnings</a>
+      <a class="sidelink" href="wallet.html"><span class="sideicon" aria-hidden="true">◉</span>Wallet</a>
+      <div class="sidetitle">Account</div>
+      <a class="sidelink" href="profile.html"><span class="sideicon" aria-hidden="true">○</span>Profile</a>
+    </nav>
+    <div class="sidebottom">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" aria-hidden="true">A</div>
+        <div style="flex:1;min-width:0">
+          <b style="font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Alex Member</b>
+          <small style="color:#9aa59f">Junior Projects</small>
+        </div>
+        <a href="../index.html" title="Return to public site" style="color:var(--muted);font-size:16px" aria-label="Return to public site">↪</a>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <div class="main">
+    <header class="dashbar" aria-label="Workspace header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light mobile-only" onclick="toggleSide()" aria-label="Open menu" aria-expanded="false" id="menu-toggle">☰</button>
+        <div>
+          <div class="smallcaps">Member workspace</div>
+          <b class="js-greeting-short" style="font-size:14px">Good morning, Alex</b>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn light" onclick="toast('No new notifications')" id="notifications-btn">
+          ♢ <span style="font-size:11px">Notifications</span>
+        </button>
+        <div class="avatar" aria-label="User avatar">A</div>
+      </div>
+    </header>
+
+    <main class="page" id="main-content">
+
+      <div class="page-head">
+        <div>
+          <div class="smallcaps">Financial overview</div>
+          <h2 class="serif">Earnings</h2>
+          <p>A clear summary of your current revenue figures in AED.</p>
+        </div>
+        <button class="btn light" id="export-btn">↓ Export</button>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="kpis" role="list" aria-label="Earnings key figures">
+        <div class="card kpi" role="listitem">
+          <small>Today's revenue</small>
+          <b aria-label="AED 14,702">14,702</b>
+          <span>Current (AED)</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>On-hold amount</small>
+          <b aria-label="AED 134,981 on hold">134,981</b>
+          <span>On hold (AED)</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>Wallet balance</small>
+          <b aria-label="AED 1,265 available">1,265</b>
+          <span>Available (AED)</span>
+        </div>
+        <div class="card kpi" role="listitem">
+          <small>Active projects</small>
+          <b>4</b>
+          <span>Current level</span>
+        </div>
+      </div>
+
+      <!-- Chart + Wallet snapshot -->
+      <div class="twocol">
+
+        <section class="card box" aria-labelledby="chart-heading">
+          <div class="boxhead">
+            <h3 id="chart-heading">Earning activity</h3>
+            <span class="status">Current period</span>
+          </div>
+          <div class="bar-chart" role="img" aria-label="Bar chart showing earning activity over 8 months">
+            <div class="bar" style="height:50px"  title="Month 1"></div>
+            <div class="bar" style="height:72px"  title="Month 2"></div>
+            <div class="bar" style="height:58px"  title="Month 3"></div>
+            <div class="bar" style="height:105px" title="Month 4"></div>
+            <div class="bar" style="height:84px"  title="Month 5"></div>
+            <div class="bar" style="height:130px" title="Month 6"></div>
+            <div class="bar" style="height:112px" title="Month 7"></div>
+            <div class="bar" style="height:150px" title="Month 8"></div>
+          </div>
+        </section>
+
+        <section class="card box" aria-labelledby="wallet-snapshot-heading">
+          <h3 id="wallet-snapshot-heading">Wallet snapshot</h3>
+          <div style="background:var(--g);color:#fff;border-radius:18px;padding:22px;margin-top:20px">
+            <small style="opacity:.7">Available balance</small>
+            <b style="display:block;font-size:31px;margin:4px 0">AED 1,265</b>
+            <small style="opacity:.7">On hold · AED 134,981</small>
+          </div>
+          <a class="btn light btn-full" style="margin-top:14px" href="wallet.html" id="open-wallet-btn">Open wallet →</a>
+        </section>
+
+      </div>
+
+    </main>
+  </div>
+
+  <div class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/earnings.js"></script>
+</body>
+</html>
