@@ -56,15 +56,15 @@ function initOverlay() {
 function initActiveNav() {
   const current = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.sidelink, .navlinks a').forEach((link) => {
+    link.classList.remove('active');
     const href = link.getAttribute('href') || '';
-    const target = href.split('/').pop();
+    const target = href.split('#')[0].split('/').pop();
     if (target && target === current) {
       link.classList.add('active');
     }
   });
 }
 
-/* ── Live project search filter ─────────────────────────────── */
 function initProjectFilter(inputId, gridId) {
   const input = document.getElementById(inputId);
   const grid  = document.getElementById(gridId);
@@ -79,10 +79,9 @@ function initProjectFilter(inputId, gridId) {
   }
 
   input.addEventListener('input', runFilter);
-  runFilter(); // apply immediately for pre-filled state
+  runFilter();
 }
 
-/* ── Demo form handler (remove/replace with real API calls) ─── */
 function initDemoForms() {
   document.addEventListener('submit', (e) => {
     const form = e.target.closest('form[data-demo]');
@@ -92,12 +91,14 @@ function initDemoForms() {
   });
 }
 
-/* ── Init all shared behaviors ──────────────────────────────── */
 function initApp() {
   initHearts();
   initOverlay();
   initActiveNav();
   initDemoForms();
+  if (document.getElementById('hero-search') && document.getElementById('property-grid')) {
+    initProjectFilter('hero-search', 'property-grid');
+  }
 }
 
 if (document.readyState === 'loading') {

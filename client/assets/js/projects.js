@@ -4,12 +4,15 @@
    ============================================================ */
 
 async function initProjects() {
-  // Wire live search filter
   initProjectFilter('project-search', 'project-grid');
 
-  // TODO: Load projects from ProjectsAPI.getAll() and render dynamically
-  // const result = await ProjectsAPI.getAll();
-  // if (result.ok && result.data.length) renderProjectGrid(result.data);
+  const searchBtn = document.getElementById('search-btn');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => {
+      const input = document.getElementById('project-search');
+      if (input) input.dispatchEvent(new Event('input'));
+    });
+  }
 }
 
 if (document.readyState === 'loading') {

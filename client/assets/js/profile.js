@@ -24,14 +24,12 @@ async function initProfile() {
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const payload = {
-        fullName: document.getElementById('profile-fullname')?.value.trim(),
-        mobile:   document.getElementById('profile-mobile')?.value.trim(),
-      };
+      const fullName = document.getElementById('profile-fullname')?.value.trim();
+      if (fullName) {
+        const nameEl = document.getElementById('profile-name');
+        if (nameEl) nameEl.textContent = fullName;
+      }
 
-      // TODO: const result = await ProfileAPI.update(payload);
-      // if (result.ok) toast('Profile updated successfully.');
-      // else toast(result.error || 'Update failed.');
       toast('Profile saved — connect ProfileAPI.update() when backend is ready.');
 
       fields.forEach((f) => f.setAttribute('readonly', ''));
