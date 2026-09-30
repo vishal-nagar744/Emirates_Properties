@@ -135,7 +135,7 @@ const Admin = (() => {
     const caret = document.activeElement && document.activeElement.id === 'user-q'
       ? document.activeElement.selectionStart
       : null;
-    const filters = [['all', 'All'], ['active', 'Active'], ['frozen', 'Frozen'], ['suspended', 'Suspended']];
+    const filters = [['all', 'All'], ['active', 'Active'], ['frozen', 'Block'], ['suspended', 'Suspended']];
     pageEl().innerHTML = `
       <div class="page-head"><h2 class="serif">Users</h2></div>
       <div class="catalog-bar">
@@ -188,10 +188,13 @@ const Admin = (() => {
         <div class="stack-row"><span>Referred by</span><b>${byName ? esc(byName) : '—'}</b></div>
         <div class="stack-row"><span>Referrals</span><b>${u.referralCount || 0}</b></div>
       </dl>
-      <div class="hero-ctas">
-        <button class="btn light" type="button" data-action="status" data-id="${u.id}" data-status="active">Unfreeze</button>
-        <button class="btn light" type="button" data-action="status" data-id="${u.id}" data-status="frozen">Freeze</button>
-        <button class="btn light" type="button" data-action="status" data-id="${u.id}" data-status="suspended">Suspend</button>
+      <div class="field status-field">
+        <label for="user-status">Account status</label>
+        <select id="user-status">
+          <option value="active"${u.accountStatus === 'active' ? ' selected' : ''}>Active</option>
+          <option value="frozen"${u.accountStatus === 'frozen' ? ' selected' : ''}>Block</option>
+          <option value="suspended"${u.accountStatus === 'suspended' ? ' selected' : ''}>Suspended</option>
+        </select>
       </div>
       <form id="adjust-form" class="fields" style="margin-top:14px">
         <div class="form-2">
@@ -205,20 +208,30 @@ const Admin = (() => {
       </form>`);
     document.getElementById('adjust-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const accountStatus = document.getElementById('user-status').value;
+      const amount = document.getElementById('adj-amount').value.trim();
+      const reason = document.getElementById('adj-reason').value.trim();
       try {
-        const data = await adminApi(`/api/users/${id}/adjustment`, {
-          method: 'POST',
-          body: {
-            amount: document.getElementById('adj-amount').value,
-            reason: document.getElementById('adj-reason').value.trim(),
-          },
+        const statusData = await adminApi(`/api/users/${id}/status`, {
+          method: 'PATCH',
+          body: { accountStatus },
         });
-        directory = directory.map((row) => (row.id === data.user.id ? data.user : row));
+        let user = statusData.user;
+        directory = directory.map((row) => (row.id === user.id ? user : row));
+        if (amount !== '') {
+          const data = await adminApi(`/api/users/${id}/adjustment`, {
+            method: 'POST',
+            body: { amount, reason },
+          });
+          user = data.user;
+          directory = directory.map((row) => (row.id === user.id ? user : row));
+        }
         closeModal();
-        toast('Wallet adjusted');
+        toast(amount !== '' ? 'Account updated' : 'Account status updated');
         renderUsers();
       } catch (err) {
         toast(err.message);
+        renderUsers();
       }
     });
   }
@@ -230,19 +243,21 @@ const Admin = (() => {
         <h2 class="serif">Projects</h2>
         <button class="btn primary" type="button" data-action="edit-project">New project</button>
       </div>
-      ${list.length ? `<div class="grid-4">
+      ${list.length ? `<div class="admin-project-grid">
         ${list.map((p) => `
           <article class="card admin-project${p.status === 'active' ? '' : ' is-closed'}">
-            <div class="property-img">
+            <div class="admin-project-photo">
               ${p.image ? `<img src="${esc(p.image)}" alt="">` : '<div class="admin-photo-empty"></div>'}
-              <span class="prop-tag">${esc(p.tag || 'Project')}</span>
             </div>
-            <div class="prop-body">
-              <div class="prop-meta"><span>${p.durationDays} days</span><span class="prop-status">${p.status === 'active' ? 'Available' : 'Closed'}</span></div>
+            <div class="admin-project-body">
+              <div class="admin-project-top">
+                <span>${esc(p.durationDays)} days</span>
+                <span class="admin-project-state">${p.status === 'active' ? 'Available' : 'Closed'}</span>
+              </div>
               <h3>${esc(p.name)}</h3>
-              <p class="prop-line">${esc(p.address || 'Dubai')}</p>
-              <p class="prop-line">${esc(p.developer || 'Developer')}</p>
-              <dl class="prop-stats">
+              <p>${esc(p.address || 'Dubai')}</p>
+              <p>${esc(p.developer || 'Developer')}</p>
+              <dl class="admin-project-stats">
                 <div><dt>Activate</dt><dd>${Store.money(p.activationAmount)}</dd></div>
                 <div><dt>Daily</dt><dd>${Store.money(p.dailyCommission)}</dd></div>
                 <div><dt>Total</dt><dd>${Store.money(p.totalCommission)}</dd></div>
@@ -250,7 +265,7 @@ const Admin = (() => {
               <div class="admin-project-actions">
                 <button class="btn light" type="button" data-action="edit-project" data-id="${esc(p.id)}">Edit</button>
                 <button class="btn light" type="button" data-action="toggle-project" data-id="${esc(p.id)}" data-status="${p.status === 'active' ? 'inactive' : 'active'}">${p.status === 'active' ? 'Close' : 'Open'}</button>
-                <button class="icon-btn" type="button" data-action="delete-project" data-id="${esc(p.id)}" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
+                <button class="icon-btn" type="button" data-action="delete-project" data-id="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
               </div>
             </div>
           </article>`).join('')}
@@ -555,22 +570,22 @@ const Admin = (() => {
       userStatus = el.dataset.status || 'all';
       renderUsers();
     }
-    if (action === 'status') {
-      adminApi(`/api/users/${el.dataset.id}/status`, {
-        method: 'PATCH',
-        body: { accountStatus: el.dataset.status },
-      }).then((data) => {
-        directory = directory.map((row) => (row.id === data.user.id ? data.user : row));
-        closeModal();
-        toast('Account status updated');
-        renderUsers();
-      }).catch((err) => toast(err.message));
-    }
     if (action === 'edit-project') editProject(el.dataset.id);
     if (action === 'delete-project') {
-      if (!window.confirm('Delete this project from the catalog?')) return;
+      const id = el.dataset.id;
+      const name = el.dataset.name || 'this project';
+      openModal(`
+        <h3>Delete project</h3>
+        <p class="muted">Delete ${esc(name)}? It will leave the catalog. A project with an active order cannot be deleted.</p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn danger" type="button" data-action="confirm-delete-project" data-id="${esc(id)}">Delete</button>
+        </div>`);
+    }
+    if (action === 'confirm-delete-project') {
       adminApi(`/api/projects/${el.dataset.id}`, { method: 'DELETE' }).then(() => {
         catalog = catalog.filter((item) => item.id !== el.dataset.id);
+        closeModal();
         toast('Project deleted');
         renderProjects();
       }).catch((err) => toast(err.message));

@@ -593,8 +593,9 @@ a.property-card:focus-visible {
 .prop-tags .prop-tag { position: static; }
 
 .prop-tag.is-bought {
-  background: #123f32;
-  color: #f7f3ea;
+  background: #fff;
+  color: var(--g);
+  box-shadow: 0 6px 16px rgba(18, 63, 50, 0.08);
 }
 
 .detail-img { position: relative; }

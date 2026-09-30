@@ -10,7 +10,8 @@ function badge(status) {
     rejected: 'bad', cancelled: 'bad', suspended: 'bad', failed: 'bad', debit: 'bad',
     inactive: 'muted',
   };
-  const label = key ? key.charAt(0).toUpperCase() + key.slice(1) : '';
+  const labels = { frozen: 'Block' };
+  const label = labels[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '');
   return `<span class="status status-${map[key] || 'muted'}">${label}</span>`;
 }
 

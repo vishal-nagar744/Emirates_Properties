@@ -187,10 +187,7 @@ const Member = (() => {
     const body = `
         <div class="property-img">
           ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
-          <div class="prop-tags">
-            <span class="prop-tag">${esc(p.tag || 'Project')}</span>
-            ${bought ? '<span class="prop-tag is-bought">Activated</span>' : ''}
-          </div>
+          ${bought ? '<span class="prop-tag is-bought">Activated</span>' : ''}
         </div>
         <div class="prop-body">
           <div class="prop-meta"><span>${p.durationDays} days</span><span class="prop-status">${status}</span></div>
@@ -226,7 +223,7 @@ const Member = (() => {
           <section class="card box detail-copy">
             <div class="boxhead">
               <h2 class="serif">${esc(p.name)}</h2>
-              ${bought ? badge('activated') : badge(p.status === 'active' ? 'available' : 'inactive')}
+              ${badge(p.status === 'active' ? 'available' : 'inactive')}
             </div>
             <p class="prop-line">${esc(p.address || 'Dubai')}</p>
             <p class="prop-line">${esc(p.developer || 'Developer')}</p>
