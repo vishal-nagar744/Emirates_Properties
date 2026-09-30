@@ -143,12 +143,10 @@ function initCatalog(searchId, gridId, filtersId) {
     let visible = 0;
     grid.querySelectorAll('.property-card').forEach((card) => {
       const text = `${card.dataset.name || ''} ${card.innerText}`.toLowerCase();
-      const amount = Number(card.dataset.amount || 0);
-      const days = Number(card.dataset.days || 0);
       const textOk = !query || text.includes(query);
       const filterOk = mode === 'all'
-        || (mode === 'budget' && amount <= 2000)
-        || (mode === 'long' && days >= 60);
+        || (mode === 'available' && card.dataset.open === '1')
+        || (mode === 'closed' && card.dataset.open === '0');
       const show = textOk && filterOk;
       card.style.display = show ? '' : 'none';
       if (show) visible += 1;

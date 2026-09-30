@@ -25,6 +25,7 @@ function snapshot(user) {
     referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     pendingCashOut: user.pendingCashOut || 0,
+    hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
   };
 }
@@ -101,6 +102,9 @@ export async function removeAccount({ userId, id }) {
 export async function cashIn({ userId, amount }) {
   const user = await member(userId);
   if (!user) return { status: 401, message: 'Sign in required.' };
+  if (user.accountStatus === 'pending') return { status: 403, message: 'Your account is pending admin approval.' };
+  if (user.accountStatus === 'blocked') return { status: 403, message: 'This account is blocked.' };
+  if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return { status: 400, message: 'Enter an amount greater than 0.' };
   if (value > 10000000) return { status: 400, message: 'Amount is too large.' };

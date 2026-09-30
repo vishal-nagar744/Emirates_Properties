@@ -15,6 +15,7 @@ function snapshot(user) {
     referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     pendingCashOut: user.pendingCashOut || 0,
+    hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
   };
 }
@@ -24,14 +25,13 @@ function destination(account) {
   return [account.bankName, account.iban || account.accountNumber].filter(Boolean).join(' · ');
 }
 
-export async function requestCashOut({ userId, amount, accountId, password }) {
+export async function requestCashOut({ userId, amount, accountId, securityPassword, withdrawalPassword }) {
   if (!mongoose.isValidObjectId(userId)) return { status: 401, message: 'Sign in required.' };
   const user = await User.findById(userId);
   if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
-  if (user.accountStatus === 'frozen') {
-    return { status: 403, message: 'Your account is currently frozen. Please contact support.' };
-  }
-  if (user.accountStatus === 'suspended') return { status: 403, message: 'Account suspended. Contact support.' };
+  if (user.accountStatus === 'pending') return { status: 403, message: 'Your account is pending admin approval.' };
+  if (user.accountStatus === 'blocked') return { status: 403, message: 'This account is blocked.' };
+  if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
 
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return { status: 400, message: 'Enter a cash out amount.' };
@@ -39,8 +39,13 @@ export async function requestCashOut({ userId, amount, accountId, password }) {
   const minimum = settings ? settings.minCashOutAmount : 500;
   if (value < minimum) return { status: 400, message: `Minimum cash out is AED ${minimum}.` };
   if (value > user.walletBalance) return { status: 400, message: 'Amount is higher than your available balance.' };
-  if (!user.withdrawalPasswordHash) return { status: 400, message: 'Set a withdrawal password first.' };
-  if (!verifyPassword(password, user.withdrawalPasswordHash)) {
+  if (!user.securityPasswordHash || !user.withdrawalPasswordHash) {
+    return { status: 400, message: 'Set a security password and a withdrawal password first.' };
+  }
+  if (!verifyPassword(securityPassword, user.securityPasswordHash)) {
+    return { status: 400, message: 'Invalid security password.' };
+  }
+  if (!verifyPassword(withdrawalPassword, user.withdrawalPasswordHash)) {
     return { status: 400, message: 'Invalid withdrawal password.' };
   }
   if (!mongoose.isValidObjectId(accountId)) return { status: 400, message: 'Select a bound account.' };

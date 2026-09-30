@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin, requireUser } from '../../middleware/auth.js';
+import { listSessions, revokeOwnedSession } from '../auth/session.js';
 import {
   adjustMemberWallet,
   getMember,
@@ -36,6 +37,23 @@ router.patch('/me', requireUser, route(async (req, res) => {
 
 router.get('/', requireAdmin, route(async (req, res) => {
   send(res, await listMembers({ status: req.query.status, q: req.query.q }));
+}));
+
+router.get('/:id/sessions', requireAdmin, route(async (req, res) => {
+  const member = await getMember(req.params.id);
+  if (member.message) return send(res, member);
+  send(res, await listSessions(req.params.id, ''));
+}));
+
+router.delete('/:id/sessions/:sessionId', requireAdmin, route(async (req, res) => {
+  const member = await getMember(req.params.id);
+  if (member.message) return send(res, member);
+  send(res, await revokeOwnedSession({
+    subjectId: req.params.id,
+    sessionId: req.params.sessionId,
+    currentSessionId: '',
+    allowCurrent: true,
+  }));
 }));
 
 router.get('/:id', requireAdmin, route(async (req, res) => {

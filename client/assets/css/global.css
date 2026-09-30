@@ -1865,6 +1865,13 @@ body.nav-icons .side-user { justify-content: center; }
   margin-top: 16px;
 }
 
+.group-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .property-card.is-closed,
 .admin-project.is-closed {
   opacity: 0.62;
@@ -1884,6 +1891,62 @@ body.nav-icons .side-user { justify-content: center; }
 }
 
 .mono { font-variant-numeric: tabular-nums; font-size: 12px; }
+
+.session-list {
+  display: grid;
+  gap: 12px;
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.session-list::-webkit-scrollbar { width: 8px; }
+
+.session-list::-webkit-scrollbar-thumb {
+  background: #c5d4ce;
+  border-radius: 999px;
+}
+
+.session-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(18, 63, 50, 0.05);
+}
+
+.session-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin: 12px 0;
+}
+
+.session-card dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.session-card dd { margin: 2px 0 0; font-size: 14px; color: var(--ink); }
+
+.session-agent { font-size: 12px; word-break: break-word; margin: 0; }
+
+.session-revoke { min-height: 44px; margin-top: 8px; cursor: pointer; }
+
+@media (max-width: 700px) {
+  .session-card dl { grid-template-columns: 1fr; }
+}
 
 .profile-grid {
   display: grid;
@@ -2059,6 +2122,15 @@ body.nav-icons .side-user { justify-content: center; }
 }
 
 .choice .nav-ico { width: 18px; height: 18px; }
+
+.password-kind {
+  margin: 14px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--g);
+}
 
 .field-label {
   font-size: 11px;
@@ -2455,7 +2527,7 @@ tr.is-selected td { background: #f3f7f4; }
 
 .crumb-sep { color: #b7c4be; }
 
-#crumb-here {
+.crumb-current {
   color: var(--ink);
   font-weight: 700;
   white-space: nowrap;
@@ -2672,6 +2744,8 @@ tr.order-row:focus-visible {
 }
 
 .page-title-row h2 { margin: 0; }
+
+.detail-back { margin-bottom: 16px; }
 
 .page-title-row .muted { margin: 2px 0 0; }
 

@@ -6,9 +6,9 @@ function badge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
     active: 'ok', available: 'ok', completed: 'ok', credit: 'ok', activated: 'ok',
-    pending: 'warn', processing: 'warn', frozen: 'warn',
-    rejected: 'bad', cancelled: 'bad', suspended: 'bad', failed: 'bad', debit: 'bad',
-    inactive: 'muted',
+    pending: 'warn', processing: 'warn',
+    rejected: 'bad', cancelled: 'bad', suspended: 'bad', blocked: 'bad', failed: 'bad', debit: 'bad', revoked: 'bad',
+    inactive: 'muted', expired: 'muted',
   };
   const label = key ? key.charAt(0).toUpperCase() + key.slice(1) : '';
   return `<span class="status status-${map[key] || 'muted'}">${label}</span>`;
@@ -35,8 +35,13 @@ function openModal(innerHtml) {
       <div class="modal card" role="dialog" aria-modal="true">${innerHtml}</div>
     </div>`;
   const back = root.querySelector('.modal-back');
+  let pointerOnBack = false;
+  back.addEventListener('pointerdown', (e) => {
+    pointerOnBack = e.target === back;
+  });
   back.addEventListener('click', (e) => {
-    if (e.target === back) root.innerHTML = '';
+    if (!pointerOnBack || e.target !== back) return;
+    root.innerHTML = '';
   });
   root.querySelectorAll('[data-dismiss]').forEach((btn) => {
     btn.addEventListener('click', () => { root.innerHTML = ''; });
@@ -63,6 +68,7 @@ function navIcon(name) {
     share: '<circle cx="7" cy="12" r="2.2"/><circle cx="17" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M9 11.2 14.8 8.2M9 12.8l5.8 3"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"/>',
     lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    devices: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
     support: '<path d="M5 15v-2a7 7 0 0 1 14 0v2"/><rect x="4" y="14" width="4" height="5" rx="1"/><rect x="16" y="14" width="4" height="5" rx="1"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     logout: '<path d="M9 6H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/><path d="M14 16l4-4-4-4M18 12H9"/>',
@@ -108,9 +114,23 @@ function esc(value) {
 
 function roleLine(isAdmin, user) {
   if (isAdmin) return 'Admin';
-  const status = String((user && user.accountStatus) || 'active').toLowerCase();
-  if (status === 'active') return 'Member';
-  return `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+  const status = String((user && user.accountStatus) || '').toLowerCase();
+  const labels = { active: 'Member', pending: 'Member · Pending', blocked: 'Member · Blocked', suspended: 'Member · Suspended' };
+  return labels[status] || (status ? `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}` : 'Member');
+}
+
+function setBreadcrumb(items) {
+  const nav = document.getElementById('crumbs');
+  if (!nav || !items || !items.length) return;
+  nav.innerHTML = items.map((item, index) => {
+    const sep = index ? '<span class="crumb-sep" aria-hidden="true">/</span>' : '';
+    const label = esc(item.label);
+    const current = index === items.length - 1 || !item.href;
+    const node = current
+      ? `<span class="crumb-current">${label}</span>`
+      : `<a href="${esc(item.href)}">${label}</a>`;
+    return sep + node;
+  }).join('');
 }
 
 function crumbLabel(page) {
@@ -181,11 +201,7 @@ function mountShell() {
       <header class="dashbar">
         <div class="dashbar-left">
           <button class="icon-btn mobile-menu" type="button" id="menu-open" aria-label="Open menu" aria-expanded="false">${navIcon('menu')}</button>
-          <nav class="crumbs" aria-label="Breadcrumb">
-            <a href="dashboard.html">${isAdmin ? 'Admin' : 'Workspace'}</a>
-            <span class="crumb-sep" aria-hidden="true">/</span>
-            <span id="crumb-here">${crumbLabel(page)}</span>
-          </nav>
+          <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
         </div>
         <div class="dashbar-right">
           <div class="who-card">
@@ -236,6 +252,11 @@ function mountShell() {
       window.location.href = 'login.html';
     });
   }
+
+  setBreadcrumb([
+    { href: 'dashboard.html', label: isAdmin ? 'Admin' : 'Workspace' },
+    { label: crumbLabel(page) },
+  ]);
 }
 
 mountShell();

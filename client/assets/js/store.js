@@ -89,7 +89,7 @@ const Store = (() => {
           mobile: '+971 50 111 2233',
           referralCode: 'OMAR19K',
           referredBy: userId,
-          accountStatus: 'frozen',
+          accountStatus: 'blocked',
           walletBalance: 2100,
           pendingCashOut: 0,
           createdAt: isoDaysAgo(18),
@@ -308,7 +308,7 @@ const Store = (() => {
       },
       referrals: [
         { id: 'ref_1', name: 'Riya S.', mobile: '••••22001', date: dayKey(2), status: 'active', referrerId: userId },
-        { id: 'ref_2', name: 'Omar K.', mobile: '••••2233', date: dayKey(18), status: 'frozen', referrerId: userId },
+        { id: 'ref_2', name: 'Omar K.', mobile: '••••2233', date: dayKey(18), status: 'blocked', referrerId: userId },
         { id: 'ref_3', name: 'Neha I.', mobile: '••••11223', date: dayKey(0), status: 'active', referrerId: userId },
       ],
       seq: 9000,
@@ -570,8 +570,11 @@ const Store = (() => {
   function activate(projectId) {
     load();
     const u = db.user;
-    if (u.accountStatus === 'frozen') {
-      return { ok: false, error: 'Your account is currently frozen. Please contact support.' };
+    if (u.accountStatus === 'pending') {
+      return { ok: false, error: 'Your account is pending admin approval.' };
+    }
+    if (u.accountStatus === 'blocked') {
+      return { ok: false, error: 'This account is blocked.' };
     }
     if (u.accountStatus === 'suspended') {
       return { ok: false, error: 'Account suspended. Contact support.' };
@@ -708,8 +711,11 @@ const Store = (() => {
   function cashOut({ amount, accountId, password }) {
     load();
     const u = db.user;
-    if (u.accountStatus === 'frozen') {
-      return { ok: false, error: 'Your account is currently frozen. Please contact support.' };
+    if (u.accountStatus === 'pending') {
+      return { ok: false, error: 'Your account is pending admin approval.' };
+    }
+    if (u.accountStatus === 'blocked') {
+      return { ok: false, error: 'This account is blocked.' };
     }
     const value = Number(amount);
     if (!value || value <= 0) return { ok: false, error: 'Enter a cash out amount.' };

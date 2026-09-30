@@ -5,11 +5,13 @@
 const Member = (() => {
   const API_BASE = window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000';
   let catalog = [];
+  let groupsCache = [];
   let ordersCache = [];
   let commissionsCache = [];
   let referralsCache = [];
   let txCache = [];
   let accountsCache = [];
+  let sessionsCache = [];
   let platform = {
     platformName: 'Emirates Properties',
     welcomeBonusAmount: 100,
@@ -45,17 +47,43 @@ const Member = (() => {
       clearTimeout(timer);
     }
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      localStorage.removeItem('ps_token');
+      localStorage.removeItem('ps_member');
+      sessionStorage.removeItem('ps_token');
+      sessionStorage.removeItem('ps_member');
+      sessionStorage.removeItem('ps_pending_notice');
+      window.location.href = 'login.html';
+      return new Promise(() => {});
+    }
     if (!res.ok) throw new Error(data.message || 'Request failed.');
     return data;
   }
 
-  function frozenNote() {
+  function accountNote() {
     const status = Store.user().accountStatus;
-    if (status === 'active') return '';
-    const text = status === 'frozen'
-      ? 'Your account is currently frozen. Please contact support. Project activation and cash out are paused.'
-      : 'Account suspended. Contact support.';
-    return `<div class="notice">${text}</div>`;
+    const text = {
+      pending: 'Your account is pending. An admin needs to approve it before you can submit an order or cash out.',
+      blocked: 'This account is blocked. Contact support if this is unexpected.',
+      suspended: 'This account is suspended. Contact support.',
+    }[status];
+    return text ? `<div class="notice">${text}</div>` : '';
+  }
+
+  function maybePendingNotice() {
+    const status = Store.user().accountStatus;
+    if (status !== 'pending') {
+      sessionStorage.removeItem('ps_pending_notice');
+      return;
+    }
+    if (sessionStorage.getItem('ps_pending_notice') === '1') return;
+    sessionStorage.setItem('ps_pending_notice', '1');
+    openModal(`
+      <h3>Account pending</h3>
+      <p>Your account is pending and needs admin approval before you can submit an order or cash out.</p>
+      <div class="modal-actions">
+        <button class="btn primary" type="button" data-dismiss>Close</button>
+      </div>`);
   }
 
   function greeting() {
@@ -73,11 +101,10 @@ const Member = (() => {
     const today = Store.dayKey(0);
     const todayCommission = commissionsCache.filter((c) => c.date === today).reduce((s, c) => s + c.amount, 0);
     const totalCommission = commissionsCache.reduce((s, c) => s + c.amount, 0);
-    const active = ordersCache.filter((o) => o.status === 'active');
     const recent = txCache.slice(0, 5);
     const wallet = Store.user().walletBalance || 0;
     pageEl().innerHTML = `
-      ${frozenNote()}
+      ${accountNote()}
       <section class="welcome-banner">
         <h1 class="serif">${greeting()}.</h1>
         <div class="hero-ctas">
@@ -89,12 +116,12 @@ const Member = (() => {
         ${kpi('Wallet balance', Store.money(wallet), 'Available')}
         ${kpi("Today's commission", Store.money(todayCommission), 'Credited today')}
         ${kpi('Total commission', Store.money(totalCommission), 'All completed credits')}
-        ${kpi('Active projects', String(active.length), 'Orders currently running')}
+        ${kpi('Orders', String(ordersCache.length), 'Submitted orders')}
       </div>
       <div class="twocol">
         <section class="card box">
-          <div class="boxhead"><h3>Active projects</h3><a class="auth-link" href="orders.html">All orders</a></div>
-          ${active.length ? active.map(activeCard).join('') : emptyState('grid', 'No active projects', 'Choose a project from the catalog and activate it.')}
+          <div class="boxhead"><h3>Your orders</h3><a class="auth-link" href="orders.html">All orders</a></div>
+          ${ordersCache.length ? ordersCache.slice(0, 3).map(activeCard).join('') : emptyState('grid', 'No orders yet', 'Open a project group and submit an order.')}
         </section>
         <section class="card box">
           <div class="boxhead"><h3>Recent activity</h3></div>
@@ -105,7 +132,7 @@ const Member = (() => {
                 ${recent.map((t) => `<tr><td>${esc(t.description)}<div class="muted">${esc(String(t.createdAt || '').slice(0, 10))}</div></td><td>${t.direction === 'debit' ? '−' : '+'}${Store.money(t.amount)}</td><td>${badge(t.status)}</td></tr>`).join('')}
               </tbody>
             </table>
-          </div>` : emptyState('clock', 'No activity yet', 'Cash in, activation, and commission will show here.')}
+          </div>` : emptyState('clock', 'No activity yet', 'Cash in, orders, and commission will show here.')}
         </section>
       </div>`;
   }
@@ -116,6 +143,7 @@ const Member = (() => {
       demo_cash_in: 'Cash in',
       project_activation: 'Activation',
       daily_commission: 'Commission',
+      project_commission: 'Commission',
       cash_out: 'Cash out',
       refund: 'Refund',
       adjustment: 'Adjustment',
@@ -128,33 +156,62 @@ const Member = (() => {
   }
 
   function activeCard(order) {
-    const pct = Math.round((order.daysCompleted / order.durationDays) * 100);
     return `
       <a class="active-card" href="orders.html?id=${esc(order.id)}">
         <div class="active-card-top">
           ${order.image ? `<img src="${esc(order.image)}" alt="" width="64" height="64">` : ''}
           <div>
             <h3>${esc(order.projectName)}</h3>
-            <p class="muted">Day ${order.daysCompleted} / ${order.durationDays} · Next ${esc(order.nextLabel || '—')}</p>
+            <p class="muted">${esc(String(order.createdAt || '').slice(0, 10))}</p>
           </div>
           <span class="active-go">View order</span>
         </div>
-        <div class="progress-bar" aria-label="${pct}% complete"><span style="width:${pct}%"></span></div>
         <dl class="prop-stats">
-          <div><dt>Activated</dt><dd>${Store.money(order.activationAmount)}</dd></div>
-          <div><dt>Daily</dt><dd>${Store.money(order.dailyCommission)}</dd></div>
-          <div><dt>Earned</dt><dd>${Store.money(order.earnedCommission)}</dd></div>
-          <div><dt>Left</dt><dd>${Store.money(order.remainingCommission)}</dd></div>
+          <div><dt>Price</dt><dd>${Store.money(order.price)}</dd></div>
+          <div><dt>Commission</dt><dd>${Store.money(order.commissionAmount)}</dd></div>
+          <div><dt>Status</dt><dd>${esc(order.status)}</dd></div>
         </dl>
       </a>`;
   }
 
   function renderProjects() {
+    const groupId = new URLSearchParams(location.search).get('group') || '';
+    if (!groupId) {
+      setBreadcrumb([
+        { href: 'dashboard.html', label: 'Workspace' },
+        { label: 'Projects' },
+      ]);
+      pageEl().innerHTML = `
+        <div class="page-head"><h2 class="serif">Projects</h2></div>
+        ${groupsCache.length ? `
+        <div class="catalog-bar">
+          <label class="search-bar page-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16.5 20 20.5"/></svg>
+            <input id="project-search" type="search" placeholder="Search groups" aria-label="Search groups">
+          </label>
+        </div>
+        <div class="grid-4" id="project-grid">
+          ${groupsCache.map(groupCard).join('')}
+        </div>
+        <div class="empty-state" id="projects-empty" hidden>${navIcon('grid')}<b>No groups match</b><p>Try another search.</p></div>` : emptyState('grid', loadError || 'No project groups yet', loadError ? 'Refresh the page and try again.' : 'Groups added by the team will appear here.')}`;
+      initCatalog('project-search', 'project-grid');
+      return;
+    }
+    const group = groupsCache.find((item) => item.id === groupId);
     const list = catalog;
+    setBreadcrumb([
+      { href: 'dashboard.html', label: 'Workspace' },
+      { href: 'projects.html', label: 'Projects' },
+      { label: group ? group.name : 'Group' },
+    ]);
     pageEl().innerHTML = `
       <div class="page-head">
-        <div>
-          <h2 class="serif">Projects</h2>
+        <div class="page-title-row">
+          <a class="icon-btn back-btn" href="projects.html" aria-label="Back to projects"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
+          <div>
+            <h2 class="serif">${esc(group ? group.name : 'Projects')}</h2>
+            ${group && group.description ? `<p class="muted">${esc(group.description)}</p>` : ''}
+          </div>
         </div>
       </div>
       ${list.length ? `
@@ -165,15 +222,26 @@ const Member = (() => {
         </label>
         <div class="catalog-filters" id="project-filters" role="group" aria-label="Filter projects">
           <button class="chip active" type="button" data-filter="all" aria-pressed="true">All</button>
-          <button class="chip" type="button" data-filter="budget" aria-pressed="false">Up to AED 2,000</button>
-          <button class="chip" type="button" data-filter="long" aria-pressed="false">60+ days</button>
+          <button class="chip" type="button" data-filter="available" aria-pressed="false">Available</button>
+          <button class="chip" type="button" data-filter="closed" aria-pressed="false">Closed</button>
         </div>
       </div>
       <div class="grid-4" id="project-grid">
         ${list.map(projectCard).join('')}
       </div>
-      <div class="empty-state" id="projects-empty" hidden>${navIcon('grid')}<b>No projects match</b><p>Try another search or filter.</p></div>` : emptyState('grid', loadError || 'No projects yet', loadError ? 'Refresh the page and try again.' : 'Projects added by the team will appear here.')}`;
+      <div class="empty-state" id="projects-empty" hidden>${navIcon('grid')}<b>No projects match</b><p>Try another search or filter.</p></div>` : emptyState('grid', 'No projects in this group', 'Projects added to this group will appear here.')}`;
     initCatalog('project-search', 'project-grid', 'project-filters');
+  }
+
+  function groupCard(group) {
+    return `<a class="card property-card" href="projects.html?group=${esc(group.id)}" data-name="${esc(group.name)}">
+      <div class="property-img">${group.image ? `<img src="${esc(group.image)}" alt="" loading="lazy">` : ''}</div>
+      <div class="prop-body">
+        <div class="prop-meta"><span>${group.projectCount} project${group.projectCount === 1 ? '' : 's'}</span></div>
+        <h3>${esc(group.name)}</h3>
+        ${group.description ? `<p class="prop-line group-desc">${esc(group.description)}</p>` : ''}
+      </div>
+    </a>`;
   }
 
   function boughtIds() {
@@ -184,26 +252,27 @@ const Member = (() => {
     const open = p.status === 'active';
     const status = open ? 'Available' : 'Closed';
     const bought = boughtIds().has(p.id);
+    const groupId = new URLSearchParams(location.search).get('group') || p.groupId || '';
     const body = `
         <div class="property-img">
           ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
-          ${bought ? '<span class="prop-tag is-bought">Activated</span>' : ''}
+          ${bought ? '<span class="prop-tag is-bought">Ordered</span>' : ''}
         </div>
         <div class="prop-body">
-          <div class="prop-meta"><span>${p.durationDays} days</span><span class="prop-status">${status}</span></div>
+          <div class="prop-meta"><span>${esc(p.commissionRatio)}%</span><span class="prop-status">${status}</span></div>
           <h3>${esc(p.name)}</h3>
-          <p class="prop-line">${esc(p.address || 'Dubai')}</p>
-          <p class="prop-line">${esc(p.developer || 'Developer')}</p>
+          ${p.address ? `<p class="prop-line">${esc(p.address)}</p>` : ''}
+          ${p.developer ? `<p class="prop-line">${esc(p.developer)}</p>` : ''}
           <dl class="prop-stats">
-            <div><dt>Activate</dt><dd>${Store.money(p.activationAmount)}</dd></div>
-            <div><dt>Daily</dt><dd>${Store.money(p.dailyCommission)}</dd></div>
-            <div><dt>Total</dt><dd>${Store.money(p.totalCommission)}</dd></div>
+            <div><dt>Price</dt><dd>${Store.money(p.price)}</dd></div>
+            <div><dt>Ratio</dt><dd>${esc(p.commissionRatio)}%</dd></div>
+            <div><dt>Commission</dt><dd>${Store.money(p.commissionAmount)}</dd></div>
           </dl>
         </div>`;
     if (!open) {
-      return `<article class="card property-card is-closed" aria-disabled="true" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">${body}</article>`;
+      return `<article class="card property-card is-closed" aria-disabled="true" data-name="${esc(p.name)}" data-open="0">${body}</article>`;
     }
-    return `<a class="card property-card" href="project-details.html?id=${esc(p.id)}" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">${body}</a>`;
+    return `<a class="card property-card" href="project-details.html?id=${esc(p.id)}&group=${esc(groupId)}" data-name="${esc(p.name)}" data-open="1">${body}</a>`;
   }
 
   function renderProject() {
@@ -213,42 +282,44 @@ const Member = (() => {
       pageEl().innerHTML = emptyState('grid', 'Project not found', 'This project is not in the catalog.');
       return;
     }
-    const balance = Store.user().walletBalance;
     const bought = boughtIds().has(p.id);
+    const status = Store.user().accountStatus;
+    const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
+    const closed = p.status !== 'active';
+    const label = bought ? 'Order submitted' : closed ? 'Closed' : blocked ? 'Approval required' : 'Submit order';
+    const groupId = new URLSearchParams(location.search).get('group') || p.groupId || '';
+    const backHref = groupId ? `projects.html?group=${encodeURIComponent(groupId)}` : 'projects.html';
+    setBreadcrumb([
+      { href: 'dashboard.html', label: 'Workspace' },
+      { href: 'projects.html', label: 'Projects' },
+      ...(groupId ? [{ href: backHref, label: p.groupName || 'Group' }] : []),
+      { label: p.name },
+    ]);
     pageEl().innerHTML = `
-      ${frozenNote()}
+      ${accountNote()}
+      <div class="page-title-row detail-back">
+        <a class="icon-btn back-btn" href="${esc(backHref)}" aria-label="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
+        <h2 class="serif">${esc(p.name)}</h2>
+        ${badge(p.status === 'active' ? 'available' : 'inactive')}
+      </div>
       <div class="detail-grid">
         <div>
-          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}${bought ? '<span class="prop-tag is-bought detail-bought">Activated</span>' : ''}</div>
-          <section class="card box detail-copy">
-            <div class="boxhead">
-              <h2 class="serif">${esc(p.name)}</h2>
-              ${badge(p.status === 'active' ? 'available' : 'inactive')}
-            </div>
-            <p class="prop-line">${esc(p.address || 'Dubai')}</p>
-            <p class="prop-line">${esc(p.developer || 'Developer')}</p>
-            <p class="lead">${esc(p.description)}</p>
-          </section>
+          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}${bought ? '<span class="prop-tag is-bought detail-bought">Ordered</span>' : ''}</div>
+          ${(p.address || p.developer || p.description) ? `<section class="card box detail-copy">
+            ${p.address ? `<p class="prop-line">${esc(p.address)}</p>` : ''}
+            ${p.developer ? `<p class="prop-line">${esc(p.developer)}</p>` : ''}
+            ${p.description ? `<p class="lead">${esc(p.description)}</p>` : ''}
+          </section>` : ''}
         </div>
         <aside class="card box">
-          <div class="boxhead"><h3>Project terms</h3><span class="prop-status">${p.status === 'active' ? 'Available' : 'Closed'}</span></div>
           <dl class="stack-stats">
-            ${row('Address', p.address || 'Dubai')}
-            ${row('Developer', p.developer || '—')}
-            ${row('Activation amount', Store.money(p.activationAmount))}
-            ${row('Daily commission', Store.money(p.dailyCommission))}
-            ${row('Duration', `${p.durationDays} days`)}
-            ${row('Total commission', Store.money(p.totalCommission))}
-            ${row('Your balance', Store.money(balance))}
+            ${row('Price', Store.money(p.price))}
+            ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
+            ${row('Commission', Store.money(p.commissionAmount))}
           </dl>
-          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${p.id}" ${p.status === 'active' ? '' : 'disabled'}>${p.status === 'active' ? 'Continue with project' : 'Closed'}</button>
-          <a class="btn light btn-full" style="margin-top:8px" href="wallet.html?modal=cash-in">Add funds</a>
+          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${p.id}" ${bought || closed || blocked ? 'disabled' : ''}>${label}</button>
         </aside>
       </div>`;
-    const crumb = document.getElementById('crumb-here');
-    if (crumb) {
-      crumb.innerHTML = `<a href="projects.html">Projects</a><span class="crumb-sep" aria-hidden="true">/</span><span>${p.name}</span>`;
-    }
   }
 
   function row(label, value) {
@@ -257,32 +328,20 @@ const Member = (() => {
 
   function openActivate(projectId) {
     const p = catalog.find((item) => item.id === projectId);
-    const balance = Store.user().walletBalance;
-    if (!p) return;
-    if (balance < p.activationAmount) {
-      openModal(`
-        <h3>Insufficient balance</h3>
-        <p class="lead">You need ${Store.money(p.activationAmount)} to activate ${p.name}. Available: ${Store.money(balance)}.</p>
-        <div class="modal-actions">
-          <button class="btn light" type="button" data-dismiss>Cancel</button>
-          <a class="btn primary" href="wallet.html?modal=cash-in">Cash in</a>
-        </div>`);
-      return;
-    }
+    if (!p || p.status !== 'active' || boughtIds().has(p.id)) return;
     openModal(`
       <p class="smallcaps">Confirm</p>
-      <h3>Activate ${p.name}</h3>
+      <h3>Submit order</h3>
+      <p class="muted">${esc(p.name)}</p>
       <dl class="stack-stats">
-        ${row('Activation amount', Store.money(p.activationAmount))}
-        ${row('Daily commission', Store.money(p.dailyCommission))}
-        ${row('Duration', `${p.durationDays} days`)}
-        ${row('Total commission', Store.money(p.totalCommission))}
-        ${row('Available balance', Store.money(balance))}
-        ${row('Balance after', Store.money(balance - p.activationAmount))}
+        ${row('Price', Store.money(p.price))}
+        ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
+        ${row('Commission added to wallet', Store.money(p.commissionAmount))}
       </dl>
+      <p class="muted">The project price is not charged. The commission is added when you submit.</p>
       <div class="modal-actions">
         <button class="btn light" type="button" data-dismiss>Cancel</button>
-        <button class="btn primary" type="button" data-action="confirm-activate" data-id="${p.id}">Confirm activation</button>
+        <button class="btn primary" type="button" data-action="confirm-activate" data-id="${p.id}">Submit order</button>
       </div>`);
   }
 
@@ -329,7 +388,7 @@ const Member = (() => {
             </div>
           </div>`}
       </div>
-      ${selected ? orderDetail(selected, filter) : `
+      ${selected ? orderDetail(selected) : `
       <section class="card box order-panel">
         <div class="order-head">
           <div class="tabbar" role="tablist" aria-label="Orders">
@@ -340,24 +399,21 @@ const Member = (() => {
         <div class="tablewrap">
           ${tab === 'commission' ? `
             <table class="data-table">
-              <thead><tr><th>Date</th><th>Project</th><th>Day</th><th>Amount</th><th>Status</th></tr></thead>
+              <thead><tr><th>Date</th><th>Project</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                ${commissions.length ? commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="5">${emptyState('chart', commissionsCache.length ? 'No commission in this view' : 'No commission yet', commissionsCache.length ? 'Try another order status.' : 'Daily commission appears here after it is credited.')}</td></tr>`}
+                ${commissions.length ? commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>Order</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="5">${emptyState('chart', commissionsCache.length ? 'No commission in this view' : 'No commission yet', commissionsCache.length ? 'Try another order status.' : 'Commission appears here after you submit an order.')}</td></tr>`}
               </tbody>
             </table>` : `
             <table class="data-table">
-              <thead><tr><th>Order</th><th>Project</th><th>Activated</th><th>Daily</th><th>Progress</th><th>Earned</th><th>Left</th><th>Status</th></tr></thead>
+              <thead><tr><th>Order</th><th>Project</th><th>Price</th><th>Commission</th><th>Status</th></tr></thead>
               <tbody>
                 ${list.length ? list.map((o) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(o.id)}">
                   <td>${esc(o.id)}<div class="muted">${esc(String(o.createdAt || '').slice(0, 10))}</div></td>
                   <td>${esc(o.projectName)}</td>
-                  <td>${Store.money(o.activationAmount)}</td>
-                  <td>${Store.money(o.dailyCommission)}</td>
-                  <td>Day ${o.daysCompleted} / ${o.durationDays}</td>
-                  <td>${Store.money(o.earnedCommission)}</td>
-                  <td>${Store.money(o.remainingCommission)}</td>
+                  <td>${Store.money(o.price)}</td>
+                  <td>${Store.money(o.commissionAmount)}</td>
                   <td>${badge(o.status)}</td>
-                </tr>`).join('') : `<tr><td colspan="8">${emptyState('clock', ordersCache.length ? 'No orders in this view' : 'No orders yet', ordersCache.length ? 'Try another status.' : 'Activate a project and it will appear here.')}</td></tr>`}
+                </tr>`).join('') : `<tr><td colspan="5">${emptyState('clock', ordersCache.length ? 'No orders in this view' : 'No orders yet', ordersCache.length ? 'Try another status.' : 'Submit an order and it will appear here.')}</td></tr>`}
               </tbody>
             </table>`}
         </div>
@@ -373,28 +429,24 @@ const Member = (() => {
     });
   }
 
-  function orderDetail(o, filter) {
-    const pct = Math.min(100, Math.round((o.daysCompleted / o.durationDays) * 100));
+  function orderDetail(o) {
     const log = commissionsCache.filter((c) => c.orderId === o.id);
     return `
       <section class="card box order-panel" id="order-detail">
-        <div class="progress-bar" aria-label="${pct}% complete"><span style="width:${pct}%"></span></div>
         <dl class="fact-grid">
-          <div><dt>Start</dt><dd>${o.startDate.slice(0, 10)}</dd></div>
-          <div><dt>End</dt><dd>${o.endDate.slice(0, 10)}</dd></div>
-          <div><dt>Progress</dt><dd>Day ${o.daysCompleted} / ${o.durationDays}</dd></div>
-          <div><dt>Next</dt><dd>${esc(o.nextLabel || '—')}</dd></div>
-          <div><dt>Activated</dt><dd>${Store.money(o.activationAmount)}</dd></div>
-          <div><dt>Daily</dt><dd>${Store.money(o.dailyCommission)}</dd></div>
-          <div><dt>Earned</dt><dd>${Store.money(o.earnedCommission)}</dd></div>
-          <div><dt>Left</dt><dd>${Store.money(o.remainingCommission)}</dd></div>
+          <div><dt>Project</dt><dd>${esc(o.projectName)}</dd></div>
+          <div><dt>Submitted</dt><dd>${esc(String(o.createdAt || '').slice(0, 10))}</dd></div>
+          <div><dt>Price</dt><dd>${Store.money(o.price)}</dd></div>
+          <div><dt>Ratio</dt><dd>${esc(o.commissionRatio)}%</dd></div>
+          <div><dt>Commission</dt><dd>${Store.money(o.commissionAmount)}</dd></div>
+          <div><dt>Status</dt><dd>${esc(o.status)}</dd></div>
         </dl>
         <h4 class="order-sub">Commission</h4>
         <div class="tablewrap">
           <table class="data-table">
-            <thead><tr><th>Date</th><th>Day</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
-              ${log.length ? log.map((c) => `<tr><td>${esc(c.date)}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('chart', 'No commission yet', 'The first credit lands the day after activation.')}</td></tr>`}
+              ${log.length ? log.map((c) => `<tr><td>${esc(c.date)}</td><td>Order</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('chart', 'No commission yet', 'Commission is added when the order is submitted.')}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -473,10 +525,10 @@ const Member = (() => {
     const modal = params.get('modal');
     const totalCommission = commissionsCache.reduce((sum, row) => sum + row.amount, 0);
     pageEl().innerHTML = `
-      ${frozenNote()}
+      ${accountNote()}
       <div class="page-head">
         <h2 class="serif">Wallet</h2>
-        <button class="btn light" type="button" data-action="withdraw-password">Withdrawal password</button>
+        <button class="btn light" type="button" data-action="withdraw-password">Cash out passwords</button>
       </div>
       <section class="card wallet-card">
         <div class="wallet-main">
@@ -514,6 +566,7 @@ const Member = (() => {
       ['welcome_bonus', 'Welcome bonus'],
       ['demo_cash_in', 'Cash in'],
       ['project_activation', 'Activation'],
+      ['project_commission', 'Commission'],
       ['daily_commission', 'Commission'],
       ['cash_out', 'Cash out'],
       ['refund', 'Refund'],
@@ -756,6 +809,10 @@ const Member = (() => {
           <input id="cashout-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="500">
         </div>
         <div class="field">
+          <label for="cashout-security">Security password</label>
+          <input id="cashout-security" type="password" autocomplete="off">
+        </div>
+        <div class="field">
           <label for="cashout-password">Withdrawal password</label>
           <input id="cashout-password" type="password" autocomplete="off">
         </div>
@@ -810,7 +867,8 @@ const Member = (() => {
           body: {
             amount: document.getElementById('cashout-amount').value,
             accountId: select.value,
-            password: document.getElementById('cashout-password').value,
+            securityPassword: document.getElementById('cashout-security').value,
+            withdrawalPassword: document.getElementById('cashout-password').value,
           },
         });
         if (data.user) Store.applySession(data.user);
@@ -825,6 +883,41 @@ const Member = (() => {
     });
   }
 
+  function shown(value) {
+    const text = String(value || '').trim();
+    return text || 'Not available';
+  }
+
+  function when(value) {
+    if (!value) return 'Not available';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not available';
+    return date.toLocaleString();
+  }
+
+  function sessionPanel(rows) {
+    if (!rows.length) {
+      return emptyState('devices', 'No sessions yet', 'Sign-ins from this account will show here.');
+    }
+    return `<div class="session-list">${rows.map((row) => `
+      <article class="session-card">
+        <div class="session-top">
+          <b>${esc(shown(row.browser))} · ${esc(shown(row.os))}</b>
+          ${row.current ? '<span class="status status-ok">This device</span>' : badge(row.status)}
+        </div>
+        <dl>
+          <div><dt>Device</dt><dd>${esc(shown(row.device))}</dd></div>
+          <div><dt>Location</dt><dd>${esc(shown(row.location))}</dd></div>
+          <div><dt>IP address</dt><dd>${esc(shown(row.ip))}</dd></div>
+          <div><dt>Signed in</dt><dd>${esc(when(row.loginAt))}</dd></div>
+          <div><dt>Last activity</dt><dd>${esc(when(row.lastActiveAt))}</dd></div>
+          <div><dt>How</dt><dd>${esc(shown(row.method))}</dd></div>
+        </dl>
+        <p class="muted session-agent">${esc(shown(row.userAgent))}</p>
+        ${row.status === 'active' && !row.current ? `<button class="btn light session-revoke" type="button" data-action="revoke-session" data-id="${esc(row.id)}">Revoke session</button>` : ''}
+      </article>`).join('')}</div>`;
+  }
+
   function renderProfile() {
     const u = Store.user();
     const refs = referralsCache;
@@ -833,7 +926,7 @@ const Member = (() => {
     const month = Store.dayKey(29);
     const support = `https://t.me/${platform.supportTelegramUsername}`;
     const requested = new URLSearchParams(location.search).get('panel');
-    const panel = ['password', 'support', 'referral'].includes(requested) ? requested : 'password';
+    const panel = ['password', 'support', 'referral', 'sessions'].includes(requested) ? requested : 'password';
     pageEl().innerHTML = `
       <div class="page-head">
         <h2 class="serif">Profile</h2>
@@ -854,6 +947,7 @@ const Member = (() => {
             <button class="seg-btn${panel === 'password' ? ' active' : ''}" type="button" role="tab" aria-selected="${panel === 'password'}" data-action="profile-panel" data-panel="password">${navIcon('lock')}<span>Login password</span></button>
             <button class="seg-btn${panel === 'support' ? ' active' : ''}" type="button" role="tab" aria-selected="${panel === 'support'}" data-action="profile-panel" data-panel="support">${navIcon('support')}<span>Support</span></button>
             <button class="seg-btn${panel === 'referral' ? ' active' : ''}" type="button" role="tab" aria-selected="${panel === 'referral'}" data-action="profile-panel" data-panel="referral">${navIcon('share')}<span>Referral</span></button>
+            <button class="seg-btn${panel === 'sessions' ? ' active' : ''}" type="button" role="tab" aria-selected="${panel === 'sessions'}" data-action="profile-panel" data-panel="sessions">${navIcon('devices')}<span>Sessions</span></button>
           </div>
           ${panel === 'password' ? `
             <form id="pw-form" class="fields">
@@ -890,6 +984,7 @@ const Member = (() => {
                 </table>
               </div>
             </div>` : ''}
+          ${panel === 'sessions' ? sessionPanel(sessionsCache) : ''}
         </section>
       </div>`;
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
@@ -945,35 +1040,64 @@ const Member = (() => {
   }
 
   function openWithdrawPassword() {
+    const user = Store.user();
     openModal(`
-      <h3>Withdrawal password</h3>
+      <h3>Cash out passwords</h3>
+      <p class="muted">Cash out asks for both of these passwords.</p>
       <form id="wp-form" class="fields">
-        <div class="field"><label for="wp-current">Current withdrawal password</label><input id="wp-current" type="password" placeholder="Required if already set"></div>
-        <div class="field"><label for="wp-next">New withdrawal password</label><input id="wp-next" type="password"></div>
-        <p class="field-error" id="wp-error" hidden></p>
+        <p class="password-kind">Security password</p>
+        ${user.hasSecurityPassword ? '<div class="field"><label for="wp-security-current">Current security password</label><input id="wp-security-current" type="password" autocomplete="off"></div>' : ''}
+        <div class="field"><label for="wp-security">New security password</label><input id="wp-security" type="password" autocomplete="new-password" minlength="6"></div>
+        <div class="field"><label for="wp-security-confirm">Confirm security password</label><input id="wp-security-confirm" type="password" autocomplete="new-password"></div>
+        <p class="password-kind">Withdrawal password</p>
+        ${user.hasWithdrawalPassword ? '<div class="field"><label for="wp-current">Current withdrawal password</label><input id="wp-current" type="password" autocomplete="off"></div>' : ''}
+        <div class="field"><label for="wp-next">New withdrawal password</label><input id="wp-next" type="password" autocomplete="new-password" minlength="6"></div>
+        <div class="field"><label for="wp-confirm">Confirm withdrawal password</label><input id="wp-confirm" type="password" autocomplete="new-password"></div>
+        <p class="field-error" id="wp-error" role="alert" hidden></p>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
-          <button class="btn primary" type="submit">Save</button>
+          <button class="btn primary" type="submit" id="wp-save">Save</button>
         </div>
       </form>`);
     document.getElementById('wp-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('wp-error');
+      const save = document.getElementById('wp-save');
       err.hidden = true;
+      const security = document.getElementById('wp-security').value;
+      const securityConfirm = document.getElementById('wp-security-confirm').value;
+      const withdrawal = document.getElementById('wp-next').value;
+      const withdrawalConfirm = document.getElementById('wp-confirm').value;
+      if (security !== securityConfirm) {
+        err.hidden = false;
+        err.textContent = 'Security passwords do not match.';
+        return;
+      }
+      if (withdrawal !== withdrawalConfirm) {
+        err.hidden = false;
+        err.textContent = 'Withdrawal passwords do not match.';
+        return;
+      }
+      save.disabled = true;
+      save.textContent = 'Saving…';
       try {
         const data = await memberApi('/api/auth/withdrawal-password', {
           method: 'POST',
           body: {
-            currentPassword: document.getElementById('wp-current').value,
-            newPassword: document.getElementById('wp-next').value,
+            currentSecurityPassword: document.getElementById('wp-security-current')?.value || '',
+            securityPassword: security,
+            currentWithdrawalPassword: document.getElementById('wp-current')?.value || '',
+            withdrawalPassword: withdrawal,
           },
         });
         if (data.user) Store.applySession(data.user);
         closeModal();
-        toast('Withdrawal password saved');
+        toast('Cash out passwords saved');
       } catch (error) {
         err.hidden = false;
         err.textContent = error.message;
+        save.disabled = false;
+        save.textContent = 'Save';
       }
     });
   }
@@ -992,9 +1116,14 @@ const Member = (() => {
     loadError = '';
     await refreshMember();
     if (page === 'projects') {
+      const groupId = new URLSearchParams(location.search).get('group') || '';
       try {
-        catalog = (await memberApi('/api/projects')).projects || [];
+        groupsCache = (await memberApi('/api/groups')).groups || [];
+        catalog = groupId
+          ? ((await memberApi(`/api/projects?groupId=${encodeURIComponent(groupId)}`)).projects || [])
+          : [];
       } catch (err) {
+        groupsCache = [];
         catalog = [];
         loadError = err.message;
       }
@@ -1043,9 +1172,15 @@ const Member = (() => {
     }
     if (page === 'profile') {
       try {
-        referralsCache = (await memberApi('/api/referrals')).referrals || [];
+        const [referralRes, sessionRes] = await Promise.all([
+          memberApi('/api/referrals'),
+          memberApi('/api/auth/sessions'),
+        ]);
+        referralsCache = referralRes.referrals || [];
+        sessionsCache = sessionRes.sessions || [];
       } catch (err) {
         referralsCache = [];
+        sessionsCache = [];
         loadError = err.message;
       }
     }
@@ -1059,6 +1194,7 @@ const Member = (() => {
       profile: renderProfile,
     };
     (map[page] || renderDashboard)();
+    maybePendingNotice();
   }
 
   document.addEventListener('click', (e) => {
@@ -1073,7 +1209,7 @@ const Member = (() => {
         .then((data) => {
           if (data.user) Store.applySession(data.user);
           closeModal();
-          toast('Project activated');
+          toast('Order submitted');
           window.location.href = `orders.html?id=${data.order.id}`;
         })
         .catch((err) => toast(err.message));
@@ -1086,6 +1222,15 @@ const Member = (() => {
       sessionStorage.removeItem('ps_token');
       sessionStorage.removeItem('ps_member');
       window.location.href = 'login.html';
+    }
+    if (action === 'revoke-session') {
+      memberApi(`/api/auth/sessions/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
+        .then((data) => {
+          sessionsCache = sessionsCache.map((row) => (row.id === data.session.id ? data.session : row));
+          toast('Session revoked');
+          renderProfile();
+        })
+        .catch((err) => toast(err.message));
     }
     if (action === 'profile-panel') {
       const next = new URLSearchParams(location.search);

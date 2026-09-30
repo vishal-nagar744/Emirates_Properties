@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { revokeUserSessions } from '../auth/session.js';
 import { User } from './model.js';
 import { Transaction } from '../wallet/model.js';
 
@@ -64,13 +65,16 @@ export async function getMember(id) {
 }
 
 export async function setMemberStatus(id, accountStatus) {
-  if (!['active', 'frozen', 'suspended'].includes(accountStatus)) {
-    return { status: 400, message: 'Status must be active, frozen, or suspended.' };
+  if (!['active', 'pending', 'blocked', 'suspended'].includes(accountStatus)) {
+    return { status: 400, message: 'Status must be active, pending, blocked, or suspended.' };
   }
   const user = await findMember(id);
   if (!user) return { status: 404, message: 'User not found.' };
   user.accountStatus = accountStatus;
   await user.save();
+  if (accountStatus === 'blocked' || accountStatus === 'suspended') {
+    await revokeUserSessions(String(user._id));
+  }
   const [view] = await decorate([user]);
   return { status: 200, data: { user: view } };
 }

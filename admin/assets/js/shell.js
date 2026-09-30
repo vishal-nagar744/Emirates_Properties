@@ -6,12 +6,11 @@ function badge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
     active: 'ok', available: 'ok', completed: 'ok', credit: 'ok', activated: 'ok',
-    pending: 'warn', processing: 'warn', frozen: 'warn',
-    rejected: 'bad', cancelled: 'bad', suspended: 'bad', failed: 'bad', debit: 'bad',
-    inactive: 'muted',
+    pending: 'warn', processing: 'warn',
+    rejected: 'bad', cancelled: 'bad', suspended: 'bad', blocked: 'bad', failed: 'bad', debit: 'bad', revoked: 'bad',
+    inactive: 'muted', expired: 'muted',
   };
-  const labels = { frozen: 'Block' };
-  const label = labels[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '');
+  const label = key ? key.charAt(0).toUpperCase() + key.slice(1) : '';
   return `<span class="status status-${map[key] || 'muted'}">${label}</span>`;
 }
 
@@ -36,8 +35,13 @@ function openModal(innerHtml) {
       <div class="modal card" role="dialog" aria-modal="true">${innerHtml}</div>
     </div>`;
   const back = root.querySelector('.modal-back');
+  let pointerOnBack = false;
+  back.addEventListener('pointerdown', (e) => {
+    pointerOnBack = e.target === back;
+  });
   back.addEventListener('click', (e) => {
-    if (e.target === back) root.innerHTML = '';
+    if (!pointerOnBack || e.target !== back) return;
+    root.innerHTML = '';
   });
   root.querySelectorAll('[data-dismiss]').forEach((btn) => {
     btn.addEventListener('click', () => { root.innerHTML = ''; });
@@ -109,9 +113,23 @@ function esc(value) {
 
 function roleLine(isAdmin, user) {
   if (isAdmin) return 'Admin';
-  const status = String((user && user.accountStatus) || 'active').toLowerCase();
-  if (status === 'active') return 'Member';
-  return `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+  const status = String((user && user.accountStatus) || '').toLowerCase();
+  const labels = { active: 'Member', pending: 'Member · Pending', blocked: 'Member · Blocked', suspended: 'Member · Suspended' };
+  return labels[status] || (status ? `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}` : 'Member');
+}
+
+function setBreadcrumb(items) {
+  const nav = document.getElementById('crumbs');
+  if (!nav || !items || !items.length) return;
+  nav.innerHTML = items.map((item, index) => {
+    const sep = index ? '<span class="crumb-sep" aria-hidden="true">/</span>' : '';
+    const label = esc(item.label);
+    const current = index === items.length - 1 || !item.href;
+    const node = current
+      ? `<span class="crumb-current">${label}</span>`
+      : `<a href="${esc(item.href)}">${label}</a>`;
+    return sep + node;
+  }).join('');
 }
 
 function crumbLabel(page) {
@@ -185,11 +203,7 @@ function mountShell() {
       <header class="dashbar">
         <div class="dashbar-left">
           <button class="icon-btn mobile-menu" type="button" id="menu-open" aria-label="Open menu" aria-expanded="false">${navIcon('menu')}</button>
-          <nav class="crumbs" aria-label="Breadcrumb">
-            <a href="dashboard.html">${isAdmin ? 'Admin' : 'Workspace'}</a>
-            <span class="crumb-sep" aria-hidden="true">/</span>
-            <span id="crumb-here">${crumbLabel(page)}</span>
-          </nav>
+          <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
         </div>
         <div class="dashbar-right">
           <div class="who-card">
@@ -239,6 +253,11 @@ function mountShell() {
       window.location.href = 'login.html';
     });
   }
+
+  setBreadcrumb([
+    { href: 'dashboard.html', label: 'Admin' },
+    { label: crumbLabel(page) },
+  ]);
 }
 
 mountShell();

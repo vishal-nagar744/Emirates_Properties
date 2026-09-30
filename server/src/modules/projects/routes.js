@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
 import multer from 'multer';
 import { config } from '../../config.js';
@@ -9,7 +8,7 @@ import { requireAdmin } from '../../middleware/auth.js';
 import { readToken } from '../auth/session.js';
 import { createProject, deleteProject, getProject, listProjects, setProjectStatus, updateProject } from './service.js';
 
-const uploadDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../uploads');
+const uploadDir = config.uploadDir;
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
@@ -65,7 +64,7 @@ router.get('/', route(async (req, res) => {
     return send(res, { status: 401, message: 'Admin sign in required.' });
   }
   const includeInactive = wantsAll || Boolean(session && (session.role === 'user' || session.role === 'admin'));
-  send(res, await listProjects({ includeInactive }));
+  send(res, await listProjects({ includeInactive, groupId: String(req.query.groupId || '') }));
 }));
 
 router.get('/:id', route(async (req, res) => {

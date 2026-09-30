@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +30,7 @@ export const config = {
   allowLocalhostCors: text('ALLOW_LOCALHOST_CORS', 'true') !== 'false',
   sessionTtlMs: positiveInt('SESSION_TTL_HOURS', 12) * 60 * 60 * 1000,
   rememberTtlMs: positiveInt('REMEMBER_TTL_DAYS', 7) * 24 * 60 * 60 * 1000,
+  uploadDir: text('UPLOAD_DIR', path.join(os.homedir(), '.emirates-properties', 'uploads')),
   admin: {
     loginId: text('ADMIN_LOGIN_ID', 'admin'),
     password: text('ADMIN_PASSWORD'),

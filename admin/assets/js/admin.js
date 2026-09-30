@@ -7,6 +7,7 @@ const Admin = (() => {
   let userStatus = 'all';
   let directory = [];
   let catalog = [];
+  let groups = [];
   let referralRows = [];
   let cashoutRows = [];
   let txRows = [];
@@ -16,6 +17,17 @@ const Admin = (() => {
 
   function adminToken() {
     return sessionStorage.getItem('ps_admin_token') || '';
+  }
+
+  function expireAdminSession() {
+    sessionStorage.removeItem('ps_admin');
+    sessionStorage.removeItem('ps_admin_token');
+    sessionStorage.removeItem('ps_admin_user');
+    localStorage.removeItem('ps_admin');
+    localStorage.removeItem('ps_admin_token');
+    localStorage.removeItem('ps_admin_user');
+    window.location.href = 'login.html';
+    return new Promise(() => {});
   }
 
   async function adminApi(path, { method = 'GET', body } = {}) {
@@ -38,12 +50,7 @@ const Admin = (() => {
       clearTimeout(timer);
     }
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) {
-      sessionStorage.removeItem('ps_admin');
-      sessionStorage.removeItem('ps_admin_token');
-      window.location.href = 'login.html';
-      throw new Error(data.message || 'Admin sign in required.');
-    }
+    if (res.status === 401) return expireAdminSession();
     if (!res.ok) throw new Error(data.message || 'Request failed.');
     return data;
   }
@@ -68,12 +75,7 @@ const Admin = (() => {
       clearTimeout(timer);
     }
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) {
-      sessionStorage.removeItem('ps_admin');
-      sessionStorage.removeItem('ps_admin_token');
-      window.location.href = 'login.html';
-      throw new Error(data.message || 'Admin sign in required.');
-    }
+    if (res.status === 401) return expireAdminSession();
     if (!res.ok) throw new Error(data.message || 'Could not upload the image.');
     return data.image;
   }
@@ -135,7 +137,7 @@ const Admin = (() => {
     const caret = document.activeElement && document.activeElement.id === 'user-q'
       ? document.activeElement.selectionStart
       : null;
-    const filters = [['all', 'All'], ['active', 'Active'], ['frozen', 'Block'], ['suspended', 'Suspended']];
+    const filters = [['all', 'All'], ['active', 'Active'], ['pending', 'Pending'], ['blocked', 'Blocked'], ['suspended', 'Suspended']];
     pageEl().innerHTML = `
       <div class="page-head"><h2 class="serif">Users</h2></div>
       <div class="catalog-bar">
@@ -180,7 +182,10 @@ const Admin = (() => {
     if (!u) return;
     const byName = u.referredByName || '';
     openModal(`
-      <h3>${esc(u.fullName)}</h3>
+      <div class="modal-title">
+        <h3>${esc(u.fullName)}</h3>
+        <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+      </div>
       <p class="muted">${esc(u.mobile)} · ${esc(u.referralCode)}</p>
       <dl class="stack-stats">
         <div class="stack-row"><span>Balance</span><b>${Store.money(u.walletBalance)}</b></div>
@@ -192,7 +197,8 @@ const Admin = (() => {
         <label for="user-status">Account status</label>
         <select id="user-status">
           <option value="active"${u.accountStatus === 'active' ? ' selected' : ''}>Active</option>
-          <option value="frozen"${u.accountStatus === 'frozen' ? ' selected' : ''}>Block</option>
+          <option value="pending"${u.accountStatus === 'pending' ? ' selected' : ''}>Pending</option>
+          <option value="blocked"${u.accountStatus === 'blocked' ? ' selected' : ''}>Blocked</option>
           <option value="suspended"${u.accountStatus === 'suspended' ? ' selected' : ''}>Suspended</option>
         </select>
       </div>
@@ -236,11 +242,120 @@ const Admin = (() => {
     });
   }
 
+  function shown(value) {
+    const text = String(value || '').trim();
+    return text || 'Not available';
+  }
+
+  function when(value) {
+    if (!value) return 'Not available';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not available';
+    return date.toLocaleString();
+  }
+
+  function sessionCards(rows, userId) {
+    if (!rows.length) return emptyState('users', 'No sessions yet', 'Sessions appear here after this member signs in.');
+    return `<div class="session-list">${rows.map((row) => `
+      <article class="session-card">
+        <div class="session-top">
+          <b>${esc(shown(row.browser))} · ${esc(shown(row.os))}</b>
+          ${badge(row.status)}
+        </div>
+        <dl>
+          <div><dt>Device</dt><dd>${esc(shown(row.device))}</dd></div>
+          <div><dt>Location</dt><dd>${esc(shown(row.location))}</dd></div>
+          <div><dt>IP address</dt><dd>${esc(shown(row.ip))}</dd></div>
+          <div><dt>Signed in</dt><dd>${esc(when(row.loginAt))}</dd></div>
+          <div><dt>Last activity</dt><dd>${esc(when(row.lastActiveAt))}</dd></div>
+          <div><dt>How</dt><dd>${esc(shown(row.method))}</dd></div>
+        </dl>
+        <p class="muted session-agent">${esc(shown(row.userAgent))}</p>
+        ${row.status === 'active' ? `<button class="btn light session-revoke" type="button" data-action="revoke-user-session" data-id="${esc(row.id)}" data-user="${esc(userId)}">Revoke session</button>` : ''}
+      </article>`).join('')}</div>`;
+  }
+
+  async function openSessions(userId, name) {
+    openModal(`<h3>${esc(name || 'Sessions')}</h3><p class="muted">Loading sessions…</p>`);
+    try {
+      const data = await adminApi(`/api/users/${encodeURIComponent(userId)}/sessions`);
+      const rows = data.sessions || [];
+      openModal(`
+        <div class="modal-title">
+          <h3>${esc(name || 'Sessions')}</h3>
+          <button class="btn light" type="button" data-action="user" data-id="${esc(userId)}">Back</button>
+        </div>
+        <p class="muted">Sign-in sessions for this member.</p>
+        ${sessionCards(rows, userId)}`);
+    } catch (err) {
+      openModal(`<h3>${esc(name || 'Sessions')}</h3><p>${esc(err.message)}</p><div class="modal-actions"><button class="btn light" type="button" data-dismiss>Close</button></div>`);
+    }
+  }
+
+  function currentGroupId() {
+    return new URLSearchParams(location.search).get('group') || '';
+  }
+
+  function backControl(href, label) {
+    return `<a class="icon-btn back-btn" href="${esc(href)}" aria-label="${esc(label)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>`;
+  }
+
+  async function refreshCatalog() {
+    const [projectData, groupData] = await Promise.all([
+      adminApi('/api/projects?all=1'),
+      adminApi('/api/groups'),
+    ]);
+    catalog = projectData.projects || [];
+    groups = groupData.groups || [];
+  }
+
   function renderProjects() {
-    const list = catalog;
+    const groupId = currentGroupId();
+    if (!groupId) {
+      setBreadcrumb([
+        { href: 'dashboard.html', label: 'Admin' },
+        { label: 'Projects' },
+      ]);
+      pageEl().innerHTML = `
+        <div class="page-head">
+          <h2 class="serif">Projects</h2>
+          <button class="btn primary" type="button" data-action="edit-group">New group</button>
+        </div>
+        ${groups.length ? `<div class="admin-project-grid">
+          ${groups.map((group) => `
+            <article class="card admin-project">
+              <a class="admin-project-photo" href="projects.html?group=${esc(group.id)}">
+                ${group.image ? `<img src="${esc(group.image)}" alt="">` : '<div class="admin-photo-empty"></div>'}
+              </a>
+              <div class="admin-project-body">
+                <div class="admin-project-top">
+                  <span>${group.projectCount} project${group.projectCount === 1 ? '' : 's'}</span>
+                </div>
+                <h3><a href="projects.html?group=${esc(group.id)}">${esc(group.name)}</a></h3>
+                ${group.description ? `<p class="group-desc">${esc(group.description)}</p>` : ''}
+                <div class="admin-project-actions">
+                  <a class="btn light" href="projects.html?group=${esc(group.id)}">Open</a>
+                  <button class="btn light" type="button" data-action="edit-group" data-id="${esc(group.id)}">Edit</button>
+                  <button class="icon-btn" type="button" data-action="delete-group" data-id="${esc(group.id)}" data-name="${esc(group.name)}" aria-label="Delete ${esc(group.name)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
+                </div>
+              </div>
+            </article>`).join('')}
+        </div>` : `<div class="empty-wrap">${emptyState('grid', loadNote ? 'Could not load groups' : 'No groups yet', loadNote || 'Create a group, then add projects inside it.')}</div>`}`;
+      return;
+    }
+    const group = groups.find((item) => item.id === groupId);
+    const list = catalog.filter((project) => project.groupId === groupId);
+    setBreadcrumb([
+      { href: 'dashboard.html', label: 'Admin' },
+      { href: 'projects.html', label: 'Projects' },
+      { label: group ? group.name : 'Group' },
+    ]);
     pageEl().innerHTML = `
       <div class="page-head">
-        <h2 class="serif">Projects</h2>
+        <div class="page-title-row">
+          ${backControl('projects.html', 'Back to projects')}
+          <h2 class="serif">${esc(group ? group.name : 'Group')}</h2>
+        </div>
         <button class="btn primary" type="button" data-action="edit-project">New project</button>
       </div>
       ${list.length ? `<div class="admin-project-grid">
@@ -251,16 +366,16 @@ const Admin = (() => {
             </div>
             <div class="admin-project-body">
               <div class="admin-project-top">
-                <span>${esc(p.durationDays)} days</span>
+                <span>${esc(p.commissionRatio)}%</span>
                 <span class="admin-project-state">${p.status === 'active' ? 'Available' : 'Closed'}</span>
               </div>
               <h3>${esc(p.name)}</h3>
-              <p>${esc(p.address || 'Dubai')}</p>
-              <p>${esc(p.developer || 'Developer')}</p>
+              ${p.address ? `<p>${esc(p.address)}</p>` : ''}
+              ${p.developer ? `<p>${esc(p.developer)}</p>` : ''}
               <dl class="admin-project-stats">
-                <div><dt>Activate</dt><dd>${Store.money(p.activationAmount)}</dd></div>
-                <div><dt>Daily</dt><dd>${Store.money(p.dailyCommission)}</dd></div>
-                <div><dt>Total</dt><dd>${Store.money(p.totalCommission)}</dd></div>
+                <div><dt>Price</dt><dd>${Store.money(p.price)}</dd></div>
+                <div><dt>Ratio</dt><dd>${esc(p.commissionRatio)}%</dd></div>
+                <div><dt>Commission</dt><dd>${Store.money(p.commissionAmount)}</dd></div>
               </dl>
               <div class="admin-project-actions">
                 <button class="btn light" type="button" data-action="edit-project" data-id="${esc(p.id)}">Edit</button>
@@ -269,96 +384,187 @@ const Admin = (() => {
               </div>
             </div>
           </article>`).join('')}
-      </div>` : `<div class="empty-wrap">${emptyState('grid', loadNote ? 'Could not load projects' : 'No projects yet', loadNote || 'Create a project to show it in the catalog.')}</div>`}`;
+      </div>` : `<div class="empty-wrap">${emptyState('grid', 'No projects in this group', 'Add a project to show it to members.')}</div>`}`;
+  }
+
+  function bindPhotoUpload(inputId, noteId, previewId, saveButton, initialUrl) {
+    let imageUrl = initialUrl || '';
+    let uploadTask = Promise.resolve();
+    const note = document.getElementById(noteId);
+    const preview = document.getElementById(previewId);
+    const input = document.getElementById(inputId);
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      uploadTask = (async () => {
+        if (note) note.textContent = 'Uploading…';
+        saveButton.disabled = true;
+        preview.src = URL.createObjectURL(file);
+        preview.hidden = false;
+        try {
+          imageUrl = await uploadProjectImage(file);
+          preview.src = imageUrl;
+          if (note) note.textContent = '';
+        } catch (err) {
+          if (note) note.textContent = err.message;
+          toast(err.message);
+        } finally {
+          saveButton.disabled = false;
+        }
+      })();
+    });
+    return {
+      url: () => imageUrl,
+      ready: () => uploadTask,
+    };
+  }
+
+  function editGroup(id) {
+    const found = id ? groups.find((item) => item.id === id) : null;
+    if (id && !found) return;
+    const group = found || { id: '', name: '', description: '', image: '' };
+    openModal(`
+      <h3>${id ? 'Edit group' : 'New group'}</h3>
+      <form id="group-form" class="fields">
+        <div class="field"><label for="gr-name">Group name</label><input id="gr-name" value="${esc(group.name)}" required></div>
+        <div class="field"><label for="gr-desc">Description</label><textarea id="gr-desc" rows="3">${esc(group.description)}</textarea></div>
+        <div class="field photo-field">
+          <span class="field-label" id="gr-photo-label">Image</span>
+          <label class="btn light photo-pick" for="gr-file">Choose image</label>
+          <input id="gr-file" class="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-labelledby="gr-photo-label">
+          <p class="field-error" id="gr-photo-note" role="alert"></p>
+          <img id="gr-preview" alt="" ${group.image ? `src="${esc(group.image)}"` : 'hidden'}>
+        </div>
+        <p class="field-error" id="gr-error" role="alert" hidden></p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn primary" type="submit">Save</button>
+        </div>
+      </form>`);
+    const saveBtn = document.querySelector('#group-form button[type="submit"]');
+    const currentImage = bindPhotoUpload('gr-file', 'gr-photo-note', 'gr-preview', saveBtn, group.image || '');
+    document.getElementById('group-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('gr-error');
+      err.hidden = true;
+      const name = document.getElementById('gr-name').value.trim();
+      if (!name) {
+        err.hidden = false;
+        err.textContent = 'Enter a group name.';
+        return;
+      }
+      saveBtn.disabled = true;
+      try {
+        await currentImage.ready();
+        const payload = {
+          name,
+          description: document.getElementById('gr-desc').value.trim(),
+          image: currentImage.url(),
+        };
+        if (group.id) await adminApi(`/api/groups/${group.id}`, { method: 'PATCH', body: payload });
+        else await adminApi('/api/groups', { method: 'POST', body: payload });
+        await refreshCatalog();
+        closeModal();
+        toast('Group saved');
+        renderProjects();
+      } catch (error) {
+        err.hidden = false;
+        err.textContent = error.message;
+        saveBtn.disabled = false;
+      }
+    });
   }
 
   function editProject(id) {
+    const groupId = currentGroupId();
     const found = id ? catalog.find((item) => item.id === id) : null;
     if (id && !found) return;
     const p = found || {
-      id: '', name: '', image: '', description: '', address: '', developer: '', activationAmount: 1000, dailyCommission: 10, durationDays: 30, status: 'active', tag: 'Custom',
+      id: '', groupId, name: '', image: '', description: '', address: '', developer: '', price: '', commissionRatio: '', status: 'active',
     };
     openModal(`
       <h3>${id ? 'Edit project' : 'New project'}</h3>
       <form id="proj-form" class="fields">
         <div class="field"><label for="pj-name">Name</label><input id="pj-name" value="${esc(p.name)}" required></div>
-        <div class="field"><label for="pj-desc">Description</label><input id="pj-desc" value="${esc(p.description)}"></div>
         <div class="form-2">
           <div class="field"><label for="pj-address">Address</label><input id="pj-address" value="${esc(p.address)}"></div>
           <div class="field"><label for="pj-developer">Developer</label><input id="pj-developer" value="${esc(p.developer)}"></div>
         </div>
         <div class="field photo-field">
-          <label for="pj-file">Photo</label>
-          <input id="pj-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
-          <p class="muted" id="pj-photo-note">${p.image ? 'Current photo is attached. Choose a file to replace it.' : 'JPG, PNG, WEBP, or GIF. Up to 4 MB.'}</p>
+          <span class="field-label" id="pj-photo-label">Photo</span>
+          <label class="btn light photo-pick" for="pj-file">Choose photo</label>
+          <input id="pj-file" class="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-labelledby="pj-photo-label">
+          <p class="field-error" id="pj-photo-note" role="alert"></p>
           <img id="pj-preview" alt="" ${p.image ? `src="${esc(p.image)}"` : 'hidden'}>
         </div>
         <div class="form-2">
-          <div class="field"><label>Activation</label><input id="pj-amount" type="number" value="${p.activationAmount || 0}"></div>
-          <div class="field"><label>Daily commission</label><input id="pj-daily" type="number" value="${p.dailyCommission || 0}"></div>
-          <div class="field"><label>Duration days</label><input id="pj-days" type="number" value="${p.durationDays || 0}"></div>
-          <div class="field"><label>Status</label>
-            <select id="pj-status"><option ${p.status === 'active' ? 'selected' : ''}>active</option><option ${p.status === 'inactive' ? 'selected' : ''}>inactive</option></select>
+          <div class="field"><label for="pj-price">Price (AED)</label><input id="pj-price" type="number" min="0" step="0.01" value="${p.price === '' ? '' : p.price}"></div>
+          <div class="field"><label for="pj-ratio">Commission ratio (%)</label><input id="pj-ratio" type="number" min="0" max="100" step="0.01" value="${p.commissionRatio === '' ? '' : p.commissionRatio}"></div>
+          <div class="field"><label for="pj-status">Status</label>
+            <select id="pj-status">
+              <option value="active" ${p.status === 'active' ? 'selected' : ''}>Available</option>
+              <option value="inactive" ${p.status === 'inactive' ? 'selected' : ''}>Closed</option>
+            </select>
           </div>
         </div>
-        <p class="muted" id="pj-total">Total commission updates from daily × days.</p>
+        <p class="muted" id="pj-total"></p>
+        <p class="field-error" id="pj-error" role="alert" hidden></p>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
           <button class="btn primary" type="submit">Save</button>
         </div>
       </form>`);
     const updateTotal = () => {
-      const total = (Number(document.getElementById('pj-daily').value) || 0) * (Number(document.getElementById('pj-days').value) || 0);
-      document.getElementById('pj-total').textContent = `Total commission ${Store.money(total)}`;
+      const price = Number(document.getElementById('pj-price').value);
+      const ratio = Number(document.getElementById('pj-ratio').value);
+      const amount = Number.isFinite(price) && Number.isFinite(ratio) ? (price * ratio) / 100 : 0;
+      document.getElementById('pj-total').textContent = `Commission ${Store.money(amount)}`;
     };
-    document.getElementById('pj-daily').addEventListener('input', updateTotal);
-    document.getElementById('pj-days').addEventListener('input', updateTotal);
+    document.getElementById('pj-price').addEventListener('input', updateTotal);
+    document.getElementById('pj-ratio').addEventListener('input', updateTotal);
     updateTotal();
-    let imageUrl = p.image || '';
-    const photoNote = document.getElementById('pj-photo-note');
-    const preview = document.getElementById('pj-preview');
     const saveBtn = document.querySelector('#proj-form button[type="submit"]');
-    document.getElementById('pj-file').addEventListener('change', async () => {
-      const file = document.getElementById('pj-file').files && document.getElementById('pj-file').files[0];
-      if (!file) return;
-      photoNote.textContent = 'Uploading photo…';
-      saveBtn.disabled = true;
-      try {
-        imageUrl = await uploadProjectImage(file);
-        preview.src = imageUrl;
-        preview.hidden = false;
-        photoNote.textContent = 'Photo uploaded. Save the project to keep it.';
-      } catch (err) {
-        photoNote.textContent = err.message;
-        toast(err.message);
-      } finally {
-        saveBtn.disabled = false;
-      }
-    });
+    const currentImage = bindPhotoUpload('pj-file', 'pj-photo-note', 'pj-preview', saveBtn, p.image || '');
     document.getElementById('proj-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const err = document.getElementById('pj-error');
+      err.hidden = true;
+      const price = document.getElementById('pj-price').value;
+      const ratio = document.getElementById('pj-ratio').value;
+      if (price === '' || Number(price) < 0) {
+        err.hidden = false;
+        err.textContent = 'Enter a valid price.';
+        return;
+      }
+      if (ratio === '' || Number(ratio) < 0 || Number(ratio) > 100) {
+        err.hidden = false;
+        err.textContent = 'Commission ratio must be between 0 and 100.';
+        return;
+      }
+      await currentImage.ready();
       const payload = {
+        groupId: p.groupId || groupId,
         name: document.getElementById('pj-name').value.trim(),
-        description: document.getElementById('pj-desc').value.trim(),
+        description: p.description || '',
         address: document.getElementById('pj-address').value.trim(),
         developer: document.getElementById('pj-developer').value.trim(),
-        image: imageUrl,
-        activationAmount: document.getElementById('pj-amount').value,
-        dailyCommission: document.getElementById('pj-daily').value,
-        durationDays: document.getElementById('pj-days').value,
+        image: currentImage.url(),
+        price,
+        commissionRatio: ratio,
         status: document.getElementById('pj-status').value,
-        tag: p.tag || 'Custom',
       };
+      saveBtn.disabled = true;
       try {
-        const data = p.id
-          ? await adminApi(`/api/projects/${p.id}`, { method: 'PATCH', body: payload })
-          : await adminApi('/api/projects', { method: 'POST', body: payload });
-        catalog = [data.project, ...catalog.filter((item) => item.id !== data.project.id)];
+        if (p.id) await adminApi(`/api/projects/${p.id}`, { method: 'PATCH', body: payload });
+        else await adminApi('/api/projects', { method: 'POST', body: payload });
+        await refreshCatalog();
         closeModal();
         toast('Project saved');
         renderProjects();
-      } catch (err) {
-        toast(err.message);
+      } catch (error) {
+        err.hidden = false;
+        err.textContent = error.message;
+        saveBtn.disabled = false;
       }
     });
   }
@@ -395,6 +601,7 @@ const Admin = (() => {
       demo_cash_in: 'Cash in',
       project_activation: 'Activation',
       daily_commission: 'Commission',
+      project_commission: 'Commission',
       cash_out: 'Cash out',
       refund: 'Refund',
       adjustment: 'Adjustment',
@@ -524,6 +731,9 @@ const Admin = (() => {
       if (page === 'dashboard' || page === 'projects') {
         catalog = (await adminApi('/api/projects?all=1')).projects || [];
       }
+      if (page === 'projects') {
+        groups = (await adminApi('/api/groups')).groups || [];
+      }
       if (page === 'referrals') {
         const data = await adminApi('/api/referrals/all');
         referralRows = Array.isArray(data.referrals) ? data.referrals : [];
@@ -566,9 +776,37 @@ const Admin = (() => {
     if (!el || document.body.dataset.app !== 'admin') return;
     const action = el.dataset.action;
     if (action === 'user') openUser(el.dataset.id);
+    if (action === 'user-sessions') openSessions(el.dataset.id, el.dataset.name);
+    if (action === 'revoke-user-session') {
+      adminApi(`/api/users/${encodeURIComponent(el.dataset.user)}/sessions/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
+        .then(() => {
+          toast('Session revoked');
+          const title = document.querySelector('#modal-root h3');
+          openSessions(el.dataset.user, title ? title.textContent : '');
+        })
+        .catch((err) => toast(err.message));
+    }
     if (action === 'user-filter') {
       userStatus = el.dataset.status || 'all';
       renderUsers();
+    }
+    if (action === 'edit-group') editGroup(el.dataset.id);
+    if (action === 'delete-group') {
+      openModal(`
+        <h3>Delete group</h3>
+        <p class="muted">Delete ${esc(el.dataset.name || 'this group')}? A group that still has projects cannot be deleted.</p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn danger" type="button" data-action="confirm-delete-group" data-id="${esc(el.dataset.id)}">Delete</button>
+        </div>`);
+    }
+    if (action === 'confirm-delete-group') {
+      adminApi(`/api/groups/${el.dataset.id}`, { method: 'DELETE' }).then(() => {
+        groups = groups.filter((item) => item.id !== el.dataset.id);
+        closeModal();
+        toast('Group deleted');
+        renderProjects();
+      }).catch((err) => toast(err.message));
     }
     if (action === 'edit-project') editProject(el.dataset.id);
     if (action === 'delete-project') {
@@ -576,15 +814,15 @@ const Admin = (() => {
       const name = el.dataset.name || 'this project';
       openModal(`
         <h3>Delete project</h3>
-        <p class="muted">Delete ${esc(name)}? It will leave the catalog. A project with an active order cannot be deleted.</p>
+        <p class="muted">Delete ${esc(name)}? A project that already has an order cannot be deleted.</p>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
           <button class="btn danger" type="button" data-action="confirm-delete-project" data-id="${esc(id)}">Delete</button>
         </div>`);
     }
     if (action === 'confirm-delete-project') {
-      adminApi(`/api/projects/${el.dataset.id}`, { method: 'DELETE' }).then(() => {
-        catalog = catalog.filter((item) => item.id !== el.dataset.id);
+      adminApi(`/api/projects/${el.dataset.id}`, { method: 'DELETE' }).then(async () => {
+        await refreshCatalog();
         closeModal();
         toast('Project deleted');
         renderProjects();
@@ -594,8 +832,8 @@ const Admin = (() => {
       adminApi(`/api/projects/${el.dataset.id}/status`, {
         method: 'PATCH',
         body: { status: el.dataset.status },
-      }).then((data) => {
-        catalog = catalog.map((item) => (item.id === data.project.id ? data.project : item));
+      }).then(async () => {
+        await refreshCatalog();
         toast('Project updated');
         renderProjects();
       }).catch((err) => toast(err.message));
