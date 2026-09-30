@@ -601,6 +601,7 @@ const Admin = (() => {
       demo_cash_in: 'Cash in',
       project_activation: 'Activation',
       daily_commission: 'Commission',
+      project_purchase: 'Property',
       project_commission: 'Commission',
       cash_out: 'Cash out',
       refund: 'Refund',

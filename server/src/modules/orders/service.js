@@ -12,6 +12,14 @@ function dayKey(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
+function cents(value) {
+  return Math.round((Number(value) || 0) * 100);
+}
+
+function aed(centsValue) {
+  return `AED ${(centsValue / 100).toLocaleString('en-AE')}`;
+}
+
 function memberView(user) {
   return {
     id: String(user._id),
@@ -64,13 +72,23 @@ export async function activateOrder({ userId, projectId }) {
   if (already) return { status: 409, message: 'You have already submitted an order for this project.' };
 
   const now = new Date();
-  const amount = Number(project.commissionAmount) || 0;
+  const priceCents = cents(project.price);
+  const balanceCents = cents(user.walletBalance);
+  const commissionCents = cents(project.commissionAmount);
+  if (balanceCents < priceCents) {
+    return {
+      status: 400,
+      message: `Insufficient funds. This property is ${aed(priceCents)} and your wallet has ${aed(balanceCents)}.`,
+    };
+  }
+
+  const amount = commissionCents / 100;
   const order = await Order.create({
     userId: String(user._id),
     projectId: String(project._id),
     projectName: project.name,
     image: project.image || '',
-    price: project.price,
+    price: priceCents / 100,
     commissionRatio: project.commissionRatio,
     commissionAmount: amount,
     earnedCommission: amount,
@@ -80,8 +98,20 @@ export async function activateOrder({ userId, projectId }) {
     status: 'completed',
   });
 
-  user.walletBalance += amount;
+  user.walletBalance = (balanceCents - priceCents + commissionCents) / 100;
   await user.save();
+
+  if (priceCents > 0) {
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'project_purchase',
+      amount: priceCents / 100,
+      direction: 'debit',
+      description: `Property · ${project.name}`,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+  }
 
   await Commission.create({
     userId: String(user._id),

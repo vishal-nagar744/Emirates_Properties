@@ -111,10 +111,10 @@ const Member = (() => {
         </div>
       </section>
       <div class="kpis">
-        ${kpi('Wallet balance', Store.money(wallet), 'Available')}
-        ${kpi("Today's commission", Store.money(todayCommission), 'Credited today')}
-        ${kpi('Total commission', Store.money(totalCommission), 'All completed credits')}
-        ${kpi('Orders', String(ordersCache.length), 'Submitted orders')}
+        ${kpi('Wallet balance', Store.money(wallet), 'Available', 'wallet.html')}
+        ${kpi("Today's commission", Store.money(todayCommission), 'Credited today', 'earnings.html')}
+        ${kpi('Total commission', Store.money(totalCommission), 'All completed credits', 'earnings.html')}
+        ${kpi('Orders', String(ordersCache.length), 'Submitted orders', 'orders.html')}
       </div>
       <section class="card box">
         <div class="boxhead"><h3>Your orders</h3><a class="auth-link" href="orders.html">All orders</a></div>
@@ -128,6 +128,7 @@ const Member = (() => {
       demo_cash_in: 'Cash in',
       project_activation: 'Activation',
       daily_commission: 'Commission',
+      project_purchase: 'Property',
       project_commission: 'Commission',
       cash_out: 'Cash out',
       refund: 'Refund',
@@ -136,8 +137,10 @@ const Member = (() => {
     return labels[type] || String(type || '').replaceAll('_', ' ');
   }
 
-  function kpi(label, value, hint) {
-    return `<div class="card kpi"><small>${label}</small><b>${value}</b><span>${hint}</span></div>`;
+  function kpi(label, value, hint, href) {
+    const inner = `<small>${label}</small><b>${value}</b><span>${hint}</span>`;
+    if (!href) return `<div class="card kpi">${inner}</div>`;
+    return `<a class="card kpi" href="${esc(href)}">${inner}</a>`;
   }
 
   function activeCard(order) {
@@ -311,11 +314,25 @@ const Member = (() => {
     return `<div class="stack-row"><span>${label}</span><b>${value}</b></div>`;
   }
 
+  function canAfford(project) {
+    const balance = Math.round((Number(Store.user().walletBalance) || 0) * 100);
+    const price = Math.round((Number(project.price) || 0) * 100);
+    return balance >= price;
+  }
+
   function openActivate(projectId) {
     const p = catalog.find((item) => item.id === projectId);
     if (!p || p.status !== 'active' || boughtIds().has(p.id)) return;
+    if (!canAfford(p)) {
+      openModal(`
+        <h3>Insufficient funds</h3>
+        <p>This property is ${Store.money(p.price)}. Your wallet has ${Store.money(Store.user().walletBalance)}.</p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Close</button>
+        </div>`);
+      return;
+    }
     openModal(`
-      <p class="smallcaps">Confirm</p>
       <h3>Submit order</h3>
       <p class="muted">${esc(p.name)}</p>
       <dl class="stack-stats">
@@ -323,7 +340,7 @@ const Member = (() => {
         ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
         ${row('Commission added to wallet', Store.money(p.commissionAmount))}
       </dl>
-      <p class="muted">The project price is not charged. The commission is added when you submit.</p>
+      <p class="muted">${Store.money(p.price)} is taken from your wallet. ${Store.money(p.commissionAmount)} commission is added.</p>
       <div class="modal-actions">
         <button class="btn light" type="button" data-dismiss>Cancel</button>
         <button class="btn primary" type="button" data-action="confirm-activate" data-id="${p.id}">Submit order</button>
@@ -551,6 +568,7 @@ const Member = (() => {
       ['welcome_bonus', 'Welcome bonus'],
       ['demo_cash_in', 'Cash in'],
       ['project_activation', 'Activation'],
+      ['project_purchase', 'Property'],
       ['project_commission', 'Commission'],
       ['daily_commission', 'Commission'],
       ['cash_out', 'Cash out'],
@@ -1192,6 +1210,11 @@ const Member = (() => {
     if (action === 'open-cash-in') openCashIn();
     if (action === 'open-cash-out') openCashOut();
     if (action === 'confirm-activate') {
+      const project = catalog.find((item) => item.id === el.dataset.id);
+      if (project && !canAfford(project)) {
+        openActivate(project.id);
+        return;
+      }
       memberApi('/api/orders', { method: 'POST', body: { projectId: el.dataset.id } })
         .then((data) => {
           if (data.user) Store.applySession(data.user);
