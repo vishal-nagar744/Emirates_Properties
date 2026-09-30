@@ -6,7 +6,7 @@ function badge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
     active: 'ok', available: 'ok', completed: 'ok', credit: 'ok', activated: 'ok',
-    pending: 'warn', processing: 'warn',
+    pending: 'pending', processing: 'warn',
     rejected: 'bad', cancelled: 'bad', suspended: 'bad', blocked: 'bad', failed: 'bad', debit: 'bad', revoked: 'bad',
     inactive: 'muted', expired: 'muted',
   };
@@ -112,11 +112,14 @@ function esc(value) {
     .replace(/>/g, '&gt;');
 }
 
-function roleLine(isAdmin, user) {
-  if (isAdmin) return 'Admin';
+function roleLine(isAdmin) {
+  return isAdmin ? 'Admin' : 'User';
+}
+
+function headerStatus(user) {
   const status = String((user && user.accountStatus) || '').toLowerCase();
-  const labels = { active: 'Member', pending: 'Member · Pending', blocked: 'Member · Blocked', suspended: 'Member · Suspended' };
-  return labels[status] || (status ? `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}` : 'Member');
+  if (!status || status === 'active') return '';
+  return badge(status);
 }
 
 function setBreadcrumb(items) {
@@ -179,7 +182,7 @@ function mountShell() {
           <a class="sidelink" href="#" id="admin-logout" title="Log out"><span class="sideicon">${navIcon('logout')}</span><span class="sidelabel">Log out</span></a>
         </div>
       </aside>`
-    : `<aside class="sidebar" id="sidebar" aria-label="Member navigation">
+    : `<aside class="sidebar" id="sidebar" aria-label="Workspace">
         <div class="sidebrand">
           <a class="brand" href="dashboard.html" aria-label="Emirates Properties"><img class="brand-logo" src="../assets/logo-nobg.png" alt="Emirates Properties"></a>
           <button class="icon-btn sidebar-toggle" type="button" id="menu-toggle" aria-label="Close menu" aria-expanded="true">${navIcon('menu')}</button>
@@ -207,8 +210,8 @@ function mountShell() {
           <div class="who-card">
             <div class="avatar" aria-hidden="true">${initial}</div>
             <div class="who">
-              <b>${esc(user.fullName || 'Member')}</b>
-              <small>${esc(roleLine(false, user))}</small>
+              <b>${esc(user.fullName || 'User')}</b>
+              <span class="who-meta"><small>${esc(roleLine(isAdmin))}</small>${headerStatus(user)}</span>
             </div>
           </div>
         </div>
@@ -216,13 +219,21 @@ function mountShell() {
       <main class="page" id="page"></main>
     </div>
     <div id="modal-root"></div>
-    ${isAdmin ? '' : `<nav class="mobnav" aria-label="Mobile">
-      <a href="dashboard.html" class="${page === 'dashboard' ? 'active' : ''}">Home</a>
-      <a href="projects.html" class="${page === 'projects' || page === 'project' ? 'active' : ''}">Projects</a>
-      <a href="orders.html" class="${page === 'orders' ? 'active' : ''}">Orders</a>
-      <a href="wallet.html" class="${page === 'wallet' ? 'active' : ''}">Wallet</a>
-      <a href="profile.html" class="${page === 'profile' ? 'active' : ''}">Profile</a>
-    </nav>`}
+    <nav class="mobnav" aria-label="Mobile">
+      ${isAdmin ? `
+        <a href="dashboard.html" class="${page === 'dashboard' ? 'active' : ''}">${navIcon('home')}<span>Home</span></a>
+        <a href="users.html" class="${page === 'users' ? 'active' : ''}">${navIcon('users')}<span>Users</span></a>
+        <a href="projects.html" class="${page === 'projects' ? 'active' : ''}">${navIcon('grid')}<span>Projects</span></a>
+        <a href="cashouts.html" class="${page === 'cashouts' ? 'active' : ''}">${navIcon('card')}<span>Cash out</span></a>
+        <a href="settings.html" class="${page === 'settings' ? 'active' : ''}">${navIcon('gear')}<span>Settings</span></a>
+      ` : `
+        <a href="dashboard.html" class="${page === 'dashboard' ? 'active' : ''}">${navIcon('home')}<span>Home</span></a>
+        <a href="projects.html" class="${page === 'projects' || page === 'project' ? 'active' : ''}">${navIcon('grid')}<span>Projects</span></a>
+        <a href="orders.html" class="${page === 'orders' ? 'active' : ''}">${navIcon('clock')}<span>Orders</span></a>
+        <a href="wallet.html" class="${page === 'wallet' ? 'active' : ''}">${navIcon('wallet')}<span>Wallet</span></a>
+        <a href="profile.html" class="${page === 'profile' ? 'active' : ''}">${navIcon('user')}<span>Profile</span></a>
+      `}
+    </nav>
   `;
   document.body.prepend(root);
 

@@ -62,12 +62,12 @@ const Member = (() => {
 
   function accountNote() {
     const status = Store.user().accountStatus;
-    const text = {
-      pending: 'Your account is pending. An admin needs to approve it before you can submit an order or cash out.',
-      blocked: 'This account is blocked. Contact support if this is unexpected.',
-      suspended: 'This account is suspended. Contact support.',
-    }[status];
-    return text ? `<div class="notice">${text}</div>` : '';
+    if (status === 'pending') {
+      return `<div class="notice notice-pending" role="status"><span class="status status-pending">Pending</span><p>An admin needs to approve this account before you can submit an order or cash out.</p></div>`;
+    }
+    if (status === 'blocked') return '<div class="notice" role="status"><p>This account is blocked.</p></div>';
+    if (status === 'suspended') return '<div class="notice" role="status"><p>This account is suspended.</p></div>';
+    return '';
   }
 
   function maybePendingNotice() {
@@ -79,8 +79,7 @@ const Member = (() => {
     if (sessionStorage.getItem('ps_pending_notice') === '1') return;
     sessionStorage.setItem('ps_pending_notice', '1');
     openModal(`
-      <h3>Account pending</h3>
-      <p>Your account is pending and needs admin approval before you can submit an order or cash out.</p>
+      <p>An admin needs to approve this account before you can submit an order or cash out.</p>
       <div class="modal-actions">
         <button class="btn primary" type="button" data-dismiss>Close</button>
       </div>`);
@@ -101,7 +100,6 @@ const Member = (() => {
     const today = Store.dayKey(0);
     const todayCommission = commissionsCache.filter((c) => c.date === today).reduce((s, c) => s + c.amount, 0);
     const totalCommission = commissionsCache.reduce((s, c) => s + c.amount, 0);
-    const recent = txCache.slice(0, 5);
     const wallet = Store.user().walletBalance || 0;
     pageEl().innerHTML = `
       ${accountNote()}
@@ -118,23 +116,10 @@ const Member = (() => {
         ${kpi('Total commission', Store.money(totalCommission), 'All completed credits')}
         ${kpi('Orders', String(ordersCache.length), 'Submitted orders')}
       </div>
-      <div class="twocol">
-        <section class="card box">
-          <div class="boxhead"><h3>Your orders</h3><a class="auth-link" href="orders.html">All orders</a></div>
-          ${ordersCache.length ? ordersCache.slice(0, 3).map(activeCard).join('') : emptyState('grid', 'No orders yet', 'Open a project group and submit an order.')}
-        </section>
-        <section class="card box">
-          <div class="boxhead"><h3>Recent activity</h3></div>
-          ${recent.length ? `<div class="tablewrap">
-            <table class="data-table">
-              <thead><tr><th>Activity</th><th>Amount</th><th>Status</th></tr></thead>
-              <tbody>
-                ${recent.map((t) => `<tr><td>${esc(t.description)}<div class="muted">${esc(String(t.createdAt || '').slice(0, 10))}</div></td><td>${t.direction === 'debit' ? '−' : '+'}${Store.money(t.amount)}</td><td>${badge(t.status)}</td></tr>`).join('')}
-              </tbody>
-            </table>
-          </div>` : emptyState('clock', 'No activity yet', 'Cash in, orders, and commission will show here.')}
-        </section>
-      </div>`;
+      <section class="card box">
+        <div class="boxhead"><h3>Your orders</h3><a class="auth-link" href="orders.html">All orders</a></div>
+        ${ordersCache.length ? ordersCache.slice(0, 3).map(activeCard).join('') : emptyState('grid', 'No orders yet', 'Open a project group and submit an order.')}
+      </section>`;
   }
 
   function typeLabel(type) {
@@ -788,7 +773,6 @@ const Member = (() => {
   function openCashOut() {
     const all = accountsCache;
     openModal(`
-      <p class="smallcaps">Wallet</p>
       <h3>Cash out</h3>
       <p class="muted">Minimum ${Store.money(platform.minCashOutAmount)}.</p>
       <form class="fields" id="cashout-form">
@@ -799,11 +783,11 @@ const Member = (() => {
             <button class="choice" type="button" data-kind="bank">${navIcon('card')}<span>Bank account</span></button>
           </div>
         </div>
+        <p class="bind-alert" id="bind-alert" role="status" hidden></p>
         <div class="field" id="account-field" hidden>
           <label for="cashout-account">Bound account</label>
           <select id="cashout-account"></select>
         </div>
-        <p class="field-hint" id="dest-preview"></p>
         <div class="field">
           <label for="cashout-amount">Amount (AED)</label>
           <input id="cashout-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="500">
@@ -826,7 +810,7 @@ const Member = (() => {
     const kindButtons = document.querySelectorAll('#cashout-form .choice');
     const select = document.getElementById('cashout-account');
     const field = document.getElementById('account-field');
-    const hint = document.getElementById('dest-preview');
+    const alert = document.getElementById('bind-alert');
     kindButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         kind = btn.dataset.kind;
@@ -836,18 +820,21 @@ const Member = (() => {
           item.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
         const matches = all.filter((account) => account.kind === kind);
-        field.hidden = false;
         if (!matches.length) {
+          field.hidden = true;
           select.innerHTML = '';
-          hint.textContent = kind === 'bank'
-            ? 'Bind a bank account on the Bind wallet tab first.'
-            : 'Bind a crypto address on the Bind wallet tab first.';
+          alert.hidden = false;
+          alert.innerHTML = kind === 'bank'
+            ? 'No bank account is bound. <a href="wallet.html?tab=bind&bind=bank">Bind a bank account</a> first.'
+            : 'No crypto account is bound. <a href="wallet.html?tab=bind&bind=crypto">Bind a crypto account</a> first.';
           return;
         }
+        alert.hidden = true;
+        alert.textContent = '';
+        field.hidden = false;
         select.innerHTML = matches.map((account) => (
           `<option value="${esc(account.id)}">${esc(accountTitle(account))} · ${esc(accountDetail(account))}</option>`
         )).join('');
-        hint.textContent = `${matches.length} bound ${kind === 'bank' ? 'bank account' : 'crypto address'}${matches.length > 1 ? 's' : ''}`;
       });
     });
     document.getElementById('cashout-form').addEventListener('submit', async (e) => {
@@ -935,7 +922,7 @@ const Member = (() => {
       <div class="profile-split">
         <section class="card box">
           <div class="boxhead"><h3>${esc(u.fullName)}</h3>${badge(u.accountStatus)}</div>
-          <p class="muted">Member ${esc(u.id)} · Joined ${esc(u.createdAt.slice(0, 10))}</p>
+          <p class="muted">User ${esc(u.id)} · Joined ${esc(u.createdAt.slice(0, 10))}</p>
           <form id="profile-form" class="fields">
             <div class="field"><label for="pf-name">Full name</label><input id="pf-name" value="${esc(u.fullName)}" autocomplete="name"></div>
             <div class="field"><label for="pf-mobile">Mobile</label><input id="pf-mobile" value="${esc(u.mobile)}" autocomplete="tel" inputmode="tel"></div>
@@ -977,9 +964,9 @@ const Member = (() => {
               </div>
               <div class="tablewrap" style="margin-top:14px">
                 <table class="data-table">
-                  <thead><tr><th>Member</th><th>Mobile</th><th>Joined</th><th>Status</th></tr></thead>
+                  <thead><tr><th>User</th><th>Mobile</th><th>Joined</th><th>Status</th></tr></thead>
                   <tbody>
-                    ${refs.length ? refs.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('share', 'No referrals yet', 'Share your code. Members who join with it show up here.')}</td></tr>`}
+                    ${refs.length ? refs.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('share', 'No referrals yet', 'Share your code. Users who join with it show up here.')}</td></tr>`}
                   </tbody>
                 </table>
               </div>

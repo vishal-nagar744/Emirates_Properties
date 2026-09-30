@@ -111,7 +111,7 @@ const Admin = (() => {
     pageEl().innerHTML = `
       <div class="page-head"><h2 class="serif">Dashboard</h2></div>
       <div class="kpis">
-        ${kpi('Users', users.length, 'Member accounts')}
+        ${kpi('Users', users.length, 'User accounts')}
         ${kpi('Active users', active, 'Can sign in')}
         ${kpi('Projects', catalog.length, 'In the catalog')}
         ${kpi('Wallet balances', Store.money(walletSum), 'All members')}
@@ -583,7 +583,7 @@ const Admin = (() => {
         </div>
       </div>
       <section class="card box"><div class="tablewrap"><table class="data-table">
-        <thead><tr><th>Member</th><th>Amount</th><th>Method</th><th>Destination</th><th>When</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Destination</th><th>When</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${list.length ? list.map((c) => `<tr>
             <td>${esc(c.userName)}<div class="muted">${esc(c.mobile)}</div></td>
@@ -615,7 +615,7 @@ const Admin = (() => {
         <h2 class="serif">Transactions</h2>
       </div>
       <section class="card box"><div class="tablewrap"><table class="data-table">
-        <thead><tr><th>Member</th><th>Type</th><th>Activity</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
+        <thead><tr><th>User</th><th>Type</th><th>Activity</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
         <tbody>
           ${txRows.length ? txRows.map((row) => `<tr>
             <td>${esc(row.userName)}<div class="muted">${esc(row.mobile)}</div></td>
@@ -647,7 +647,7 @@ const Admin = (() => {
       </label>
       <section class="card box">
         ${rows.length ? `<div class="tablewrap"><table class="data-table">
-        <thead><tr><th>Member</th><th>Mobile</th><th>Referrer</th><th>Code</th><th>Joined</th><th>Status</th></tr></thead>
+        <thead><tr><th>User</th><th>Mobile</th><th>Referrer</th><th>Code</th><th>Joined</th><th>Status</th></tr></thead>
         <tbody>
           ${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.referrerName || '—')}</td><td>${esc(r.referralCode || '—')}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('')}
         </tbody>
