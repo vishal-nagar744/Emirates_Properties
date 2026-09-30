@@ -3,132 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Profile — PrimeSpace | Member Workspace</title>
-  <meta name="description" content="Manage your PrimeSpace member account profile.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>">
+  <link rel="icon" href="../assets/logo-nobg.png">
+  <title>Profile — Emirates Properties</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/global.css">
 </head>
-<body>
-
-  <!-- ── Sidebar ─────────────────────────────────────────────── -->
-  <aside class="sidebar" id="sidebar" aria-label="Member navigation">
-    <div class="sidebrand">
-      <a class="brand" href="dashboard.html" aria-label="Dashboard home">
-        <span class="logo">PS</span>
-        <span>
-          PrimeSpace
-          <small style="display:block;font-size:8px;letter-spacing:.16em;color:#8b9892">MEMBER WORKSPACE</small>
-        </span>
-      </a>
-    </div>
-    <nav class="sidenav" aria-label="Workspace navigation">
-      <div class="sidetitle">Workspace</div>
-      <a class="sidelink" href="dashboard.html"><span class="sideicon" aria-hidden="true">⌂</span>Dashboard</a>
-      <a class="sidelink" href="projects.html"><span class="sideicon" aria-hidden="true">▦</span>Projects</a>
-      <a class="sidelink" href="orders.html"><span class="sideicon" aria-hidden="true">◷</span>Order activity</a>
-      <a class="sidelink" href="earnings.html"><span class="sideicon" aria-hidden="true">◈</span>Earnings</a>
-      <a class="sidelink" href="wallet.html"><span class="sideicon" aria-hidden="true">◉</span>Wallet</a>
-      <div class="sidetitle">Account</div>
-      <a class="sidelink active" href="profile.html"><span class="sideicon" aria-hidden="true">○</span>Profile</a>
-    </nav>
-    <div class="sidebottom">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="avatar" aria-hidden="true">A</div>
-        <div style="flex:1;min-width:0">
-          <b style="font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Alex Member</b>
-          <small style="color:#9aa59f">Junior Projects</small>
-        </div>
-        <a href="../index.html" title="Return to public site" style="color:var(--muted);font-size:16px" aria-label="Return to public site">↪</a>
-      </div>
-    </div>
-  </aside>
-  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
-
-  <!-- ── Main ─────────────────────────────────────────────────── -->
-  <div class="main">
-    <header class="dashbar" aria-label="Workspace header">
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="btn light mobile-only" onclick="toggleSide()" aria-label="Open menu" aria-expanded="false" id="menu-toggle">☰</button>
-        <div>
-          <div class="smallcaps">Member workspace</div>
-          <b class="js-greeting-short" style="font-size:14px">Good morning, Alex</b>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="btn light" onclick="toast('No new notifications')" id="notifications-btn">
-          ♢ <span style="font-size:11px">Notifications</span>
-        </button>
-        <div class="avatar" aria-label="User avatar">A</div>
-      </div>
-    </header>
-
-    <main class="page" id="main-content">
-
-      <div class="page-head">
-        <div>
-          <div class="smallcaps">Account</div>
-          <h2 class="serif">Profile</h2>
-          <p>Your member account information.</p>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn light" id="edit-profile-btn">Edit profile</button>
-          <button class="btn primary" id="save-profile-btn" style="display:none" type="submit" form="profile-form">Save changes</button>
-        </div>
-      </div>
-
-      <section class="card box" style="max-width:900px" aria-labelledby="profile-name">
-
-        <!-- Profile header -->
-        <div style="display:flex;align-items:center;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line);flex-wrap:wrap">
-          <div class="avatar" style="width:64px;height:64px;font-size:22px" aria-hidden="true">A</div>
-          <div>
-            <h3 id="profile-name" style="margin:0;color:var(--g)">Alex Member</h3>
-            <small style="color:var(--muted)">Member ID · 641771</small>
-          </div>
-          <span class="status" style="margin-left:auto">Active</span>
-        </div>
-
-        <!-- Stats -->
-
-        <div class="stat-grid">
-          <div class="stat-item">Current level<b>Junior Projects</b></div>
-          <div class="stat-item">Capacity<b>4 / 20</b></div>
-          <div class="stat-item">Wallet<b>AED 1,265</b></div>
-        </div>
-
-        <!-- Profile Form -->
-        <form
-          class="fields"
-          style="grid-template-columns:1fr 1fr"
-          id="profile-form"
-          novalidate
-        >
-          <div class="field">
-            <label for="profile-fullname">Full name</label>
-            <input id="profile-fullname" type="text" value="Alex Member" autocomplete="name" readonly>
-          </div>
-          <div class="field">
-            <label for="profile-mobile">UAE Mobile Number</label>
-            <input id="profile-mobile" type="tel" value="+971 50 000 0000" autocomplete="tel" inputmode="tel" readonly>
-          </div>
-          <div class="field">
-            <label for="profile-id">Member ID</label>
-            <input id="profile-id" type="text" value="641771" disabled aria-describedby="profile-id-note">
-            <small id="profile-id-note" style="color:var(--muted);font-size:10px">Cannot be changed</small>
-          </div>
-        </form>
-
-      </section>
-
-    </main>
-  </div>
-
+<body data-app="member" data-page="profile">
   <div class="toast" role="alert" aria-live="polite"></div>
-
-  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/store.js"></script>
   <script src="../assets/js/app.js"></script>
-  <script src="../assets/js/profile.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script src="../assets/js/member.js"></script>
 </body>
 </html>

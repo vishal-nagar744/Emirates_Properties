@@ -1,109 +1,73 @@
 {
+  "settings": {
+    "platformName": "PrimeSpace",
+    "currencySymbol": "AED",
+    "welcomeBonusAmount": 100,
+    "demoMode": true
+  },
   "projects": [
     {
-      "id": "rove-home-marasi",
-      "name": "Rove Home Marasi Drive",
-      "location": "Dubai, UAE",
+      "id": "premium",
+      "name": "Premium Project",
       "tag": "Featured",
-      "rating": "★★★★★",
       "status": "Available",
-      "sold": 87,
-      "price": "AED 1.25M",
-      "priceRaw": 1250000,
-      "commission": "0.26%",
+      "activationAmount": 1000,
+      "dailyCommission": 10,
+      "durationDays": 30,
+      "totalCommission": 300,
+      "commissionFrequency": "daily",
       "image": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1600&q=85",
-      "description": "A premium property project on Marasi Drive, Dubai."
+      "description": "Curated high-reward project simulation with a 30-day commission cycle."
     },
     {
-      "id": "belgrave-gardens",
-      "name": "Belgrave Gardens",
-      "location": "Dubai, UAE",
-      "tag": "New",
-      "rating": "★★★★★",
-      "status": "Available",
-      "sold": 64,
-      "price": "AED 980K",
-      "priceRaw": 980000,
-      "commission": "0.22%",
-      "image": "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1200&q=85",
-      "description": "A curated development with premium finishes and superb access to Dubai's key corridors."
-    },
-    {
-      "id": "six-senses-residences",
-      "name": "Six Senses Residences",
-      "location": "Dubai, UAE",
-      "tag": "Premium",
-      "rating": "★★★★★",
-      "status": "Available",
-      "sold": 42,
-      "price": "AED 5.20M",
-      "priceRaw": 5200000,
-      "commission": "0.31%",
-      "image": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85",
-      "description": "A flagship luxury residential tower offering Six Senses branded residences in the heart of Dubai."
-    },
-    {
-      "id": "waterfront-residences",
-      "name": "Waterfront Residences",
-      "location": "Abu Dhabi, UAE",
+      "id": "smart-gadget",
+      "name": "Smart Gadget Project",
       "tag": "Popular",
-      "rating": "★★★★★",
       "status": "Available",
-      "sold": 71,
-      "price": "AED 2.10M",
-      "priceRaw": 2100000,
-      "commission": "0.28%",
-      "image": "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85",
-      "description": "Stunning waterfront living with uninterrupted sea views and resort-style amenities in Abu Dhabi."
+      "activationAmount": 2000,
+      "dailyCommission": 25,
+      "durationDays": 60,
+      "totalCommission": 1500,
+      "commissionFrequency": "daily",
+      "image": "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1200&q=85",
+      "description": "Mid-tier activation with stronger daily commission over 60 days."
     },
     {
-      "id": "definer-dolce-vita",
-      "name": "Definer Dolce Vita",
-      "location": "Dubai, UAE",
-      "tag": "New",
-      "rating": "★★★★★",
+      "id": "lifestyle",
+      "name": "Lifestyle Project",
+      "tag": "Balanced",
       "status": "Available",
-      "sold": 29,
-      "price": "AED 1.80M",
-      "priceRaw": 1800000,
-      "commission": "0.24%",
-      "image": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1600&q=85",
-      "description": "Elegant residences blending timeless design with contemporary Dubai luxury living."
+      "activationAmount": 1500,
+      "dailyCommission": 18,
+      "durationDays": 45,
+      "totalCommission": 810,
+      "commissionFrequency": "daily",
+      "image": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85",
+      "description": "Balanced activation and daily return across a 45-day cycle."
+    },
+    {
+      "id": "premium-plus",
+      "name": "Premium Project Plus",
+      "tag": "Premium",
+      "status": "Available",
+      "activationAmount": 3000,
+      "dailyCommission": 40,
+      "durationDays": 90,
+      "totalCommission": 3600,
+      "commissionFrequency": "daily",
+      "image": "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85",
+      "description": "Longest cycle with the highest total commission in the demo catalog."
     }
   ],
   "member": {
     "name": "Alex Member",
-    "id": "641771",
-    "level": "Junior Projects",
-    "capacity": 20,
-    "activeProjects": 4,
-    "todayRevenue": 14702,
-    "onHold": 134981,
+    "id": "usr_1001",
+    "mobile": "+91 98765 43210",
+    "referralCode": "ALEX82K",
     "walletBalance": 1265,
     "currency": "AED",
-    "mobile": "+971 50 000 0000"
-  },
-  "recentActivity": [
-    {
-      "project": "Definer Dolce Vita",
-      "activity": "Project submitted",
-      "amount": "AED 108.80 commission",
-      "date": "Today",
-      "status": "Submitted"
-    },
-    {
-      "project": "Rove Home Marasi Drive",
-      "activity": "Project activity",
-      "amount": "—",
-      "date": "Yesterday",
-      "status": "Active"
-    },
-    {
-      "project": "Belgrave Gardens",
-      "activity": "Project activity",
-      "amount": "—",
-      "date": "18 Sep",
-      "status": "Active"
-    }
-  ]
+    "activeProjects": 2,
+    "todayCommission": 35,
+    "totalCommission": 420
+  }
 }

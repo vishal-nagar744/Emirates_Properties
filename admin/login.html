@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Emirates Properties</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="assets/logo-nobg.png">
+  <link rel="stylesheet" href="assets/css/global.css">
+</head>
+<body data-app="admin-login">
+  <div class="auth-panel" style="min-height:100vh">
+    <div class="auth-box card">
+      <a class="brand" href="dashboard.html" aria-label="Emirates Properties home"><img class="brand-logo" src="assets/logo-nobg.png" alt="Emirates Properties"></a>
+      <h2 class="auth-title">Admin</h2>
+      <form class="fields" id="admin-login">
+        <div class="field"><label for="admin-id">Admin ID</label><input id="admin-id" autocomplete="username"></div>
+        <div class="field"><label for="admin-password">Password</label><input id="admin-password" type="password" autocomplete="current-password"></div>
+        <p class="field-error" id="admin-error" hidden></p>
+        <button class="btn primary btn-full" type="submit">Log in</button>
+      </form>
+    </div>
+  </div>
+  <div class="toast" role="alert" aria-live="polite"></div>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    document.getElementById('admin-login').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const result = Store.adminLogin(
+        document.getElementById('admin-id').value.trim(),
+        document.getElementById('admin-password').value
+      );
+      if (!result.ok) {
+        const err = document.getElementById('admin-error');
+        err.hidden = false;
+        err.textContent = result.error;
+        return;
+      }
+      window.location.href = 'dashboard.html';
+    });
+  </script>
+</body>
+</html>

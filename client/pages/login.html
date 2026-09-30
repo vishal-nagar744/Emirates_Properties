@@ -3,75 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login — PrimeSpace | Dubai Property Projects</title>
-  <meta name="description" content="Sign in to your PrimeSpace member workspace.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>">
+  <title>Log in — Emirates Properties</title>
+  <meta name="description" content="Sign in to Emirates Properties.">
+  <link rel="icon" href="../assets/logo-nobg.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/global.css">
 </head>
-<body>
+<body class="auth-fit">
 
   <div class="auth-layout">
-
-    <!-- Visual panel -->
-    <div
+    <aside
       class="auth-visual"
-      style="background-image:url('https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85')"
+      style="background-image:url('https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1400&q=85')"
       role="img"
-      aria-label="Dubai luxury property at dusk"
+      aria-label="Modern interior architecture"
     >
       <div>
-        <div class="smallcaps" style="color:#d9c89d">PrimeSpace · Dubai</div>
-        <h1 class="serif" style="font-size:clamp(36px,4vw,52px);margin:12px 0;line-height:1.06">A calmer way to manage your property journey.</h1>
-        <p style="line-height:1.8;color:#d4dfda;font-size:14px">A focused, premium member experience for Dubai property projects.</p>
+        <p class="smallcaps" style="color:#dcc99b">Member access</p>
+        <h1 class="serif auth-visual-title">Welcome back.</h1>
+        <p class="auth-visual-text">Your projects, commissions, and wallet.</p>
       </div>
-    </div>
+    </aside>
 
-    <!-- Form panel -->
     <div class="auth-panel">
       <div class="auth-box card">
-        <a class="brand" href="../index.html" aria-label="Return to PrimeSpace home">
-          <span class="logo">PS</span>
-          <span>PrimeSpace</span>
+        <a class="brand" href="../index.html" aria-label="Emirates Properties home">
+          <img class="brand-logo" src="../assets/logo-nobg.png" alt="Emirates Properties">
         </a>
 
-        <h2 style="font-size:29px;color:var(--g);margin:28px 0 6px">Welcome back</h2>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:22px">Sign in to continue to your member workspace.</p>
+        <h2 class="auth-title">Log in</h2>
+
+        <div class="auth-alert" id="login-alert" hidden></div>
 
         <form class="fields" id="login-form" novalidate>
           <div class="field">
-            <label for="login-mobile">UAE Mobile Number</label>
+            <label for="login-mobile">Mobile number</label>
             <input
               id="login-mobile"
               type="tel"
               required
-              placeholder="+971 50 000 0000"
+              placeholder="+91 / +971 …"
               autocomplete="tel"
               inputmode="tel"
             >
+            <p class="field-error" id="login-mobile-error" hidden></p>
           </div>
+
           <div class="field">
             <label for="login-password">Password</label>
-            <input
-              id="login-password"
-              type="password"
-              required
-              placeholder="Enter password"
-              autocomplete="current-password"
-            >
+            <div class="password-wrap">
+              <input
+                id="login-password"
+                type="password"
+                required
+                placeholder="Enter password"
+                autocomplete="current-password"
+              >
+              <button class="password-toggle" type="button" data-toggle-password="login-password" aria-label="Show password">Show</button>
+            </div>
+            <p class="field-error" id="login-password-error" hidden></p>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;align-items:center">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="login-remember"> Remember me
+
+          <div class="auth-row">
+            <label class="check-label">
+              <input type="checkbox" id="login-remember">
+              <span>Remember me</span>
             </label>
-            <a style="color:var(--g);font-weight:700" href="forgot.html">Forgot password?</a>
+            <a class="auth-link" href="forgot.html">Forgot password?</a>
           </div>
+
           <button class="btn primary btn-full" type="submit" id="login-submit-btn">Log in</button>
         </form>
 
-        <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--muted)">
-          New here? <a style="color:var(--g);font-weight:700" href="signup.html">Create an account</a>
+        <p class="auth-foot">
+          New here? <a class="auth-link" href="signup.html">Create an account</a>
         </p>
       </div>
     </div>

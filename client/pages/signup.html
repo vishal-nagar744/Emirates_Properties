@@ -3,102 +3,117 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Create Account — PrimeSpace | Dubai Property Projects</title>
-  <meta name="description" content="Create your PrimeSpace member account to access exclusive Dubai property projects.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>">
+  <title>Create account — Emirates Properties</title>
+  <meta name="description" content="Create your Emirates Properties account.">
+  <link rel="icon" href="../assets/logo-nobg.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/global.css">
 </head>
-<body>
+<body class="auth-fit auth-signup">
 
   <div class="auth-layout">
-
-    <!-- Visual panel -->
-    <div
+    <aside
       class="auth-visual"
-      style="background-image:url('https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85')"
+      style="background-image:url('https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85')"
       role="img"
-      aria-label="Dubai luxury property exterior"
+      aria-label="Bright modern living space"
     >
       <div>
-        <div class="smallcaps" style="color:#d9c89d">PrimeSpace · Dubai</div>
-        <h1 class="serif" style="font-size:clamp(36px,4vw,52px);margin:12px 0;line-height:1.06">A calmer way to manage your property journey.</h1>
-        <p style="line-height:1.8;color:#d4dfda;font-size:14px">A focused, premium member experience for Dubai property projects.</p>
+        <p class="smallcaps" style="color:#dcc99b">New account</p>
+        <h1 class="serif auth-visual-title">AED 100 welcome bonus.</h1>
+        <p class="auth-visual-text">Name, mobile, and password.</p>
       </div>
-    </div>
+    </aside>
 
-    <!-- Form panel -->
     <div class="auth-panel">
       <div class="auth-box card">
-        <a class="brand" href="../index.html" aria-label="Return to PrimeSpace home">
-          <span class="logo">PS</span>
-          <span>PrimeSpace</span>
+        <a class="brand" href="../index.html" aria-label="Emirates Properties home">
+          <img class="brand-logo" src="../assets/logo-nobg.png" alt="Emirates Properties">
         </a>
 
-        <h2 style="font-size:29px;color:var(--g);margin:28px 0 6px">Create your account</h2>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:22px">Start your PrimeSpace member journey.</p>
+        <h2 class="auth-title">Create account</h2>
+
+        <div class="auth-alert" id="signup-alert" hidden></div>
 
         <form class="fields" id="signup-form" novalidate>
           <div class="field">
-            <label for="signup-name">Full Name</label>
+            <label for="signup-name">Full name</label>
             <input
               id="signup-name"
               type="text"
               required
-              placeholder="Enter your full name"
+              placeholder="Your full name"
               autocomplete="name"
             >
+            <p class="field-error" id="signup-name-error" hidden></p>
           </div>
+
           <div class="field">
-            <label for="signup-mobile">UAE Mobile Number</label>
+            <label for="signup-mobile">Mobile number</label>
             <input
               id="signup-mobile"
               type="tel"
               required
-              placeholder="+971 50 000 0000"
+              placeholder="+91 / +971 …"
               autocomplete="tel"
               inputmode="tel"
             >
+            <p class="field-error" id="signup-mobile-error" hidden></p>
           </div>
+
           <div class="field">
             <label for="signup-password">Password</label>
-            <input
-              id="signup-password"
-              type="password"
-              required
-              placeholder="Create a password"
-              autocomplete="new-password"
-            >
+            <div class="password-wrap">
+              <input
+                id="signup-password"
+                type="password"
+                required
+                placeholder="Create a password"
+                autocomplete="new-password"
+                minlength="6"
+              >
+              <button class="password-toggle" type="button" data-toggle-password="signup-password" aria-label="Show password">Show</button>
+            </div>
+            <p class="field-error" id="signup-password-error" hidden></p>
           </div>
+
           <div class="field">
-            <label for="signup-confirm">Confirm Password</label>
-            <input
-              id="signup-confirm"
-              type="password"
-              required
-              placeholder="Confirm your password"
-              autocomplete="new-password"
-            >
+            <label for="signup-confirm">Confirm password</label>
+            <div class="password-wrap">
+              <input
+                id="signup-confirm"
+                type="password"
+                required
+                placeholder="Re-enter password"
+                autocomplete="new-password"
+              >
+              <button class="password-toggle" type="button" data-toggle-password="signup-confirm" aria-label="Show password">Show</button>
+            </div>
+            <p class="field-error" id="signup-confirm-error" hidden></p>
           </div>
-          <div class="field">
-            <label for="signup-invite" style="display:flex;justify-content:space-between;align-items:center">
-              Invitation Code
-              <span style="font-size:10px;font-weight:400;color:var(--muted);letter-spacing:0">Optional</span>
-            </label>
+
+          <button class="invite-toggle" type="button" id="show-invite">Have a referral code?</button>
+
+          <div class="field" id="signup-invite-field" hidden>
+            <label for="signup-invite">Invitation code</label>
             <input
               id="signup-invite"
               type="text"
-              placeholder="Enter invitation code (optional)"
+              placeholder="Friend’s referral code"
               autocomplete="off"
               spellcheck="false"
             >
+            <p class="field-hint" id="signup-invite-hint" hidden></p>
+            <p class="field-error" id="signup-invite-error" hidden></p>
           </div>
+
           <button class="btn primary btn-full" type="submit" id="signup-submit-btn">Create account</button>
         </form>
 
-        <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--muted)">
-          Already registered? <a style="color:var(--g);font-weight:700" href="login.html">Log in</a>
+        <p class="auth-foot">
+          Already registered? <a class="auth-link" href="login.html">Log in</a>
         </p>
       </div>
     </div>

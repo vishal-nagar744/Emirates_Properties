@@ -129,48 +129,38 @@ function initActiveNav() {
   });
 }
 
-function initCatalog(searchId, gridId, filtersId) {
-  const input = document.getElementById(searchId);
+function initProjectFilter(inputId, gridId) {
+  const input = document.getElementById(inputId);
   const grid = document.getElementById(gridId);
-  const filters = filtersId ? document.getElementById(filtersId) : null;
   if (!input || !grid) return;
 
   const empty = document.getElementById('projects-empty');
-  let mode = 'all';
 
   function runFilter() {
     const query = input.value.toLowerCase().trim();
     let visible = 0;
     grid.querySelectorAll('.property-card').forEach((card) => {
-      const text = `${card.dataset.name || ''} ${card.innerText}`.toLowerCase();
-      const amount = Number(card.dataset.amount || 0);
-      const days = Number(card.dataset.days || 0);
-      const textOk = !query || text.includes(query);
-      const filterOk = mode === 'all'
-        || (mode === 'budget' && amount <= 2000)
-        || (mode === 'long' && days >= 60);
-      const show = textOk && filterOk;
-      card.style.display = show ? '' : 'none';
-      if (show) visible += 1;
+      const name = (card.dataset.name || '').toLowerCase();
+      const tags = (card.dataset.tags || '').toLowerCase();
+      const text = card.innerText.toLowerCase();
+      const match = !query || name.includes(query) || tags.includes(query) || text.includes(query);
+      card.style.display = match ? '' : 'none';
+      if (match) visible += 1;
     });
     if (empty) empty.hidden = visible > 0;
   }
 
   input.addEventListener('input', runFilter);
-  if (filters) {
-    filters.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-filter]');
-      if (!btn) return;
-      mode = btn.dataset.filter || 'all';
-      filters.querySelectorAll('[data-filter]').forEach((el) => {
-        const on = el === btn;
-        el.classList.toggle('active', on);
-        el.setAttribute('aria-pressed', on ? 'true' : 'false');
-      });
-      runFilter();
-    });
-  }
   runFilter();
+}
+
+function initHeroExplore() {
+  const btn = document.getElementById('hero-explore-btn');
+  const projects = document.getElementById('projects');
+  if (!btn || !projects) return;
+  btn.addEventListener('click', () => {
+    projects.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function initDemoForms() {
@@ -183,12 +173,14 @@ function initDemoForms() {
 }
 
 function initApp() {
+  initHearts();
   initOverlay();
   initActiveNav();
   initDemoForms();
   initMobileNav();
-  if (document.getElementById('catalog-search') && document.getElementById('property-grid')) {
-    initCatalog('catalog-search', 'property-grid', 'catalog-filters');
+  initHeroExplore();
+  if (document.getElementById('hero-search') && document.getElementById('property-grid')) {
+    initProjectFilter('hero-search', 'property-grid');
   }
 }
 
