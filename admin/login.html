@@ -15,30 +15,83 @@
     <div class="auth-box card">
       <a class="brand" href="dashboard.html" aria-label="Emirates Properties home"><img class="brand-logo" src="assets/logo-nobg.png" alt="Emirates Properties"></a>
       <h2 class="auth-title">Admin</h2>
-      <form class="fields" id="admin-login">
-        <div class="field"><label for="admin-id">Admin ID</label><input id="admin-id" autocomplete="username"></div>
-        <div class="field"><label for="admin-password">Password</label><input id="admin-password" type="password" autocomplete="current-password"></div>
-        <p class="field-error" id="admin-error" hidden></p>
-        <button class="btn primary btn-full" type="submit">Log in</button>
+      <form class="fields" id="admin-login" novalidate>
+        <div class="field">
+          <label for="admin-id">Admin ID</label>
+          <input id="admin-id" autocomplete="username">
+          <p class="field-error" id="admin-id-error" hidden></p>
+        </div>
+        <div class="field">
+          <label for="admin-password">Password</label>
+          <input id="admin-password" type="password" autocomplete="current-password">
+          <p class="field-error" id="admin-password-error" hidden></p>
+        </div>
+        <button class="btn primary btn-full" type="submit" id="admin-submit">Log in</button>
       </form>
     </div>
   </div>
   <div class="toast" role="alert" aria-live="polite"></div>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
-    document.getElementById('admin-login').addEventListener('submit', (e) => {
+    function setAdminError(id, message) {
+      const el = document.getElementById(id);
+      const inputId = id.endsWith('-error') ? id.slice(0, -6) : '';
+      const input = inputId ? document.getElementById(inputId) : null;
+      if (input) {
+        input.classList.toggle('is-invalid', Boolean(message));
+        input.setAttribute('aria-invalid', message ? 'true' : 'false');
+      }
+      if (!el) return;
+      el.hidden = !message;
+      el.textContent = message || '';
+    }
+
+    document.getElementById('admin-login').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const result = Store.adminLogin(
-        document.getElementById('admin-id').value.trim(),
-        document.getElementById('admin-password').value
-      );
+      setAdminError('admin-id-error', '');
+      setAdminError('admin-password-error', '');
+
+      const id = document.getElementById('admin-id').value.trim();
+      const password = document.getElementById('admin-password').value;
+      let ok = true;
+      if (!id) {
+        setAdminError('admin-id-error', 'Enter your admin ID.');
+        ok = false;
+      }
+      if (!password) {
+        setAdminError('admin-password-error', 'Enter your password.');
+        ok = false;
+      }
+      if (!ok) return;
+
+      const btn = document.getElementById('admin-submit');
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      let result;
+      try {
+        const res = await fetch('http://127.0.0.1:4000/api/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ id, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        result = { ok: res.ok, data };
+      } catch {
+        result = { ok: false, data: { message: 'Could not reach the server.' } };
+      }
+
       if (!result.ok) {
-        const err = document.getElementById('admin-error');
-        err.hidden = false;
-        err.textContent = result.error;
+        const message = result.data.message || 'Incorrect admin ID or password.';
+        setAdminError('admin-password-error', message);
+        btn.disabled = false;
+        btn.textContent = 'Log in';
         return;
       }
+
+      sessionStorage.setItem('ps_admin', '1');
+      sessionStorage.setItem('ps_admin_token', result.data.token);
+      sessionStorage.setItem('ps_admin_user', JSON.stringify(result.data.admin || {}));
       window.location.href = 'dashboard.html';
     });
   </script>

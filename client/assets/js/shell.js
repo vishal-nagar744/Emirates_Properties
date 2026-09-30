@@ -56,7 +56,6 @@ function navIcon(name) {
     chart: '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/>',
     wallet: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18"/><circle cx="16" cy="14.5" r="1"/>',
     user: '<circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.5c1.4-3 3.6-4.5 6.5-4.5s5.1 1.5 6.5 4.5"/>',
-    bell: '<path d="M6 16V11a6 6 0 1 1 12 0v5l1.4 2H4.6z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     users: '<circle cx="9" cy="8" r="3"/><path d="M3.5 19c1.2-2.6 3-4 5.5-4s4.3 1.4 5.5 4"/><circle cx="17" cy="9" r="2.2"/><path d="M16 15.2c1.6-.5 3-.2 4.2 1.3"/>',
     card: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/>',
@@ -123,10 +122,13 @@ function mountShell() {
     window.location.href = 'login.html';
     return;
   }
+  if (app === 'member' && !localStorage.getItem('ps_member') && !sessionStorage.getItem('ps_member')) {
+    window.location.href = 'login.html';
+    return;
+  }
 
   const user = Store.user();
   const initial = (user.fullName || 'A').trim().charAt(0).toUpperCase();
-  const unread = Store.unreadCount();
   const isAdmin = app === 'admin';
 
   const aside = isAdmin
@@ -176,13 +178,6 @@ function mountShell() {
           </nav>
         </div>
         <div class="dashbar-right">
-          ${isAdmin ? '' : `<div class="notify-wrap">
-            <button class="icon-btn" type="button" id="notify-btn" aria-label="Notifications" aria-expanded="false" aria-controls="notify-drawer">
-              ${navIcon('bell')}
-              <span class="count-pill" id="notify-count"${unread ? '' : ' hidden'}>${unread}</span>
-            </button>
-            <aside class="drawer notify-pop" id="notify-drawer" hidden aria-label="Notifications"></aside>
-          </div>`}
           <div class="avatar" aria-hidden="true">${isAdmin ? 'AD' : initial}</div>
         </div>
       </header>
@@ -207,9 +202,6 @@ function mountShell() {
   const overlay = document.getElementById('sidebar-overlay');
   if (overlay) overlay.addEventListener('click', closeSide);
 
-  const notifyBtn = document.getElementById('notify-btn');
-  if (notifyBtn) notifyBtn.addEventListener('click', toggleNotify);
-
   const adminOut = document.getElementById('admin-logout');
   if (adminOut) {
     adminOut.addEventListener('click', (e) => {
@@ -218,60 +210,6 @@ function mountShell() {
       window.location.href = 'login.html';
     });
   }
-
-  document.addEventListener('click', (e) => {
-    const drawer = document.getElementById('notify-drawer');
-    const btn = document.getElementById('notify-btn');
-    if (!drawer || drawer.hidden || !btn) return;
-    if (btn.contains(e.target) || drawer.contains(e.target)) return;
-    drawer.hidden = true;
-    btn.setAttribute('aria-expanded', 'false');
-  });
-}
-
-function toggleNotify() {
-  const drawer = document.getElementById('notify-drawer');
-  const btn = document.getElementById('notify-btn');
-  if (!drawer) return;
-  if (!drawer.hidden) {
-    drawer.hidden = true;
-    if (btn) btn.setAttribute('aria-expanded', 'false');
-    return;
-  }
-  if (btn) btn.setAttribute('aria-expanded', 'true');
-  const items = Store.notifications();
-  drawer.hidden = false;
-  drawer.innerHTML = `
-    <div class="drawer-head">
-      <h3>Notifications</h3>
-      <button class="btn light" type="button" id="mark-read">Mark all read</button>
-    </div>
-    <div class="drawer-list">
-      ${items.length ? items.map((n) => `
-        <article class="note${n.read ? '' : ' unread'}">
-          <b>${n.title}</b>
-          <p>${n.body}</p>
-          <small>${n.createdAt.slice(0, 10)}</small>
-        </article>`).join('') : '<p class="muted">No notifications yet.</p>'}
-    </div>`;
-  document.getElementById('mark-read').addEventListener('click', () => {
-    Store.markAllRead();
-    const pill = document.getElementById('notify-count');
-    if (pill) {
-      pill.textContent = '0';
-      pill.hidden = true;
-    }
-    toggleNotify();
-    toast('Notifications marked read');
-  });
-}
-
-function refreshNotifyCount() {
-  const pill = document.getElementById('notify-count');
-  if (!pill) return;
-  const n = Store.unreadCount();
-  pill.textContent = String(n);
-  pill.hidden = n === 0;
 }
 
 mountShell();

@@ -9,7 +9,7 @@
 
 /* ── Configuration ─────────────────────────────────────────── */
 const API_CONFIG = {
-  BASE_URL: 'https://api.primespace.ae/v1', // ← update to real URL
+  BASE_URL: 'http://127.0.0.1:4000/api',
   TIMEOUT:  10000,
   HEADERS: {
     'Content-Type': 'application/json',
@@ -54,24 +54,21 @@ const Auth = {
 /* ── Auth API ───────────────────────────────────────────────── */
 const AuthAPI = {
   async login(mobile, password) {
-    // TODO: return _request('POST', '/auth/login', { mobile, password });
-    return { ok: true, data: { token: 'demo_token', user: { name: 'Alex Member' } } };
+    return _request('POST', '/auth/login', { mobile, password });
   },
 
   async signup(fullName, mobile, password, invitationCode = null) {
-    // TODO: return _request('POST', '/auth/signup', { fullName, mobile, password, invitationCode });
-    return { ok: true, data: { message: 'Account created successfully.' } };
+    return _request('POST', '/auth/signup', { fullName, mobile, password, invitationCode });
   },
 
   async forgotPassword(mobile) {
-    // TODO: return _request('POST', '/auth/forgot-password', { mobile });
-    return { ok: true, data: { message: 'Reset request submitted.' } };
+    return _request('POST', '/auth/forgot-password', { mobile });
   },
 
   async logout() {
+    const token = Auth.getToken();
     Auth.clearToken();
-    // TODO: return _request('POST', '/auth/logout', {}, Auth.getToken());
-    return { ok: true };
+    return _request('POST', '/auth/logout', {}, token);
   },
 };
 

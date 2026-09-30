@@ -3,10 +3,16 @@
    Emirates Properties | PrimeSpace
    ============================================================ */
 
-const DEMO_INVITE_CODES = ['ALEX82K', 'VIKAS82K', 'DEMO100'];
+const API_BASE = 'http://127.0.0.1:4000';
 
 function setFieldError(id, message) {
   const el = document.getElementById(id);
+  const inputId = id.endsWith('-error') ? id.slice(0, -6) : '';
+  const input = inputId ? document.getElementById(inputId) : null;
+  if (input) {
+    input.classList.toggle('is-invalid', Boolean(message));
+    input.setAttribute('aria-invalid', message ? 'true' : 'false');
+  }
   if (!el) return;
   if (!message) {
     el.hidden = true;
@@ -17,19 +23,18 @@ function setFieldError(id, message) {
   el.textContent = message;
 }
 
-function setAlert(id, message, type = 'error') {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (!message) {
-    el.hidden = true;
-    el.textContent = '';
-    el.classList.remove('auth-alert-success', 'auth-alert-error');
-    return;
+async function postAuth(path, body) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data };
+  } catch {
+    return { ok: false, data: { message: 'Could not reach the server.' } };
   }
-  el.hidden = false;
-  el.textContent = message;
-  el.classList.toggle('auth-alert-success', type === 'success');
-  el.classList.toggle('auth-alert-error', type === 'error');
 }
 
 function setBusy(btn, busy, label) {
@@ -73,18 +78,21 @@ function initInvitePrefill() {
 }
 
 /* ── Login ──────────────────────────────────────────────────── */
+function saveMemberSession(data) {
+  localStorage.setItem('ps_token', data.token);
+  sessionStorage.setItem('ps_token', data.token);
+  const raw = JSON.stringify(data.user);
+  localStorage.setItem('ps_member', raw);
+  sessionStorage.setItem('ps_member', raw);
+  if (data.user && data.user.mobile) localStorage.setItem('ps_user_mobile', data.user.mobile);
+}
+
 function initLoginForm() {
   const form = document.getElementById('login-form');
   if (!form) return;
 
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('registered') === '1') {
-    setAlert('login-alert', 'Account created. Log in to continue.', 'success');
-  }
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    setAlert('login-alert', '');
     setFieldError('login-mobile-error', '');
     setFieldError('login-password-error', '');
 
@@ -106,18 +114,15 @@ function initLoginForm() {
     const btn = document.getElementById('login-submit-btn');
     setBusy(btn, true, 'Signing in…');
 
-    // UI demo: accept any non-empty credentials and enter workspace
-    // TODO: const result = await AuthAPI.login(mobile, password);
-    const token = 'demo_token';
-    if (remember) {
-      localStorage.setItem('ps_token', token);
-      localStorage.setItem('ps_user_mobile', mobile);
-    } else {
-      sessionStorage.setItem('ps_token', token);
-      localStorage.setItem('ps_token', token); // Auth helpers still read localStorage
-      localStorage.setItem('ps_user_mobile', mobile);
+    const result = await postAuth('/api/auth/login', { mobile, password, remember: Boolean(remember) });
+    if (!result.ok) {
+      const message = result.data.message || 'Incorrect mobile number or password.';
+      setFieldError('login-password-error', message);
+      setBusy(btn, false, 'Log in');
+      return;
     }
 
+    saveMemberSession(result.data);
     toast('Signed in.');
     window.location.href = 'dashboard.html';
   });
@@ -144,7 +149,6 @@ function initSignupForm() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    setAlert('signup-alert', '');
     ['signup-name', 'signup-mobile', 'signup-password', 'signup-confirm', 'signup-invite'].forEach((id) => {
       setFieldError(`${id}-error`, '');
     });
@@ -173,23 +177,30 @@ function initSignupForm() {
       setFieldError('signup-confirm-error', 'Passwords do not match.');
       ok = false;
     }
-    if (invitationCode && !DEMO_INVITE_CODES.includes(invitationCode)) {
-      setFieldError(
-        'signup-invite-error',
-        `Invitation code not recognised. Try ${DEMO_INVITE_CODES[0]} or leave it blank.`
-      );
-      ok = false;
-    }
     if (!ok) return;
 
     const btn = document.getElementById('signup-submit-btn');
     setBusy(btn, true, 'Creating…');
-    localStorage.setItem('ps_pending_signup', JSON.stringify({ fullName, mobile, invitationCode }));
 
-    // TODO: await AuthAPI.signup(...) — welcome bonus + referral code on backend
-    toast(invitationCode ? `Account created. Invite ${invitationCode} applied.` : 'Account created.');
+    const result = await postAuth('/api/auth/signup', {
+      fullName,
+      mobile,
+      password,
+      invitationCode,
+    });
+    if (!result.ok) {
+      const message = result.data.message || 'Could not create the account.';
+      if (/invitation/i.test(message)) setFieldError('signup-invite-error', message);
+      else if (/password/i.test(message)) setFieldError('signup-password-error', message);
+      else if (/name/i.test(message)) setFieldError('signup-name-error', message);
+      else setFieldError('signup-mobile-error', message);
+      setBusy(btn, false, 'Create account');
+      return;
+    }
 
-    window.location.href = 'login.html?registered=1';
+    saveMemberSession(result.data);
+    toast('Account created.');
+    window.location.href = 'dashboard.html';
   });
 }
 
@@ -200,24 +211,44 @@ function initForgotForm() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    setAlert('forgot-alert', '');
     setFieldError('forgot-mobile-error', '');
+    setFieldError('forgot-password-error', '');
+    setFieldError('forgot-confirm-error', '');
     const success = document.getElementById('forgot-success');
     if (success) success.hidden = true;
 
     const mobile = document.getElementById('forgot-mobile').value.trim();
+    const password = document.getElementById('forgot-password').value;
+    const confirm = document.getElementById('forgot-confirm').value;
+    let ok = true;
     if (!mobile) {
       setFieldError('forgot-mobile-error', 'Enter your registered mobile number.');
+      ok = false;
+    }
+    if (!password || password.length < 6) {
+      setFieldError('forgot-password-error', 'Password must be at least 6 characters.');
+      ok = false;
+    }
+    if (password !== confirm) {
+      setFieldError('forgot-confirm-error', 'Passwords do not match.');
+      ok = false;
+    }
+    if (!ok) return;
+
+    const btn = document.getElementById('forgot-submit-btn');
+    setBusy(btn, true, 'Updating…');
+
+    const result = await postAuth('/api/auth/forgot-password', { mobile, password });
+    if (!result.ok) {
+      const message = result.data.message || 'Could not update the password.';
+      if (/password/i.test(message)) setFieldError('forgot-password-error', message);
+      else setFieldError('forgot-mobile-error', message);
+      setBusy(btn, false, 'Update password');
       return;
     }
 
-    const btn = document.getElementById('forgot-submit-btn');
-    setBusy(btn, true, 'Sending…');
-
-    // TODO: await AuthAPI.forgotPassword(mobile);
     if (success) success.hidden = false;
-    toast('Reset request submitted.');
-    setBusy(btn, false, 'Send reset link');
+    setBusy(btn, false, 'Update password');
     form.reset();
   });
 }

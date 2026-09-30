@@ -311,12 +311,6 @@ const Store = (() => {
         { id: 'ref_2', name: 'Omar K.', mobile: '••••2233', date: dayKey(18), status: 'frozen', referrerId: userId },
         { id: 'ref_3', name: 'Neha I.', mobile: '••••11223', date: dayKey(0), status: 'active', referrerId: userId },
       ],
-      notifications: [
-        { id: 'n1', title: 'Daily commission received', body: 'AED 10 credited for Premium Project.', read: false, createdAt: isoDaysAgo(1) },
-        { id: 'n2', title: 'Cash out requested', body: 'AED 500 cash out is pending review.', read: false, createdAt: isoDaysAgo(1, 16) },
-        { id: 'n3', title: 'New referral', body: 'Neha I. joined with your referral code.', read: false, createdAt: isoDaysAgo(0, 8) },
-        { id: 'n4', title: 'Welcome bonus', body: 'AED 100 was credited to your wallet.', read: true, createdAt: isoDaysAgo(40) },
-      ],
       seq: 9000,
     };
   }
@@ -339,6 +333,10 @@ const Store = (() => {
       dirty = true;
     }
     if (hydrateProjects()) dirty = true;
+    if (db.notifications) {
+      delete db.notifications;
+      dirty = true;
+    }
     if (dirty) save();
     return db;
   }
@@ -477,25 +475,6 @@ const Store = (() => {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  function notify(title, body) {
-    db.notifications.unshift({
-      id: nextId('n'),
-      title,
-      body,
-      read: false,
-      createdAt: new Date().toISOString(),
-    });
-  }
-
-  function unreadCount() {
-    return load().notifications.filter((n) => !n.read).length;
-  }
-
-  function markAllRead() {
-    load().notifications.forEach((n) => { n.read = true; });
-    save();
-  }
-
   function stats() {
     const u = user();
     const list = orders();
@@ -579,7 +558,6 @@ const Store = (() => {
       description: `Activated ${project.name}`,
       referenceId: order.id,
     });
-    notify('Project activated', `${project.name} is active. Daily commission starts on the next credit.`);
     save();
     return { ok: true, orderId: order.id };
   }
@@ -622,12 +600,10 @@ const Store = (() => {
           referenceId: order.id,
           createdAt: `${next}T10:00:00.000Z`,
         });
-        notify('Daily commission received', `${money(order.dailyCommission)} credited for ${order.projectName}.`);
         credited += 1;
         if (order.daysCompleted >= order.durationDays) {
           order.status = 'completed';
           order.remainingCommission = 0;
-          notify('Project completed', `${order.projectName} finished its commission cycle.`);
           break;
         }
       }
@@ -662,7 +638,6 @@ const Store = (() => {
       description: 'USDT TRC20 cash in',
       referenceId: nextId('cin'),
     });
-    notify('Cash in', `${money(value)} added to your wallet.`);
     save();
     return { ok: true };
   }
@@ -671,7 +646,6 @@ const Store = (() => {
     load();
     db.withdrawal = { ...db.withdrawal, ...payload };
     if (payload.bank) db.withdrawal.bank = { ...db.withdrawal.bank, ...payload.bank };
-    notify('Security information changed', 'Withdrawal details were updated.');
     save();
     return { ok: true };
   }
@@ -722,7 +696,6 @@ const Store = (() => {
       status: 'pending',
       referenceId: id,
     });
-    notify('Cash out requested', `${money(value)} cash out submitted for review.`);
     save();
     return { ok: true, id };
   }
@@ -751,7 +724,6 @@ const Store = (() => {
       account = { id: nextId('wd'), kind: 'bank', holder, bankName, iban, accountNumber };
     }
     db.withdrawal.accounts.push(account);
-    notify('Security information changed', 'A withdrawal account was added.');
     save();
     return { ok: true, account };
   }
@@ -761,7 +733,6 @@ const Store = (() => {
     const before = db.withdrawal.accounts.length;
     db.withdrawal.accounts = db.withdrawal.accounts.filter((a) => a.id !== id);
     if (db.withdrawal.accounts.length === before) return { ok: false, error: 'Account not found.' };
-    notify('Security information changed', 'A withdrawal account was removed.');
     save();
     return { ok: true };
   }
@@ -794,7 +765,6 @@ const Store = (() => {
     if (current !== db.user.password) return { ok: false, error: 'Current password is incorrect.' };
     if (!next || next.length < 6) return { ok: false, error: 'New password must be at least 6 characters.' };
     db.user.password = next;
-    notify('Security information changed', 'Login password was updated.');
     save();
     return { ok: true };
   }
@@ -806,7 +776,6 @@ const Store = (() => {
     }
     if (!next || String(next).length < 6) return { ok: false, error: 'Use at least 6 characters.' };
     db.user.withdrawalPassword = String(next);
-    notify('Security information changed', 'Withdrawal password was updated.');
     save();
     return { ok: true };
   }
@@ -822,11 +791,7 @@ const Store = (() => {
     return sessionStorage.getItem('ps_admin') === '1';
   }
 
-  function adminLogin(id, password) {
-    if (id === 'admin' && password === 'admin') {
-      sessionStorage.setItem('ps_admin', '1');
-      return { ok: true };
-    }
+  function adminLogin() {
     return { ok: false, error: 'Incorrect admin ID or password.' };
   }
 
@@ -860,7 +825,6 @@ const Store = (() => {
         description: `Admin adjustment · ${reason}`,
         referenceId: 'admin',
       });
-      notify('Wallet adjustment', `${money(value)} · ${reason}`);
     }
     save();
     return { ok: true };
@@ -917,7 +881,6 @@ const Store = (() => {
       if (db.user.id === req.userId) {
         db.user.pendingCashOut = Math.max(0, db.user.pendingCashOut - req.amount);
         if (tx) tx.status = 'completed';
-        notify('Cash out completed', `${money(req.amount)} cash out was approved.`);
       }
     } else if (status === 'rejected') {
       if (!reason) return { ok: false, error: 'A rejection reason is required.' };
@@ -939,7 +902,6 @@ const Store = (() => {
           description: `Cash out rejected · ${reason}`,
           referenceId: id,
         });
-        notify('Cash out rejected', reason);
       }
     } else {
       req.status = status;
@@ -959,11 +921,10 @@ const Store = (() => {
 
   return {
     load, save, reset, money, user, settings, projects, projectById, orders, orderById,
-    commissionsFor, allCommissions, transactions, unreadCount, markAllRead, stats,
+    commissionsFor, allCommissions, transactions, stats,
     activate, creditDue, nextCommissionLabel, cashIn, saveWithdrawal, cashOut,
     updateProfile, changePassword, setWithdrawalPassword, maskAccount, destinationFor,
     accounts, addAccount, removeAccount,
-    notifications: () => load().notifications,
     withdrawal: () => load().withdrawal,
     referrals: () => load().referrals.filter((r) => r.referrerId === load().user.id),
     cashouts: () => load().cashouts,

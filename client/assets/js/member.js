@@ -3,8 +3,39 @@
    ============================================================ */
 
 const Member = (() => {
+  const API_BASE = 'http://127.0.0.1:4000';
+  let catalog = [];
+  let ordersCache = [];
+  let commissionsCache = [];
+  let referralsCache = [];
+  let txCache = [];
+  let accountsCache = [];
+  let platform = {
+    platformName: 'Emirates Properties',
+    welcomeBonusAmount: 100,
+    minCashOutAmount: 500,
+    supportTelegramUsername: 'EmiratesPropertiesSupport',
+    demoCashInUSDTAddress: '',
+  };
+  let loadError = '';
+
   function pageEl() {
     return document.getElementById('page');
+  }
+
+  async function memberApi(path, { method = 'GET', body } = {}) {
+    const headers = { Accept: 'application/json' };
+    const token = localStorage.getItem('ps_token');
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (body) headers['Content-Type'] = 'application/json';
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Request failed.');
+    return data;
   }
 
   function frozenNote() {
@@ -23,10 +54,17 @@ const Member = (() => {
     return `${hello}, ${first}`;
   }
 
+  function emptyState(icon, title, text) {
+    return `<div class="empty-state">${navIcon(icon)}<b>${esc(title)}</b><p>${esc(text)}</p></div>`;
+  }
+
   function renderDashboard() {
-    const s = Store.stats();
-    const active = Store.orders().filter((o) => o.status === 'active');
-    const recent = Store.transactions().slice(0, 5);
+    const today = Store.dayKey(0);
+    const todayCommission = commissionsCache.filter((c) => c.date === today).reduce((s, c) => s + c.amount, 0);
+    const totalCommission = commissionsCache.reduce((s, c) => s + c.amount, 0);
+    const active = ordersCache.filter((o) => o.status === 'active');
+    const recent = txCache.slice(0, 5);
+    const wallet = Store.user().walletBalance || 0;
     pageEl().innerHTML = `
       ${frozenNote()}
       <section class="welcome-banner">
@@ -37,26 +75,26 @@ const Member = (() => {
         </div>
       </section>
       <div class="kpis">
-        ${kpi('Wallet balance', Store.money(s.walletBalance), 'Available')}
-        ${kpi("Today's commission", Store.money(s.todayCommission), 'Credited today')}
-        ${kpi('Total commission', Store.money(s.totalCommission), 'All completed credits')}
-        ${kpi('Active projects', String(s.activeProjects), 'Orders currently running')}
+        ${kpi('Wallet balance', Store.money(wallet), 'Available')}
+        ${kpi("Today's commission", Store.money(todayCommission), 'Credited today')}
+        ${kpi('Total commission', Store.money(totalCommission), 'All completed credits')}
+        ${kpi('Active projects', String(active.length), 'Orders currently running')}
       </div>
       <div class="twocol">
         <section class="card box">
           <div class="boxhead"><h3>Active projects</h3><a class="auth-link" href="orders.html">All orders</a></div>
-          ${active.length ? active.map(activeCard).join('') : '<p class="muted">No active projects yet. Choose one from the catalog.</p>'}
+          ${active.length ? active.map(activeCard).join('') : emptyState('grid', 'No active projects', 'Choose a project from the catalog and activate it.')}
         </section>
         <section class="card box">
           <div class="boxhead"><h3>Recent activity</h3></div>
-          <div class="tablewrap">
+          ${recent.length ? `<div class="tablewrap">
             <table class="data-table">
               <thead><tr><th>Activity</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                ${recent.map((t) => `<tr><td>${t.description}<div class="muted">${t.createdAt.slice(0, 10)}</div></td><td>${t.direction === 'debit' ? '−' : '+'}${Store.money(t.amount)}</td><td>${badge(t.status)}</td></tr>`).join('')}
+                ${recent.map((t) => `<tr><td>${esc(t.description)}<div class="muted">${esc(String(t.createdAt || '').slice(0, 10))}</div></td><td>${t.direction === 'debit' ? '−' : '+'}${Store.money(t.amount)}</td><td>${badge(t.status)}</td></tr>`).join('')}
               </tbody>
             </table>
-          </div>
+          </div>` : emptyState('clock', 'No activity yet', 'Cash in, activation, and commission will show here.')}
         </section>
       </div>`;
   }
@@ -83,10 +121,10 @@ const Member = (() => {
     return `
       <a class="active-card" href="orders.html?id=${esc(order.id)}">
         <div class="active-card-top">
-          <img src="${esc(order.image)}" alt="" width="64" height="64">
+          ${order.image ? `<img src="${esc(order.image)}" alt="" width="64" height="64">` : ''}
           <div>
             <h3>${esc(order.projectName)}</h3>
-            <p class="muted">Day ${order.daysCompleted} / ${order.durationDays} · Next ${esc(Store.nextCommissionLabel(order))}</p>
+            <p class="muted">Day ${order.daysCompleted} / ${order.durationDays} · Next ${esc(order.nextLabel || '—')}</p>
           </div>
           <span class="active-go">View order</span>
         </div>
@@ -101,13 +139,14 @@ const Member = (() => {
   }
 
   function renderProjects() {
-    const list = Store.projects().filter((p) => p.status === 'active');
+    const list = catalog.filter((p) => p.status === 'active');
     pageEl().innerHTML = `
       <div class="page-head">
         <div>
           <h2 class="serif">Projects</h2>
         </div>
       </div>
+      ${list.length ? `
       <div class="catalog-bar">
         <label class="search-bar page-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16.5 20 20.5"/></svg>
@@ -122,7 +161,7 @@ const Member = (() => {
       <div class="grid-4" id="project-grid">
         ${list.map(projectCard).join('')}
       </div>
-      <p class="empty-filter" id="projects-empty" hidden>No projects match.</p>`;
+      <div class="empty-state" id="projects-empty" hidden>${navIcon('grid')}<b>No projects match</b><p>Try another search or filter.</p></div>` : emptyState('grid', loadError || 'No projects yet', loadError ? 'Refresh the page and try again.' : 'Projects added by the team will appear here.')}`;
     initCatalog('project-search', 'project-grid', 'project-filters');
   }
 
@@ -131,7 +170,7 @@ const Member = (() => {
     return `
       <a class="card property-card" href="project-details.html?id=${esc(p.id)}" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">
         <div class="property-img">
-          <img src="${esc(p.image)}" alt="" loading="lazy">
+          ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
           <span class="prop-tag">${esc(p.tag || 'Project')}</span>
         </div>
         <div class="prop-body">
@@ -149,10 +188,10 @@ const Member = (() => {
   }
 
   function renderProject() {
-    const id = new URLSearchParams(location.search).get('id') || 'premium';
-    const p = Store.projectById(id);
+    const id = new URLSearchParams(location.search).get('id') || '';
+    const p = catalog.find((item) => item.id === id) || null;
     if (!p) {
-      pageEl().innerHTML = `<p>Project not found. <a class="auth-link" href="projects.html">Back to projects</a></p>`;
+      pageEl().innerHTML = emptyState('grid', 'Project not found', 'This project is not in the catalog.');
       return;
     }
     const balance = Store.user().walletBalance;
@@ -160,7 +199,7 @@ const Member = (() => {
       ${frozenNote()}
       <div class="detail-grid">
         <div>
-          <div class="detail-img"><img src="${esc(p.image)}" alt="${esc(p.name)}"></div>
+          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}</div>
           <section class="card box detail-copy">
             <div class="boxhead">
               <h2 class="serif">${esc(p.name)}</h2>
@@ -197,7 +236,7 @@ const Member = (() => {
   }
 
   function openActivate(projectId) {
-    const p = Store.projectById(projectId);
+    const p = catalog.find((item) => item.id === projectId);
     const balance = Store.user().walletBalance;
     if (!p) return;
     if (balance < p.activationAmount) {
@@ -232,13 +271,24 @@ const Member = (() => {
     const filter = params.get('status') || 'all';
     const tab = params.get('tab') === 'commission' ? 'commission' : 'orders';
     const selectedId = params.get('id') || '';
-    let list = Store.orders();
+    let list = ordersCache;
     if (filter === 'active') list = list.filter((o) => o.status === 'active');
     if (filter === 'completed') list = list.filter((o) => o.status === 'completed');
     const ids = new Set(list.map((o) => o.id));
-    const selected = selectedId ? Store.orderById(selectedId) : null;
-    const commissions = Store.allCommissions().filter((c) => ids.has(c.orderId));
+    const selected = selectedId ? ordersCache.find((o) => o.id === selectedId) : null;
     const backIcon = '<svg class="back-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg>';
+    if (selectedId && !selected) {
+      pageEl().innerHTML = `
+        <div class="page-head">
+          <div class="page-title-row">
+            <a class="icon-btn back-btn" href="orders.html" aria-label="Back to orders">${backIcon}</a>
+            <h2 class="serif">Orders</h2>
+          </div>
+        </div>
+        ${emptyState('clock', 'Order not found', 'This order is not on your account.')}`;
+      return;
+    }
+    const commissions = commissionsCache.filter((c) => ids.has(c.orderId));
     pageEl().innerHTML = `
       <div class="page-head">
         ${selected ? `
@@ -272,14 +322,14 @@ const Member = (() => {
             <table class="data-table">
               <thead><tr><th>Date</th><th>Project</th><th>Day</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                ${commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${c.date}</td><td>${esc(c.projectName)}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') || '<tr><td colspan="5">No commission in this view.</td></tr>'}
+                ${commissions.length ? commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="5">${emptyState('chart', commissionsCache.length ? 'No commission in this view' : 'No commission yet', commissionsCache.length ? 'Try another order status.' : 'Daily commission appears here after it is credited.')}</td></tr>`}
               </tbody>
             </table>` : `
             <table class="data-table">
               <thead><tr><th>Order</th><th>Project</th><th>Activated</th><th>Daily</th><th>Progress</th><th>Earned</th><th>Left</th><th>Status</th></tr></thead>
               <tbody>
-                ${list.map((o) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(o.id)}">
-                  <td>${esc(o.id)}<div class="muted">${o.createdAt.slice(0, 10)}</div></td>
+                ${list.length ? list.map((o) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(o.id)}">
+                  <td>${esc(o.id)}<div class="muted">${esc(String(o.createdAt || '').slice(0, 10))}</div></td>
                   <td>${esc(o.projectName)}</td>
                   <td>${Store.money(o.activationAmount)}</td>
                   <td>${Store.money(o.dailyCommission)}</td>
@@ -287,7 +337,7 @@ const Member = (() => {
                   <td>${Store.money(o.earnedCommission)}</td>
                   <td>${Store.money(o.remainingCommission)}</td>
                   <td>${badge(o.status)}</td>
-                </tr>`).join('') || '<tr><td colspan="8">No orders in this view.</td></tr>'}
+                </tr>`).join('') : `<tr><td colspan="8">${emptyState('clock', ordersCache.length ? 'No orders in this view' : 'No orders yet', ordersCache.length ? 'Try another status.' : 'Activate a project and it will appear here.')}</td></tr>`}
               </tbody>
             </table>`}
         </div>
@@ -305,7 +355,7 @@ const Member = (() => {
 
   function orderDetail(o, filter) {
     const pct = Math.min(100, Math.round((o.daysCompleted / o.durationDays) * 100));
-    const log = Store.commissionsFor(o.id);
+    const log = commissionsCache.filter((c) => c.orderId === o.id);
     return `
       <section class="card box order-panel" id="order-detail">
         <div class="progress-bar" aria-label="${pct}% complete"><span style="width:${pct}%"></span></div>
@@ -313,7 +363,7 @@ const Member = (() => {
           <div><dt>Start</dt><dd>${o.startDate.slice(0, 10)}</dd></div>
           <div><dt>End</dt><dd>${o.endDate.slice(0, 10)}</dd></div>
           <div><dt>Progress</dt><dd>Day ${o.daysCompleted} / ${o.durationDays}</dd></div>
-          <div><dt>Next</dt><dd>${esc(Store.nextCommissionLabel(o))}</dd></div>
+          <div><dt>Next</dt><dd>${esc(o.nextLabel || '—')}</dd></div>
           <div><dt>Activated</dt><dd>${Store.money(o.activationAmount)}</dd></div>
           <div><dt>Daily</dt><dd>${Store.money(o.dailyCommission)}</dd></div>
           <div><dt>Earned</dt><dd>${Store.money(o.earnedCommission)}</dd></div>
@@ -324,7 +374,7 @@ const Member = (() => {
           <table class="data-table">
             <thead><tr><th>Date</th><th>Day</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
-              ${log.map((c) => `<tr><td>${c.date}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') || '<tr><td colspan="4">No commission credited yet.</td></tr>'}
+              ${log.length ? log.map((c) => `<tr><td>${esc(c.date)}</td><td>Day ${c.dayIndex}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('chart', 'No commission yet', 'The first credit lands the day after activation.')}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -337,7 +387,7 @@ const Member = (() => {
 
   function renderEarnings() {
     const range = new URLSearchParams(location.search).get('range') || '30';
-    const all = Store.allCommissions();
+    const all = commissionsCache;
     const today = Store.dayKey(0);
     const list = all.filter((c) => inRange(c.date, range, today));
     const sum = (pred) => all.filter(pred).reduce((s, c) => s + c.amount, 0);
@@ -364,17 +414,18 @@ const Member = (() => {
         ${rangeChip('all', 'All time', range)}
       </div>
       <section class="card box">
+        ${list.length ? `
         <div class="bar-chart" aria-hidden="true">
-          ${bars.map((n) => `<div class="bar" style="height:${Math.max(8, Math.round((n / max) * 100))}%"></div>`).join('') || '<p class="muted">No commission in this range.</p>'}
+          ${bars.map((n) => `<div class="bar" style="height:${Math.max(8, Math.round((n / max) * 100))}%"></div>`).join('')}
         </div>
         <div class="tablewrap">
           <table class="data-table">
             <thead><tr><th>Date</th><th>Project</th><th>Order</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
-              ${list.map((c) => `<tr><td>${c.date}</td><td>${c.projectName}</td><td>${c.orderId}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') || '<tr><td colspan="5">Nothing in this range.</td></tr>'}
+              ${list.map((c) => `<tr><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>${esc(c.orderId)}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('')}
             </tbody>
           </table>
-        </div>
+        </div>` : `<div class="empty-wrap">${emptyState('chart', 'No commission in this range', 'Choose another range, or wait for the next credit.')}</div>`}
       </section>`;
   }
 
@@ -395,11 +446,12 @@ const Member = (() => {
   }
 
   function renderWallet() {
-    const s = Store.stats();
+    const u = Store.user();
     const params = new URLSearchParams(location.search);
     const filter = params.get('type') || 'all';
     const tab = params.get('tab') === 'bind' ? 'bind' : 'tx';
     const modal = params.get('modal');
+    const totalCommission = commissionsCache.reduce((sum, row) => sum + row.amount, 0);
     pageEl().innerHTML = `
       ${frozenNote()}
       <div class="page-head">
@@ -410,7 +462,7 @@ const Member = (() => {
         <div class="wallet-main">
           <div>
             <div class="smallcaps" style="color:#dcc99b">Available</div>
-            <div class="wallet-balance">${Store.money(s.walletBalance)}</div>
+            <div class="wallet-balance">${Store.money(u.walletBalance)}</div>
           </div>
           <div class="wallet-actions">
             <button class="btn on-dark" type="button" data-action="open-cash-in">Cash in</button>
@@ -418,8 +470,8 @@ const Member = (() => {
           </div>
         </div>
         <div class="wallet-footer">
-          <span>Pending cash out<br><b>${Store.money(s.pendingCashOut)}</b></span>
-          <span>Total commission<br><b>${Store.money(s.totalCommission)}</b></span>
+          <span>Pending cash out<br><b>${Store.money(u.pendingCashOut)}</b></span>
+          <span>Total commission<br><b>${Store.money(totalCommission)}</b></span>
         </div>
       </section>
       <div class="seg" role="tablist" aria-label="Wallet">
@@ -447,7 +499,7 @@ const Member = (() => {
       ['refund', 'Refund'],
       ['adjustment', 'Adjustment'],
     ];
-    let txs = Store.transactions();
+    let txs = txCache;
     if (filter !== 'all') txs = txs.filter((t) => t.type === filter);
     return `
       <section class="card box">
@@ -458,14 +510,14 @@ const Member = (() => {
           <table class="data-table">
             <thead><tr><th>ID</th><th>Type</th><th>Description</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
-              ${txs.map((t) => `<tr>
-                <td class="mono">${t.id}</td>
+              ${txs.length ? txs.map((t) => `<tr>
+                <td class="mono">${esc(t.id)}</td>
                 <td>${typeLabel(t.type)}</td>
-                <td>${t.description}</td>
+                <td>${esc(t.description)}</td>
                 <td>${t.direction === 'debit' ? '−' : '+'}${Store.money(t.amount)}</td>
                 <td>${badge(t.status)}</td>
-                <td>${t.createdAt.slice(0, 16).replace('T', ' ')}</td>
-              </tr>`).join('') || '<tr><td colspan="6">No transactions.</td></tr>'}
+                <td>${esc(String(t.createdAt || '').slice(0, 16).replace('T', ' '))}</td>
+              </tr>`).join('') : `<tr><td colspan="6">${emptyState('wallet', filter === 'all' ? 'No transactions' : 'No transactions in this view', filter === 'all' ? 'Cash in, activation, and commission will show here.' : 'Try another type.')}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -490,7 +542,7 @@ const Member = (() => {
   }
 
   function bindPanel() {
-    const list = Store.accounts();
+    const list = accountsCache;
     const step = new URLSearchParams(location.search).get('bind') || '';
     return `
       <section class="card box">
@@ -506,7 +558,7 @@ const Member = (() => {
             </div>
             <button class="btn light" type="button" data-action="unbind" data-id="${esc(account.id)}">Remove</button>
           </li>`).join('')}
-        </ul>` : '<p class="muted">No address bound yet. Add a crypto wallet or a bank account.</p>'}
+        </ul>` : `<div class="empty-wrap">${emptyState('card', 'No address bound', 'Add a crypto wallet or a bank account.')}</div>`}
         ${step === 'choose' ? `
           <div class="bind-step">
             <h3>What do you want to bind?</h3>
@@ -568,50 +620,60 @@ const Member = (() => {
   function bindBindForm() {
     const crypto = document.getElementById('crypto-form');
     if (crypto) {
-      crypto.addEventListener('submit', (e) => {
+      crypto.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const result = Store.addAccount({
-          kind: 'crypto',
-          network: document.getElementById('crypto-network').value,
-          address: document.getElementById('crypto-address').value,
-        });
         const err = document.getElementById('crypto-error');
-        if (!result.ok) {
+        err.hidden = true;
+        try {
+          const data = await memberApi('/api/wallet/accounts', {
+            method: 'POST',
+            body: {
+              kind: 'crypto',
+              network: document.getElementById('crypto-network').value,
+              address: document.getElementById('crypto-address').value,
+            },
+          });
+          accountsCache = [data.account, ...accountsCache];
+          toast('Address bound');
+          history.replaceState({}, '', 'wallet.html?tab=bind');
+          renderWallet();
+        } catch (error) {
           err.hidden = false;
-          err.textContent = result.error;
-          return;
+          err.textContent = error.message;
         }
-        toast('Address bound');
-        history.replaceState({}, '', 'wallet.html?tab=bind');
-        renderWallet();
       });
     }
     const bank = document.getElementById('bank-form');
     if (bank) {
-      bank.addEventListener('submit', (e) => {
+      bank.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const result = Store.addAccount({
-          kind: 'bank',
-          holder: document.getElementById('bank-holder').value,
-          bankName: document.getElementById('bank-name').value,
-          iban: document.getElementById('bank-iban').value,
-          accountNumber: document.getElementById('bank-number').value,
-        });
         const err = document.getElementById('bank-error');
-        if (!result.ok) {
+        err.hidden = true;
+        try {
+          const data = await memberApi('/api/wallet/accounts', {
+            method: 'POST',
+            body: {
+              kind: 'bank',
+              holder: document.getElementById('bank-holder').value,
+              bankName: document.getElementById('bank-name').value,
+              iban: document.getElementById('bank-iban').value,
+              accountNumber: document.getElementById('bank-number').value,
+            },
+          });
+          accountsCache = [data.account, ...accountsCache];
+          toast('Account bound');
+          history.replaceState({}, '', 'wallet.html?tab=bind');
+          renderWallet();
+        } catch (error) {
           err.hidden = false;
-          err.textContent = result.error;
-          return;
+          err.textContent = error.message;
         }
-        toast('Account bound');
-        history.replaceState({}, '', 'wallet.html?tab=bind');
-        renderWallet();
       });
     }
   }
 
   function openCashIn() {
-    const address = Store.settings().demoCashInUSDTAddress;
+    const address = platform.demoCashInUSDTAddress;
     openModal(`
       <p class="smallcaps">Wallet</p>
       <h3>Cash in</h3>
@@ -632,22 +694,30 @@ const Member = (() => {
           <button class="btn primary" type="submit">Add balance</button>
         </div>
       </form>`);
-    document.getElementById('cashin-form').addEventListener('submit', (e) => {
+    document.getElementById('cashin-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const result = Store.cashIn(document.getElementById('cashin-amount').value);
-      if (!result.ok) { toast(result.error); return; }
-      closeModal();
-      toast('Balance updated');
-      renderWallet();
+      try {
+        const data = await memberApi('/api/wallet/cash-in', {
+          method: 'POST',
+          body: { amount: document.getElementById('cashin-amount').value },
+        });
+        if (data.user) Store.applySession(data.user);
+        if (data.transaction) txCache = [data.transaction, ...txCache];
+        closeModal();
+        toast('Balance updated');
+        renderWallet();
+      } catch (err) {
+        toast(err.message);
+      }
     });
   }
 
   function openCashOut() {
-    const all = Store.accounts();
+    const all = accountsCache;
     openModal(`
       <p class="smallcaps">Wallet</p>
       <h3>Cash out</h3>
-      <p class="muted">Minimum ${Store.money(Store.settings().minCashOutAmount)}.</p>
+      <p class="muted">Minimum ${Store.money(platform.minCashOutAmount)}.</p>
       <form class="fields" id="cashout-form">
         <div class="field">
           <span class="field-label" id="cashout-kind-label">Send to</span>
@@ -703,9 +773,10 @@ const Member = (() => {
         hint.textContent = `${matches.length} bound ${kind === 'bank' ? 'bank account' : 'crypto address'}${matches.length > 1 ? 's' : ''}`;
       });
     });
-    document.getElementById('cashout-form').addEventListener('submit', (e) => {
+    document.getElementById('cashout-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('cashout-error');
+      err.hidden = true;
       if (!kind || !select.value) {
         err.hidden = false;
         err.textContent = kind
@@ -713,29 +784,34 @@ const Member = (() => {
           : 'Choose crypto or a bank account.';
         return;
       }
-      const result = Store.cashOut({
-        amount: document.getElementById('cashout-amount').value,
-        accountId: select.value,
-        password: document.getElementById('cashout-password').value,
-      });
-      if (!result.ok) {
+      try {
+        const data = await memberApi('/api/cashouts', {
+          method: 'POST',
+          body: {
+            amount: document.getElementById('cashout-amount').value,
+            accountId: select.value,
+            password: document.getElementById('cashout-password').value,
+          },
+        });
+        if (data.user) Store.applySession(data.user);
+        if (data.transaction) txCache = [data.transaction, ...txCache];
+        closeModal();
+        toast('Cash out request submitted');
+        renderWallet();
+      } catch (error) {
         err.hidden = false;
-        err.textContent = result.error;
-        return;
+        err.textContent = error.message;
       }
-      closeModal();
-      toast('Cash out request submitted');
-      renderWallet();
     });
   }
 
   function renderProfile() {
     const u = Store.user();
-    const refs = Store.referrals();
+    const refs = referralsCache;
     const link = `${location.origin}${location.pathname.replace('profile.html', 'signup.html')}?ref=${u.referralCode}`;
     const today = Store.dayKey(0);
     const month = Store.dayKey(29);
-    const support = `https://t.me/${Store.settings().supportTelegramUsername}`;
+    const support = `https://t.me/${platform.supportTelegramUsername}`;
     const requested = new URLSearchParams(location.search).get('panel');
     const panel = ['password', 'support', 'referral'].includes(requested) ? requested : 'password';
     pageEl().innerHTML = `
@@ -789,27 +865,40 @@ const Member = (() => {
                 <table class="data-table">
                   <thead><tr><th>Member</th><th>Mobile</th><th>Joined</th><th>Status</th></tr></thead>
                   <tbody>
-                    ${refs.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('') || '<tr><td colspan="4">No referrals yet.</td></tr>'}
+                    ${refs.length ? refs.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('') : `<tr><td colspan="4">${emptyState('share', 'No referrals yet', 'Share your code. Members who join with it show up here.')}</td></tr>`}
                   </tbody>
                 </table>
               </div>
             </div>` : ''}
         </section>
       </div>`;
-    document.getElementById('profile-form').addEventListener('submit', (e) => {
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const result = Store.updateProfile({
-        fullName: document.getElementById('pf-name').value.trim(),
-        mobile: document.getElementById('pf-mobile').value.trim(),
-      });
-      toast(result.ok ? 'Profile saved' : result.error);
-      if (result.ok) renderProfile();
+      try {
+        const data = await memberApi('/api/users/me', {
+          method: 'PATCH',
+          body: {
+            fullName: document.getElementById('pf-name').value.trim(),
+            mobile: document.getElementById('pf-mobile').value.trim(),
+          },
+        });
+        Store.applySession(data.user);
+        const saved = Store.user();
+        const initial = (saved.fullName || 'A').trim().charAt(0).toUpperCase();
+        document.querySelectorAll('.side-user-meta b').forEach((el) => { el.textContent = saved.fullName; });
+        document.querySelectorAll('.side-user .avatar, .dashbar-right .avatar').forEach((el) => { el.textContent = initial; });
+        toast('Profile saved');
+        renderProfile();
+      } catch (err) {
+        toast(err.message);
+      }
     });
     const pw = document.getElementById('pw-form');
     if (pw) {
-      pw.addEventListener('submit', (e) => {
+      pw.addEventListener('submit', async (e) => {
         e.preventDefault();
         const err = document.getElementById('pw-error');
+        err.hidden = true;
         const next = document.getElementById('pw-next').value;
         const confirm = document.getElementById('pw-confirm').value;
         if (next !== confirm) {
@@ -817,15 +906,20 @@ const Member = (() => {
           err.textContent = 'Passwords do not match.';
           return;
         }
-        const result = Store.changePassword(document.getElementById('pw-current').value, next);
-        if (!result.ok) {
+        try {
+          await memberApi('/api/auth/password', {
+            method: 'POST',
+            body: {
+              currentPassword: document.getElementById('pw-current').value,
+              newPassword: next,
+            },
+          });
+          e.target.reset();
+          toast('Password updated');
+        } catch (error) {
           err.hidden = false;
-          err.textContent = result.error;
-          return;
+          err.textContent = error.message;
         }
-        e.target.reset();
-        err.hidden = true;
-        toast('Password updated');
       });
     }
   }
@@ -842,25 +936,82 @@ const Member = (() => {
           <button class="btn primary" type="submit">Save</button>
         </div>
       </form>`);
-    document.getElementById('wp-form').addEventListener('submit', (e) => {
+    document.getElementById('wp-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const result = Store.setWithdrawalPassword(
-        document.getElementById('wp-current').value,
-        document.getElementById('wp-next').value
-      );
-      if (!result.ok) {
-        const err = document.getElementById('wp-error');
+      const err = document.getElementById('wp-error');
+      err.hidden = true;
+      try {
+        const data = await memberApi('/api/auth/withdrawal-password', {
+          method: 'POST',
+          body: {
+            currentPassword: document.getElementById('wp-current').value,
+            newPassword: document.getElementById('wp-next').value,
+          },
+        });
+        if (data.user) Store.applySession(data.user);
+        closeModal();
+        toast('Withdrawal password saved');
+      } catch (error) {
         err.hidden = false;
-        err.textContent = result.error;
-        return;
+        err.textContent = error.message;
       }
-      closeModal();
-      toast('Withdrawal password saved');
     });
   }
 
-  function render() {
+  async function render() {
     const page = document.body.dataset.page;
+    loadError = '';
+    if (page === 'projects') {
+      try {
+        catalog = (await memberApi('/api/projects')).projects || [];
+      } catch (err) {
+        catalog = [];
+        loadError = err.message;
+      }
+    }
+    if (page === 'project') {
+      const id = new URLSearchParams(location.search).get('id') || '';
+      try {
+        catalog = [(await memberApi(`/api/projects/${encodeURIComponent(id)}`)).project];
+      } catch {
+        catalog = [];
+      }
+    }
+    if (page === 'dashboard' || page === 'orders' || page === 'earnings' || page === 'wallet' || page === 'profile') {
+      try {
+        platform = (await memberApi('/api/settings')).settings || platform;
+      } catch {
+        /* keep the last known platform settings */
+      }
+    }
+    if (page === 'dashboard' || page === 'orders' || page === 'earnings' || page === 'wallet') {
+      try {
+        const [ordersRes, commissionsRes, txRes] = await Promise.all([
+          memberApi('/api/orders'),
+          memberApi('/api/commissions'),
+          memberApi('/api/wallet/transactions'),
+        ]);
+        ordersCache = ordersRes.orders || [];
+        commissionsCache = commissionsRes.commissions || [];
+        txCache = txRes.transactions || [];
+        if (page === 'wallet') {
+          accountsCache = (await memberApi('/api/wallet/accounts')).accounts || [];
+        }
+      } catch (err) {
+        ordersCache = [];
+        commissionsCache = [];
+        txCache = [];
+        loadError = err.message;
+      }
+    }
+    if (page === 'profile') {
+      try {
+        referralsCache = (await memberApi('/api/referrals')).referrals || [];
+      } catch (err) {
+        referralsCache = [];
+        loadError = err.message;
+      }
+    }
     const map = {
       dashboard: renderDashboard,
       projects: renderProjects,
@@ -881,17 +1032,23 @@ const Member = (() => {
     if (action === 'open-cash-in') openCashIn();
     if (action === 'open-cash-out') openCashOut();
     if (action === 'confirm-activate') {
-      const result = Store.activate(el.dataset.id);
-      if (!result.ok) { toast(result.error); return; }
-      closeModal();
-      toast('Project activated');
-      window.location.href = `orders.html?id=${result.orderId}`;
+      memberApi('/api/orders', { method: 'POST', body: { projectId: el.dataset.id } })
+        .then((data) => {
+          if (data.user) Store.applySession(data.user);
+          closeModal();
+          toast('Project activated');
+          window.location.href = `orders.html?id=${data.order.id}`;
+        })
+        .catch((err) => toast(err.message));
     }
-    if (action === 'copy-address') copyText(Store.settings().demoCashInUSDTAddress);
+    if (action === 'copy-address') copyText(platform.demoCashInUSDTAddress);
     if (action === 'copy') copyText(el.dataset.value);
     if (action === 'logout') {
       localStorage.removeItem('ps_token');
-      window.location.href = '../index.html';
+      localStorage.removeItem('ps_member');
+      sessionStorage.removeItem('ps_token');
+      sessionStorage.removeItem('ps_member');
+      window.location.href = 'login.html';
     }
     if (action === 'profile-panel') {
       const next = new URLSearchParams(location.search);
@@ -914,9 +1071,13 @@ const Member = (() => {
       renderWallet();
     }
     if (action === 'unbind') {
-      const result = Store.removeAccount(el.dataset.id);
-      toast(result.ok ? 'Address removed' : result.error);
-      if (result.ok) renderWallet();
+      memberApi(`/api/wallet/accounts/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
+        .then(() => {
+          accountsCache = accountsCache.filter((account) => account.id !== el.dataset.id);
+          toast('Address removed');
+          renderWallet();
+        })
+        .catch((err) => toast(err.message));
     }
   });
 
