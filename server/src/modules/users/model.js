@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     fullName: { type: String, required: true },
     mobile: { type: String, required: true },
     mobileDigits: { type: String, required: true, unique: true },
-    loginId: { type: String, unique: true, sparse: true },
+    loginId: { type: String },
     passwordHash: { type: String, required: true },
     withdrawalPasswordHash: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin'], default: 'user', required: true },
@@ -21,6 +21,11 @@ const userSchema = new mongoose.Schema(
     pendingCashOut: { type: Number, default: 0 },
   },
   { timestamps: true }
+);
+
+userSchema.index(
+  { loginId: 1 },
+  { unique: true, partialFilterExpression: { loginId: { $type: 'string' } } }
 );
 
 export const User = mongoose.model('User', userSchema);

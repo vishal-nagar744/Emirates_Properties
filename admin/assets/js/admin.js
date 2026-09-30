@@ -201,7 +201,7 @@ const Admin = (() => {
       </div>
       ${list.length ? `<div class="grid-4">
         ${list.map((p) => `
-          <article class="card admin-project">
+          <article class="card admin-project${p.status === 'active' ? '' : ' is-closed'}">
             <div class="property-img">
               ${p.image ? `<img src="${esc(p.image)}" alt="">` : '<div class="admin-photo-empty"></div>'}
               <span class="prop-tag">${esc(p.tag || 'Project')}</span>

@@ -97,6 +97,20 @@ function adminNav(active) {
   )).join('');
 }
 
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function roleLine(isAdmin, user) {
+  if (isAdmin) return 'Admin';
+  const status = String((user && user.accountStatus) || 'active').toLowerCase();
+  if (status === 'active') return 'Member';
+  return `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+}
+
 function crumbLabel(page) {
   const labels = {
     dashboard: 'Dashboard',
@@ -142,14 +156,7 @@ function mountShell() {
         </div>
         <nav class="sidenav" aria-label="Admin">${adminNav(page)}</nav>
         <div class="sidebottom">
-          <div class="side-user">
-            <div class="avatar" aria-hidden="true">${initial}</div>
-            <div class="side-user-meta">
-              <b>${adminProfile ? adminProfile.fullName : 'Admin'}</b>
-              <small>Admin</small>
-            </div>
-          </div>
-          <a class="sidelink" href="#" id="admin-logout" title="Log out"><span class="sideicon">${navIcon('logout')}</span><span class="sidelabel">Log out</span></a>
+          <a class="sidelink side-logout" href="#" id="admin-logout" title="Log out"><span class="sideicon">${navIcon('logout')}</span><span class="sidelabel">Log out</span></a>
         </div>
       </aside>`
     : `<aside class="sidebar" id="sidebar" aria-label="Member navigation">
@@ -162,14 +169,7 @@ function mountShell() {
           ${memberNav(page === 'project' ? 'projects' : page)}
         </nav>
         <div class="sidebottom">
-          <div class="side-user">
-            <div class="avatar" aria-hidden="true">${initial}</div>
-            <div class="side-user-meta">
-              <b>${user.fullName}</b>
-              <small>${badge(user.accountStatus)}</small>
-            </div>
-            <a href="../index.html" title="Public site" aria-label="Return to public site">↪</a>
-          </div>
+          <a class="sidelink side-logout" href="#" id="member-logout" title="Log out"><span class="sideicon">${navIcon('logout')}</span><span class="sidelabel">Log out</span></a>
         </div>
       </aside>`;
 
@@ -188,7 +188,13 @@ function mountShell() {
           </nav>
         </div>
         <div class="dashbar-right">
-          <div class="avatar" aria-hidden="true">${initial}</div>
+          <div class="who-card">
+            <div class="avatar" aria-hidden="true">${initial}</div>
+            <div class="who">
+              <b>${esc(displayName)}</b>
+              <small>${esc(roleLine(isAdmin, user))}</small>
+            </div>
+          </div>
         </div>
       </header>
       <main class="page" id="page"></main>

@@ -82,23 +82,22 @@ export async function signup({ fullName, mobile, password, invitationCode }) {
 
   const settings = await platformSettings();
   const bonus = Number(settings.welcomeBonusAmount) || 0;
-  const user = new User({
-    fullName: name,
-    mobile: phone,
-    mobileDigits: digits(phone),
-    passwordHash: hashPassword(pass),
-    withdrawalPasswordHash: '',
-    role: 'user',
-    referralCode: await referralCodeFor(name),
-    referredBy: referrer ? String(referrer._id) : null,
-    accountStatus: 'active',
-    welcomeBonusReceived: bonus > 0,
-    walletBalance: bonus,
-    pendingCashOut: 0,
-  });
-
+  let user;
   try {
-    await user.save();
+    user = await User.create({
+      fullName: name,
+      mobile: phone,
+      mobileDigits: digits(phone),
+      passwordHash: hashPassword(pass),
+      withdrawalPasswordHash: '',
+      role: 'user',
+      referralCode: await referralCodeFor(name),
+      referredBy: referrer ? String(referrer._id) : null,
+      accountStatus: 'active',
+      welcomeBonusReceived: bonus > 0,
+      walletBalance: bonus,
+      pendingCashOut: 0,
+    });
   } catch (err) {
     if (err && err.code === 11000) {
       return { status: 409, message: 'This mobile number is already registered.' };

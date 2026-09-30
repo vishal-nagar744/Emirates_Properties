@@ -4,6 +4,13 @@ import { Settings } from './modules/settings/model.js';
 import { User } from './modules/users/model.js';
 
 export async function seed() {
+  await User.collection.updateMany({ loginId: null }, { $unset: { loginId: '' } });
+  const indexes = await User.collection.indexes();
+  if (indexes.some((index) => index.name === 'loginId_1' && !index.partialFilterExpression)) {
+    await User.collection.dropIndex('loginId_1');
+  }
+  await User.syncIndexes();
+
   const adminExists = await User.exists({ role: 'admin' });
   if (!adminExists) {
     const password = config.admin.password;

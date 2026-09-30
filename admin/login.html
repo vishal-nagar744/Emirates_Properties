@@ -23,7 +23,10 @@
         </div>
         <div class="field">
           <label for="admin-password">Password</label>
-          <input id="admin-password" type="password" autocomplete="current-password">
+          <div class="password-wrap">
+            <input id="admin-password" type="password" autocomplete="current-password">
+            <button class="password-toggle" type="button" id="admin-password-toggle" aria-label="Show password">Show</button>
+          </div>
           <p class="field-error" id="admin-password-error" hidden></p>
         </div>
         <button class="btn primary btn-full" type="submit" id="admin-submit">Log in</button>
@@ -46,6 +49,15 @@
       el.hidden = !message;
       el.textContent = message || '';
     }
+
+    document.getElementById('admin-password-toggle').addEventListener('click', () => {
+      const input = document.getElementById('admin-password');
+      const toggle = document.getElementById('admin-password-toggle');
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.textContent = show ? 'Hide' : 'Show';
+      toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
 
     document.getElementById('admin-login').addEventListener('submit', async (e) => {
       e.preventDefault();

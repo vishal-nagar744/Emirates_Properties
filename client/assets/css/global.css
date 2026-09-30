@@ -715,6 +715,10 @@ a.property-card:focus-visible {
   max-width: 320px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .empty-wrap {
   display: grid;
   place-items: center;
@@ -723,7 +727,7 @@ a.property-card:focus-visible {
 }
 
 .page > .empty-wrap,
-.page > .card.box:has(> .empty-wrap) {
+.page > .card.box:has(> .empty-wrap):not(:has(.boxhead)):not(:has(.chips)):not(:has(.tablewrap)) {
   flex: 1;
   display: grid;
   place-items: center;
@@ -1345,6 +1349,12 @@ a.property-card:focus-visible {
   padding: 15px;
   border-top: 1px solid var(--line);
   flex-shrink: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.side-logout {
+  width: 100%;
 }
 
 /* ── 19. Dashboard Layout ─────────────────────────────────── */
@@ -1513,6 +1523,18 @@ body.nav-icons .side-user { justify-content: center; }
 .boxhead h3 {
   font-size: 17px;
   margin: 0;
+}
+
+.boxhead .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.boxhead .nav-ico {
+  width: 16px;
+  height: 16px;
 }
 
 /* ── 24. Mini Project Row ─────────────────────────────────── */
@@ -1813,8 +1835,28 @@ body.nav-icons .side-user { justify-content: center; }
 
 .bind-actions {
   display: flex;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 16px;
+}
+
+.property-card.is-closed,
+.admin-project.is-closed {
+  opacity: 0.62;
+}
+
+.property-card.is-closed {
+  cursor: not-allowed;
+}
+
+.property-card.is-closed .property-img img,
+.admin-project.is-closed .property-img img {
+  filter: grayscale(1);
+}
+
+.is-closed .prop-status {
+  color: #8a3b2e;
 }
 
 .mono { font-variant-numeric: tabular-nums; font-size: 12px; }
@@ -2326,6 +2368,49 @@ tr.is-selected td { background: #f3f7f4; }
   gap: 12px;
 }
 
+.who-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  max-width: 240px;
+  padding: 5px 14px 5px 5px;
+  background: #f3f7f4;
+  border: 1px solid #d7e4dc;
+  border-radius: 12px;
+}
+
+.who-card .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.who {
+  text-align: left;
+  min-width: 0;
+}
+
+.who b,
+.who small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.who b {
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--g);
+}
+
+.who small {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .dash-title { font-size: 14px; }
 
 .crumbs {
@@ -2739,7 +2824,7 @@ button.chip {
 
 .mobnav { display: none; }
 
-button:disabled { opacity: 0.6; cursor: wait; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @media (max-width: 700px) {
   .active-card .prop-stats,

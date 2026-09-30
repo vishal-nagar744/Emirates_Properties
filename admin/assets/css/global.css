@@ -695,6 +695,10 @@ p {
   max-width: 320px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .empty-wrap {
   display: grid;
   place-items: center;
@@ -703,7 +707,7 @@ p {
 }
 
 .page > .empty-wrap,
-.page > .card.box:has(> .empty-wrap) {
+.page > .card.box:has(> .empty-wrap):not(:has(.boxhead)):not(:has(.chips)):not(:has(.tablewrap)) {
   flex: 1;
   display: grid;
   place-items: center;
@@ -1259,6 +1263,24 @@ p {
   padding: 15px;
   border-top: 1px solid var(--line);
   flex-shrink: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.side-logout {
+  width: 100%;
+}
+
+.admin-project.is-closed {
+  opacity: 0.62;
+}
+
+.admin-project.is-closed .property-img img {
+  filter: grayscale(1);
+}
+
+.admin-project.is-closed .prop-status {
+  color: #8a3b2e;
 }
 
 /* ── 19. Dashboard Layout ─────────────────────────────────── */
@@ -1919,6 +1941,49 @@ body.nav-icons .side-user { justify-content: center; }
   gap: 12px;
 }
 
+.who-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  max-width: 240px;
+  padding: 5px 14px 5px 5px;
+  background: #f3f7f4;
+  border: 1px solid #d7e4dc;
+  border-radius: 12px;
+}
+
+.who-card .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.who {
+  text-align: left;
+  min-width: 0;
+}
+
+.who b,
+.who small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.who b {
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--g);
+}
+
+.who small {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .dash-title { font-size: 14px; }
 
 .crumbs {
@@ -2275,7 +2340,7 @@ tr.order-row:hover td { background: var(--pale); }
 
 .mobnav { display: none; }
 
-button:disabled { opacity: 0.6; cursor: wait; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @media (max-width: 700px) {
   .active-card .prop-stats,

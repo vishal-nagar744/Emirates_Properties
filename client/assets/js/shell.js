@@ -97,6 +97,20 @@ function adminNav(active) {
   )).join('');
 }
 
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function roleLine(isAdmin, user) {
+  if (isAdmin) return 'Admin';
+  const status = String((user && user.accountStatus) || 'active').toLowerCase();
+  if (status === 'active') return 'Member';
+  return `Member · ${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+}
+
 function crumbLabel(page) {
   const labels = {
     dashboard: 'Dashboard',
@@ -152,14 +166,7 @@ function mountShell() {
           ${memberNav(page === 'project' ? 'projects' : page)}
         </nav>
         <div class="sidebottom">
-          <div class="side-user">
-            <div class="avatar" aria-hidden="true">${initial}</div>
-            <div class="side-user-meta">
-              <b>${user.fullName}</b>
-              <small>${badge(user.accountStatus)}</small>
-            </div>
-            <a href="../index.html" title="Public site" aria-label="Return to public site">↪</a>
-          </div>
+          <a class="sidelink side-logout" href="#" id="member-logout" title="Log out"><span class="sideicon">${navIcon('logout')}</span><span class="sidelabel">Log out</span></a>
         </div>
       </aside>`;
 
@@ -178,7 +185,13 @@ function mountShell() {
           </nav>
         </div>
         <div class="dashbar-right">
-          <div class="avatar" aria-hidden="true">${isAdmin ? 'AD' : initial}</div>
+          <div class="who-card">
+            <div class="avatar" aria-hidden="true">${initial}</div>
+            <div class="who">
+              <b>${esc(user.fullName || 'Member')}</b>
+              <small>${esc(roleLine(false, user))}</small>
+            </div>
+          </div>
         </div>
       </header>
       <main class="page" id="page"></main>
@@ -202,11 +215,21 @@ function mountShell() {
   const overlay = document.getElementById('sidebar-overlay');
   if (overlay) overlay.addEventListener('click', closeSide);
 
-  const adminOut = document.getElementById('admin-logout');
-  if (adminOut) {
-    adminOut.addEventListener('click', (e) => {
+  const memberOut = document.getElementById('member-logout');
+  if (memberOut) {
+    memberOut.addEventListener('click', (e) => {
       e.preventDefault();
-      Store.adminLogout();
+      const token = localStorage.getItem('ps_token');
+      localStorage.removeItem('ps_token');
+      localStorage.removeItem('ps_member');
+      sessionStorage.removeItem('ps_token');
+      sessionStorage.removeItem('ps_member');
+      if (token) {
+        fetch(`${window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000'}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
       window.location.href = 'login.html';
     });
   }

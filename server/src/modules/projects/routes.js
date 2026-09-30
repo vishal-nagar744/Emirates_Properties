@@ -21,15 +21,14 @@ function route(handler) {
 export const router = Router();
 
 router.get('/', route(async (req, res) => {
-  const includeInactive = req.query.all === '1';
-  if (includeInactive) {
-    const header = req.get('authorization') || '';
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    const session = await readToken(match ? match[1].trim() : '');
-    if (!session || session.role !== 'admin') {
-      return send(res, { status: 401, message: 'Admin sign in required.' });
-    }
+  const header = req.get('authorization') || '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  const session = await readToken(match ? match[1].trim() : '');
+  const wantsAll = req.query.all === '1';
+  if (wantsAll && (!session || session.role !== 'admin')) {
+    return send(res, { status: 401, message: 'Admin sign in required.' });
   }
+  const includeInactive = wantsAll || Boolean(session && (session.role === 'user' || session.role === 'admin'));
   send(res, await listProjects({ includeInactive }));
 }));
 

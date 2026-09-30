@@ -91,6 +91,12 @@ function initLoginForm() {
   const form = document.getElementById('login-form');
   if (!form) return;
 
+  const resetNote = document.getElementById('login-reset');
+  if (resetNote && new URLSearchParams(location.search).get('reset') === '1') {
+    resetNote.hidden = false;
+    resetNote.textContent = 'Password updated. Log in with your new password.';
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setFieldError('login-mobile-error', '');
@@ -247,9 +253,11 @@ function initForgotForm() {
       return;
     }
 
-    if (success) success.hidden = false;
-    setBusy(btn, false, 'Update password');
-    form.reset();
+    if (success) {
+      success.hidden = false;
+      success.textContent = 'Password updated. Taking you to login.';
+    }
+    window.location.href = 'login.html?reset=1';
   });
 }
 

@@ -150,7 +150,7 @@ const Member = (() => {
   }
 
   function renderProjects() {
-    const list = catalog.filter((p) => p.status === 'active');
+    const list = catalog;
     pageEl().innerHTML = `
       <div class="page-head">
         <div>
@@ -177,9 +177,9 @@ const Member = (() => {
   }
 
   function projectCard(p) {
-    const status = p.status === 'active' ? 'Available' : 'Closed';
-    return `
-      <a class="card property-card" href="project-details.html?id=${esc(p.id)}" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">
+    const open = p.status === 'active';
+    const status = open ? 'Available' : 'Closed';
+    const body = `
         <div class="property-img">
           ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
           <span class="prop-tag">${esc(p.tag || 'Project')}</span>
@@ -194,8 +194,11 @@ const Member = (() => {
             <div><dt>Daily</dt><dd>${Store.money(p.dailyCommission)}</dd></div>
             <div><dt>Total</dt><dd>${Store.money(p.totalCommission)}</dd></div>
           </dl>
-        </div>
-      </a>`;
+        </div>`;
+    if (!open) {
+      return `<article class="card property-card is-closed" aria-disabled="true" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">${body}</article>`;
+    }
+    return `<a class="card property-card" href="project-details.html?id=${esc(p.id)}" data-name="${esc(p.name)}" data-amount="${p.activationAmount}" data-days="${p.durationDays}">${body}</a>`;
   }
 
   function renderProject() {
@@ -232,7 +235,7 @@ const Member = (() => {
             ${row('Total commission', Store.money(p.totalCommission))}
             ${row('Your balance', Store.money(balance))}
           </dl>
-          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${p.id}">Continue with project</button>
+          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${p.id}" ${p.status === 'active' ? '' : 'disabled'}>${p.status === 'active' ? 'Continue with project' : 'Closed'}</button>
           <a class="btn light btn-full" style="margin-top:8px" href="wallet.html?modal=cash-in">Add funds</a>
         </aside>
       </div>`;
@@ -569,7 +572,7 @@ const Member = (() => {
             </div>
             <button class="btn light" type="button" data-action="unbind" data-id="${esc(account.id)}">Remove</button>
           </li>`).join('')}
-        </ul>` : `<div class="empty-wrap">${emptyState('card', 'No address bound', 'Add a crypto wallet or a bank account.')}</div>`}
+        </ul>` : (step ? '' : `<div class="empty-wrap">${emptyState('card', 'No address bound', 'Add a crypto wallet or a bank account.')}</div>`)}
         ${step === 'choose' ? `
           <div class="bind-step">
             <h3>What do you want to bind?</h3>
