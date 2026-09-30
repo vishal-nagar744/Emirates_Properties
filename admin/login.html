@@ -31,6 +31,7 @@
     </div>
   </div>
   <div class="toast" role="alert" aria-live="polite"></div>
+  <script src="assets/js/env.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     function setAdminError(id, message) {
@@ -70,7 +71,7 @@
 
       let result;
       try {
-        const res = await fetch('http://127.0.0.1:4000/api/admin/auth/login', {
+        const res = await fetch(`${window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000'}/api/admin/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ id, password }),

@@ -3,7 +3,7 @@
    ============================================================ */
 
 const Member = (() => {
-  const API_BASE = 'http://127.0.0.1:4000';
+  const API_BASE = window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000';
   let catalog = [];
   let ordersCache = [];
   let commissionsCache = [];
@@ -28,11 +28,22 @@ const Member = (() => {
     const token = localStorage.getItem('ps_token');
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond.');
+      throw new Error('Could not reach the server.');
+    } finally {
+      clearTimeout(timer);
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || 'Request failed.');
     return data;
@@ -425,7 +436,7 @@ const Member = (() => {
               ${list.map((c) => `<tr><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>${esc(c.orderId)}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('')}
             </tbody>
           </table>
-        </div>` : `<div class="empty-wrap">${emptyState('chart', 'No commission in this range', 'Choose another range, or wait for the next credit.')}</div>`}
+        </div>` : `<div class="empty-wrap">${emptyState('chart', loadError ? 'Could not load earnings' : 'No commission in this range', loadError || 'Choose another range, or wait for the next credit.')}</div>`}
       </section>`;
   }
 

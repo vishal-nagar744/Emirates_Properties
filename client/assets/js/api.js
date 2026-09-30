@@ -9,7 +9,7 @@
 
 /* ── Configuration ─────────────────────────────────────────── */
 const API_CONFIG = {
-  BASE_URL: 'http://127.0.0.1:4000/api',
+  BASE_URL: (window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000') + '/api',
   TIMEOUT:  10000,
   HEADERS: {
     'Content-Type': 'application/json',

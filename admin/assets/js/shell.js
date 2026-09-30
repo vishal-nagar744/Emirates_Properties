@@ -221,7 +221,7 @@ function mountShell() {
       sessionStorage.removeItem('ps_admin_user');
       Store.adminLogout();
       if (token) {
-        fetch('http://127.0.0.1:4000/api/admin/auth/logout', {
+        fetch(`${window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000'}/api/admin/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});

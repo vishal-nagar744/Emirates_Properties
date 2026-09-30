@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express from 'express';
+import { config } from './config.js';
 import { adminAuth, memberAuth } from './modules/auth/routes.js';
 import { router as cashouts } from './modules/cashouts/routes.js';
 import { router as commissions } from './modules/commissions/routes.js';
@@ -12,7 +13,20 @@ import { router as wallet } from './modules/wallet/routes.js';
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+      if (config.allowLocalhostCors) {
+        try {
+          const host = new URL(origin).hostname;
+          if (host === 'localhost' || host === '127.0.0.1') return callback(null, true);
+        } catch {
+          return callback(null, false);
+        }
+      }
+      return callback(null, false);
+    },
+  }));
   app.use(express.json({ limit: '100kb' }));
 
   app.get('/api/health', (_req, res) => {

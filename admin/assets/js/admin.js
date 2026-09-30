@@ -3,7 +3,7 @@
    ============================================================ */
 
 const Admin = (() => {
-  const API_BASE = 'http://127.0.0.1:4000';
+  const API_BASE = window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000';
   let userStatus = 'all';
   let directory = [];
   let catalog = [];
@@ -11,6 +11,7 @@ const Admin = (() => {
   let cashoutRows = [];
   let platform = null;
   let loadNote = '';
+  let loading = false;
 
   function adminToken() {
     return sessionStorage.getItem('ps_admin_token') || '';
@@ -19,11 +20,22 @@ const Admin = (() => {
   async function adminApi(path, { method = 'GET', body } = {}) {
     const headers = { Accept: 'application/json', Authorization: `Bearer ${adminToken()}` };
     if (body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond.');
+      throw new Error('Could not reach the server.');
+    } finally {
+      clearTimeout(timer);
+    }
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
       sessionStorage.removeItem('ps_admin');
@@ -210,7 +222,7 @@ const Admin = (() => {
               </div>
             </div>
           </article>`).join('')}
-      </div>` : `<div class="empty-wrap">${emptyState('grid', 'No projects yet', 'Create a project to show it in the catalog.')}</div>`}`;
+      </div>` : `<div class="empty-wrap">${emptyState('grid', loadNote ? 'Could not load projects' : 'No projects yet', loadNote || 'Create a project to show it in the catalog.')}</div>`}`;
   }
 
   function editProject(id) {
@@ -326,7 +338,7 @@ const Admin = (() => {
         <tbody>
           ${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.mobile)}</td><td>${esc(r.referrerName || '—')}</td><td>${esc(r.referralCode || '—')}</td><td>${esc(r.date)}</td><td>${badge(r.status)}</td></tr>`).join('')}
         </tbody>
-      </table></div>` : `<div class="empty-wrap">${emptyState('share', loadNote ? 'Could not load referrals' : (q ? 'No referrals match' : 'No referrals yet'), loadNote || (q ? 'Try another name, code, or mobile.' : 'A referral is recorded when someone signs up with a member code.'))}</div>`}
+      </table></div>` : `<div class="empty-wrap">${emptyState('share', loadNote ? 'Could not load referrals' : (loading ? 'Loading referrals' : (q ? 'No referrals match' : 'No referrals yet')), loadNote || (loading ? 'Checking referral records.' : (q ? 'Try another name, code, or mobile.' : 'A referral is recorded when someone signs up with a member code.')))}</div>`}
       </section>`;
     const input = document.getElementById('ref-q');
     input.addEventListener('input', renderReferrals);
@@ -384,9 +396,21 @@ const Admin = (() => {
     });
   }
 
+  function safeRender() {
+    const el = document.getElementById('page');
+    if (!el) return;
+    try {
+      render();
+    } catch (err) {
+      el.innerHTML = `<div class="empty-wrap">${emptyState('share', 'This page could not be shown', err.message || 'Refresh and try again.')}</div>`;
+    }
+  }
+
   async function load() {
     const page = document.body.dataset.page;
     loadNote = '';
+    loading = true;
+    safeRender();
     try {
       if (page === 'dashboard' || page === 'users') {
         directory = (await adminApi('/api/users')).users || [];
@@ -395,7 +419,8 @@ const Admin = (() => {
         catalog = (await adminApi('/api/projects?all=1')).projects || [];
       }
       if (page === 'referrals') {
-        referralRows = (await adminApi('/api/referrals/all')).referrals || [];
+        const data = await adminApi('/api/referrals/all');
+        referralRows = Array.isArray(data.referrals) ? data.referrals : [];
       }
       if (page === 'cashouts') {
         const tab = new URLSearchParams(location.search).get('status') || 'pending';
@@ -406,6 +431,9 @@ const Admin = (() => {
       }
     } catch (err) {
       loadNote = err.message || 'Could not load this page.';
+    } finally {
+      loading = false;
+      safeRender();
     }
   }
 
@@ -482,5 +510,5 @@ const Admin = (() => {
 })();
 
 if (document.body.dataset.app === 'admin' && Store.requireAdmin()) {
-  Admin.load().then(() => Admin.render()).catch((err) => toast(err.message));
+  Admin.load().catch((err) => toast(err.message));
 }
