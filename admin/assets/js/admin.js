@@ -9,6 +9,7 @@ const Admin = (() => {
   let catalog = [];
   let referralRows = [];
   let cashoutRows = [];
+  let txRows = [];
   let platform = null;
   let loadNote = '';
   let loading = false;
@@ -45,6 +46,36 @@ const Admin = (() => {
     }
     if (!res.ok) throw new Error(data.message || 'Request failed.');
     return data;
+  }
+
+  async function uploadProjectImage(file) {
+    const body = new FormData();
+    body.append('image', file);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/api/projects/image`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${adminToken()}` },
+        body,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw new Error('The upload took too long.');
+      throw new Error('Could not reach the server.');
+    } finally {
+      clearTimeout(timer);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      sessionStorage.removeItem('ps_admin');
+      sessionStorage.removeItem('ps_admin_token');
+      window.location.href = 'login.html';
+      throw new Error(data.message || 'Admin sign in required.');
+    }
+    if (!res.ok) throw new Error(data.message || 'Could not upload the image.');
+    return data.image;
   }
 
   function pageEl() {
@@ -219,6 +250,7 @@ const Admin = (() => {
               <div class="admin-project-actions">
                 <button class="btn light" type="button" data-action="edit-project" data-id="${esc(p.id)}">Edit</button>
                 <button class="btn light" type="button" data-action="toggle-project" data-id="${esc(p.id)}" data-status="${p.status === 'active' ? 'inactive' : 'active'}">${p.status === 'active' ? 'Close' : 'Open'}</button>
+                <button class="icon-btn" type="button" data-action="delete-project" data-id="${esc(p.id)}" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
               </div>
             </div>
           </article>`).join('')}
@@ -240,7 +272,12 @@ const Admin = (() => {
           <div class="field"><label for="pj-address">Address</label><input id="pj-address" value="${esc(p.address)}"></div>
           <div class="field"><label for="pj-developer">Developer</label><input id="pj-developer" value="${esc(p.developer)}"></div>
         </div>
-        <div class="field"><label for="pj-image">Image URL</label><input id="pj-image" value="${esc(p.image)}"></div>
+        <div class="field photo-field">
+          <label for="pj-file">Photo</label>
+          <input id="pj-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+          <p class="muted" id="pj-photo-note">${p.image ? 'Current photo is attached. Choose a file to replace it.' : 'JPG, PNG, WEBP, or GIF. Up to 4 MB.'}</p>
+          <img id="pj-preview" alt="" ${p.image ? `src="${esc(p.image)}"` : 'hidden'}>
+        </div>
         <div class="form-2">
           <div class="field"><label>Activation</label><input id="pj-amount" type="number" value="${p.activationAmount || 0}"></div>
           <div class="field"><label>Daily commission</label><input id="pj-daily" type="number" value="${p.dailyCommission || 0}"></div>
@@ -262,6 +299,27 @@ const Admin = (() => {
     document.getElementById('pj-daily').addEventListener('input', updateTotal);
     document.getElementById('pj-days').addEventListener('input', updateTotal);
     updateTotal();
+    let imageUrl = p.image || '';
+    const photoNote = document.getElementById('pj-photo-note');
+    const preview = document.getElementById('pj-preview');
+    const saveBtn = document.querySelector('#proj-form button[type="submit"]');
+    document.getElementById('pj-file').addEventListener('change', async () => {
+      const file = document.getElementById('pj-file').files && document.getElementById('pj-file').files[0];
+      if (!file) return;
+      photoNote.textContent = 'Uploading photo…';
+      saveBtn.disabled = true;
+      try {
+        imageUrl = await uploadProjectImage(file);
+        preview.src = imageUrl;
+        preview.hidden = false;
+        photoNote.textContent = 'Photo uploaded. Save the project to keep it.';
+      } catch (err) {
+        photoNote.textContent = err.message;
+        toast(err.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
     document.getElementById('proj-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const payload = {
@@ -269,7 +327,7 @@ const Admin = (() => {
         description: document.getElementById('pj-desc').value.trim(),
         address: document.getElementById('pj-address').value.trim(),
         developer: document.getElementById('pj-developer').value.trim(),
-        image: document.getElementById('pj-image').value.trim(),
+        image: imageUrl,
         activationAmount: document.getElementById('pj-amount').value,
         dailyCommission: document.getElementById('pj-daily').value,
         durationDays: document.getElementById('pj-days').value,
@@ -291,9 +349,9 @@ const Admin = (() => {
   }
 
   function renderCashouts() {
-    const tab = new URLSearchParams(location.search).get('status') || 'pending';
+    const tab = new URLSearchParams(location.search).get('status') || 'all';
     const list = cashoutRows.filter((c) => (tab === 'all' ? true : c.status === tab));
-    const filters = [['pending', 'Pending'], ['processing', 'Processing'], ['completed', 'Completed'], ['rejected', 'Rejected'], ['all', 'All']];
+    const filters = [['all', 'All'], ['pending', 'Pending'], ['processing', 'Processing'], ['completed', 'Completed'], ['rejected', 'Rejected']];
     pageEl().innerHTML = `
       <div class="page-head">
         <h2 class="serif">Cash out</h2>
@@ -312,6 +370,39 @@ const Admin = (() => {
             <td>${esc(String(c.requestedAt || '').slice(0, 16).replace('T', ' '))}</td><td>${badge(c.status)}</td>
             <td>${c.status === 'pending' || c.status === 'processing' ? `<div class="row-actions"><button class="btn light" type="button" data-action="approve" data-id="${esc(c.id)}">Approve</button><button class="btn light" type="button" data-action="reject" data-id="${esc(c.id)}">Reject</button></div>` : esc(c.rejectionReason || '—')}</td>
           </tr>`).join('') : `<tr><td colspan="7"><div class="empty-wrap">${emptyState('card', loadNote || 'No cash outs in this view', loadNote ? 'Refresh the page and try again.' : 'Requests show here when a member asks to cash out.')}</div></td></tr>`}
+        </tbody>
+      </table></div></section>`;
+  }
+
+  function txType(type) {
+    const labels = {
+      welcome_bonus: 'Welcome bonus',
+      demo_cash_in: 'Cash in',
+      project_activation: 'Activation',
+      daily_commission: 'Commission',
+      cash_out: 'Cash out',
+      refund: 'Refund',
+      adjustment: 'Adjustment',
+    };
+    return labels[type] || String(type || '').replaceAll('_', ' ');
+  }
+
+  function renderTransactions() {
+    pageEl().innerHTML = `
+      <div class="page-head">
+        <h2 class="serif">Transactions</h2>
+      </div>
+      <section class="card box"><div class="tablewrap"><table class="data-table">
+        <thead><tr><th>Member</th><th>Type</th><th>Activity</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
+        <tbody>
+          ${txRows.length ? txRows.map((row) => `<tr>
+            <td>${esc(row.userName)}<div class="muted">${esc(row.mobile)}</div></td>
+            <td>${esc(txType(row.type))}</td>
+            <td>${esc(row.description)}</td>
+            <td>${row.direction === 'debit' ? '−' : '+'}${Store.money(row.amount)}</td>
+            <td>${badge(row.status)}</td>
+            <td>${esc(String(row.createdAt || '').slice(0, 16).replace('T', ' '))}</td>
+          </tr>`).join('') : `<tr><td colspan="6"><div class="empty-wrap">${emptyState('list', loadNote || 'No transactions yet', loadNote ? 'Refresh the page and try again.' : 'Wallet credits, activations, and cash outs show here.')}</div></td></tr>`}
         </tbody>
       </table></div></section>`;
   }
@@ -423,8 +514,11 @@ const Admin = (() => {
         referralRows = Array.isArray(data.referrals) ? data.referrals : [];
       }
       if (page === 'cashouts') {
-        const tab = new URLSearchParams(location.search).get('status') || 'pending';
+        const tab = new URLSearchParams(location.search).get('status') || 'all';
         cashoutRows = (await adminApi(`/api/cashouts/all?status=${encodeURIComponent(tab)}`)).cashouts || [];
+      }
+      if (page === 'transactions') {
+        txRows = (await adminApi('/api/wallet/all')).transactions || [];
       }
       if (page === 'settings') {
         platform = (await adminApi('/api/settings')).settings;
@@ -445,6 +539,7 @@ const Admin = (() => {
       users: renderUsers,
       projects: renderProjects,
       cashouts: renderCashouts,
+      transactions: renderTransactions,
       referrals: renderReferrals,
       settings: renderSettings,
     };
@@ -472,6 +567,14 @@ const Admin = (() => {
       }).catch((err) => toast(err.message));
     }
     if (action === 'edit-project') editProject(el.dataset.id);
+    if (action === 'delete-project') {
+      if (!window.confirm('Delete this project from the catalog?')) return;
+      adminApi(`/api/projects/${el.dataset.id}`, { method: 'DELETE' }).then(() => {
+        catalog = catalog.filter((item) => item.id !== el.dataset.id);
+        toast('Project deleted');
+        renderProjects();
+      }).catch((err) => toast(err.message));
+    }
     if (action === 'toggle-project') {
       adminApi(`/api/projects/${el.dataset.id}/status`, {
         method: 'PATCH',

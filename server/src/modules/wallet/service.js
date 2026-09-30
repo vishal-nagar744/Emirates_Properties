@@ -41,6 +41,26 @@ export async function listTransactions(userId) {
   return { status: 200, data: { transactions: rows.map(viewTransaction) } };
 }
 
+export async function listAllTransactions() {
+  const rows = await Transaction.find().sort({ createdAt: -1 }).limit(500);
+  const ids = [...new Set(rows.map((row) => row.userId))].filter((id) => mongoose.isValidObjectId(id));
+  const users = ids.length ? await User.find({ _id: { $in: ids } }) : [];
+  const byId = new Map(users.map((user) => [String(user._id), user]));
+  return {
+    status: 200,
+    data: {
+      transactions: rows.map((row) => {
+        const owner = byId.get(row.userId);
+        return {
+          ...viewTransaction(row),
+          userName: owner ? owner.fullName : 'Member',
+          mobile: owner ? owner.mobile : '',
+        };
+      }),
+    },
+  };
+}
+
 export async function listAccounts(userId) {
   const rows = await WithdrawalAccount.find({ userId: String(userId) }).sort({ createdAt: -1 });
   return { status: 200, data: { accounts: rows.map(viewAccount) } };

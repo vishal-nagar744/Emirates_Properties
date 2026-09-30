@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { requireUser } from '../../middleware/auth.js';
-import { addAccount, cashIn, listAccounts, listTransactions, removeAccount } from './service.js';
+import { requireAdmin, requireUser } from '../../middleware/auth.js';
+import { addAccount, cashIn, listAccounts, listAllTransactions, listTransactions, removeAccount } from './service.js';
 
 function send(res, result) {
   if (result.message) return res.status(result.status).json({ message: result.message });
@@ -18,6 +18,10 @@ function route(handler) {
 }
 
 export const router = Router();
+
+router.get('/all', requireAdmin, route(async (req, res) => {
+  send(res, await listAllTransactions());
+}));
 
 router.get('/transactions', requireUser, route(async (req, res) => {
   send(res, await listTransactions(req.session.subjectId));

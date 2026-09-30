@@ -580,6 +580,29 @@ a.property-card:focus-visible {
   font-weight: 800;
 }
 
+.prop-tags {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100% - 28px);
+}
+
+.prop-tags .prop-tag { position: static; }
+
+.prop-tag.is-bought {
+  background: #123f32;
+  color: #f7f3ea;
+}
+
+.detail-img { position: relative; }
+
+.detail-bought {
+  z-index: 1;
+}
+
 .heart-btn {
   position: absolute;
   right: 12px;

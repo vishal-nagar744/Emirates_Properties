@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Order } from '../orders/model.js';
 import { Project, viewProject } from './model.js';
 
 function numberValue(value) {
@@ -78,4 +79,15 @@ export async function setProjectStatus(id, status) {
   project.status = status;
   await project.save();
   return { status: 200, data: { project: viewProject(project) } };
+}
+
+export async function deleteProject(id) {
+  const project = await findProject(id);
+  if (!project) return { status: 404, message: 'Project not found.' };
+  const running = await Order.exists({ projectId: String(project._id), status: 'active' });
+  if (running) {
+    return { status: 409, message: 'This project still has an active order. Close those orders before deleting it.' };
+  }
+  await project.deleteOne();
+  return { status: 200, data: { ok: true, id: String(project._id) } };
 }

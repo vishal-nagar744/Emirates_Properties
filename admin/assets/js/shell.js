@@ -5,7 +5,7 @@
 function badge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
-    active: 'ok', available: 'ok', completed: 'ok', credit: 'ok',
+    active: 'ok', available: 'ok', completed: 'ok', credit: 'ok', activated: 'ok',
     pending: 'warn', processing: 'warn', frozen: 'warn',
     rejected: 'bad', cancelled: 'bad', suspended: 'bad', failed: 'bad', debit: 'bad',
     inactive: 'muted',
@@ -53,6 +53,7 @@ function navIcon(name) {
     home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
     grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
     clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l2.5 1.5"/>',
+    list: '<path d="M8 7h12M8 12h12M8 17h12"/><circle cx="4.5" cy="7" r=".8" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="4.5" cy="17" r=".8" fill="currentColor" stroke="none"/>',
     chart: '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/>',
     wallet: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18"/><circle cx="16" cy="14.5" r="1"/>',
     user: '<circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.5c1.4-3 3.6-4.5 6.5-4.5s5.1 1.5 6.5 4.5"/>',
@@ -89,6 +90,7 @@ function adminNav(active) {
     ['users', 'users.html', 'users', 'Users'],
     ['projects', 'projects.html', 'grid', 'Projects'],
     ['cashouts', 'cashouts.html', 'card', 'Cash out'],
+    ['transactions', 'transactions.html', 'list', 'Transactions'],
     ['referrals', 'referrals.html', 'share', 'Referrals'],
     ['settings', 'settings.html', 'gear', 'Settings'],
   ];
@@ -122,6 +124,7 @@ function crumbLabel(page) {
     profile: 'Profile',
     users: 'Users',
     cashouts: 'Cash out',
+    transactions: 'Transactions',
     referrals: 'Referrals',
     settings: 'Settings',
   };

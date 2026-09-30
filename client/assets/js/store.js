@@ -443,8 +443,11 @@ const Store = (() => {
   }
 
   function applySession(user) {
-    if (!user) return;
-    writeSessionMember(user);
+    if (!user || typeof user !== 'object') return;
+    const next = { ...(sessionMember() || {}), ...user };
+    const raw = JSON.stringify(next);
+    sessionStorage.setItem('ps_member', raw);
+    localStorage.setItem('ps_member', raw);
   }
 
   function writeSessionMember(patch) {
@@ -468,8 +471,8 @@ const Store = (() => {
       accountStatus: session.accountStatus || 'active',
       referralCode: session.referralCode || '',
       createdAt: session.createdAt || local.createdAt || '',
-      walletBalance: Number(session.walletBalance) || 0,
-      pendingCashOut: Number(session.pendingCashOut) || 0,
+      walletBalance: session.walletBalance == null ? Number(local.walletBalance) || 0 : Number(session.walletBalance),
+      pendingCashOut: session.pendingCashOut == null ? Number(local.pendingCashOut) || 0 : Number(session.pendingCashOut),
       role: session.role || 'user',
     };
   }

@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
@@ -28,6 +30,7 @@ export function createApp() {
     },
   }));
   app.use(express.json({ limit: '100kb' }));
+  app.use('/uploads', express.static(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads')));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });

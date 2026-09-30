@@ -568,6 +568,16 @@ p {
   font-weight: 800;
 }
 
+.photo-field img {
+  width: 100%;
+  height: 148px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.photo-field .muted { margin: 6px 0 0; }
+
 .heart-btn {
   position: absolute;
   right: 12px;
@@ -2261,6 +2271,14 @@ button.chip {
 }
 
 .admin-project-actions .btn { flex: 1; }
+
+.admin-project-actions .icon-btn {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  color: #8a3b2e;
+  border-color: #ead4cf;
+}
 
 .row-actions {
   display: flex;

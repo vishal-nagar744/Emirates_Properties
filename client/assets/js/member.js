@@ -176,13 +176,21 @@ const Member = (() => {
     initCatalog('project-search', 'project-grid', 'project-filters');
   }
 
+  function boughtIds() {
+    return new Set(ordersCache.filter((order) => order.status === 'active' || order.status === 'completed').map((order) => order.projectId));
+  }
+
   function projectCard(p) {
     const open = p.status === 'active';
     const status = open ? 'Available' : 'Closed';
+    const bought = boughtIds().has(p.id);
     const body = `
         <div class="property-img">
           ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
-          <span class="prop-tag">${esc(p.tag || 'Project')}</span>
+          <div class="prop-tags">
+            <span class="prop-tag">${esc(p.tag || 'Project')}</span>
+            ${bought ? '<span class="prop-tag is-bought">Activated</span>' : ''}
+          </div>
         </div>
         <div class="prop-body">
           <div class="prop-meta"><span>${p.durationDays} days</span><span class="prop-status">${status}</span></div>
@@ -209,15 +217,16 @@ const Member = (() => {
       return;
     }
     const balance = Store.user().walletBalance;
+    const bought = boughtIds().has(p.id);
     pageEl().innerHTML = `
       ${frozenNote()}
       <div class="detail-grid">
         <div>
-          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}</div>
+          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}${bought ? '<span class="prop-tag is-bought detail-bought">Activated</span>' : ''}</div>
           <section class="card box detail-copy">
             <div class="boxhead">
               <h2 class="serif">${esc(p.name)}</h2>
-              ${badge(p.status === 'active' ? 'available' : 'inactive')}
+              ${bought ? badge('activated') : badge(p.status === 'active' ? 'available' : 'inactive')}
             </div>
             <p class="prop-line">${esc(p.address || 'Dubai')}</p>
             <p class="prop-line">${esc(p.developer || 'Developer')}</p>
@@ -972,15 +981,32 @@ const Member = (() => {
     });
   }
 
+  async function refreshMember() {
+    try {
+      const data = await memberApi('/api/auth/me');
+      if (data.user) Store.applySession(data.user);
+    } catch {
+      /* keep the last signed-in snapshot until the next successful load */
+    }
+  }
+
   async function render() {
     const page = document.body.dataset.page;
     loadError = '';
+    await refreshMember();
     if (page === 'projects') {
       try {
         catalog = (await memberApi('/api/projects')).projects || [];
       } catch (err) {
         catalog = [];
         loadError = err.message;
+      }
+    }
+    if (page === 'projects' || page === 'project') {
+      try {
+        ordersCache = (await memberApi('/api/orders')).orders || [];
+      } catch {
+        ordersCache = [];
       }
     }
     if (page === 'project') {
