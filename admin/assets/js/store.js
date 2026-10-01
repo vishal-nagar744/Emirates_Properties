@@ -333,6 +333,7 @@ const Store = (() => {
       dirty = true;
     }
     if (hydrateProjects()) dirty = true;
+    if (stripStoredImages(db)) dirty = true;
     if (db.notifications) {
       delete db.notifications;
       dirty = true;
@@ -386,8 +387,23 @@ const Store = (() => {
     return { accounts };
   }
 
+  function stripStoredImages(data) {
+    let changed = false;
+    ['projects', 'orders'].forEach((key) => {
+      (data[key] || []).forEach((row) => {
+        if (row && Object.prototype.hasOwnProperty.call(row, 'image')) {
+          delete row.image;
+          changed = true;
+        }
+      });
+    });
+    return changed;
+  }
+
   function save() {
-    localStorage.setItem(KEY, JSON.stringify(db));
+    const copy = JSON.parse(JSON.stringify(db));
+    stripStoredImages(copy);
+    localStorage.setItem(KEY, JSON.stringify(copy));
     syncUserRow();
   }
 

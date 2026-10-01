@@ -456,10 +456,17 @@ const Admin = (() => {
       saveBtn.disabled = true;
       try {
         await currentImage.ready();
+        const image = currentImage.url();
+        if (image.startsWith('blob:') || image.startsWith('data:')) {
+          err.hidden = false;
+          err.textContent = 'Wait for the image to finish uploading.';
+          saveBtn.disabled = false;
+          return;
+        }
         const payload = {
           name,
           description: document.getElementById('gr-desc').value.trim(),
-          image: currentImage.url(),
+          image,
         };
         if (group.id) await adminApi(`/api/groups/${group.id}`, { method: 'PATCH', body: payload });
         else await adminApi('/api/groups', { method: 'POST', body: payload });
@@ -542,13 +549,19 @@ const Admin = (() => {
         return;
       }
       await currentImage.ready();
+      const image = currentImage.url();
+      if (image.startsWith('blob:') || image.startsWith('data:')) {
+        err.hidden = false;
+        err.textContent = 'Wait for the photo to finish uploading.';
+        return;
+      }
       const payload = {
         groupId: p.groupId || groupId,
         name: document.getElementById('pj-name').value.trim(),
         description: p.description || '',
         address: document.getElementById('pj-address').value.trim(),
         developer: document.getElementById('pj-developer').value.trim(),
-        image: currentImage.url(),
+        image,
         price,
         commissionRatio: ratio,
         status: document.getElementById('pj-status').value,

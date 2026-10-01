@@ -1107,13 +1107,46 @@ const Member = (() => {
     });
   }
 
+  function paintPage() {
+    const page = document.body.dataset.page;
+    const map = {
+      dashboard: renderDashboard,
+      projects: renderProjects,
+      project: renderProject,
+      orders: renderOrders,
+      earnings: renderEarnings,
+      wallet: renderWallet,
+      profile: renderProfile,
+    };
+    (map[page] || renderDashboard)();
+    maybePendingNotice();
+  }
+
   async function refreshMember() {
     try {
       const data = await memberApi('/api/auth/me');
       if (data.user) Store.applySession(data.user);
+      return data.user || null;
     } catch {
-      /* keep the last signed-in snapshot until the next successful load */
+      return null;
     }
+  }
+
+  function startStatusWatch() {
+    if (startStatusWatch.started) return;
+    startStatusWatch.started = true;
+    const pull = async () => {
+      if (document.hidden) return;
+      const before = String((Store.user() && Store.user().accountStatus) || '');
+      const user = await refreshMember();
+      if (!user) return;
+      if (String(user.accountStatus || '') !== before) paintPage();
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) pull();
+    });
+    window.addEventListener('focus', pull);
+    window.setInterval(pull, 8000);
   }
 
   async function render() {
@@ -1189,17 +1222,8 @@ const Member = (() => {
         loadError = err.message;
       }
     }
-    const map = {
-      dashboard: renderDashboard,
-      projects: renderProjects,
-      project: renderProject,
-      orders: renderOrders,
-      earnings: renderEarnings,
-      wallet: renderWallet,
-      profile: renderProfile,
-    };
-    (map[page] || renderDashboard)();
-    maybePendingNotice();
+    paintPage();
+    startStatusWatch();
   }
 
   document.addEventListener('click', (e) => {

@@ -12,6 +12,22 @@ function money(value) {
   return Math.round(value * 100) / 100;
 }
 
+function imageRef(value) {
+  const image = String(value || '').trim();
+  if (!image) return '';
+  if (image.startsWith('data:') || image.startsWith('blob:')) {
+    return { error: 'Upload the photo. It is not kept in the browser.' };
+  }
+  if (image.startsWith('/uploads/')) return image;
+  try {
+    const url = new URL(image);
+    if ((url.protocol === 'http:' || url.protocol === 'https:') && url.pathname.startsWith('/uploads/')) return image;
+  } catch {
+    /* not a stored upload */
+  }
+  return { error: 'Upload the photo before saving.' };
+}
+
 async function groupNames(projects) {
   const ids = [...new Set(projects.map((project) => project.groupId).filter(Boolean))];
   const groups = await ProjectGroup.find({ _id: { $in: ids } });
@@ -39,11 +55,17 @@ async function readProject(body, current) {
   }
   if (status !== 'active' && status !== 'inactive') return { status: 400, message: 'Status must be active or inactive.' };
 
+  const imageInput = String((body && body.image) ?? (current && current.image) ?? '').trim();
+  const image = imageRef(imageInput);
+  if (image && image.error && imageInput !== String((current && current.image) || '')) {
+    return { status: 400, message: image.error };
+  }
+
   return {
     value: {
       groupId,
       name,
-      image: String((body && body.image) ?? (current && current.image) ?? '').trim(),
+      image: image && image.error ? imageInput : image,
       description: String((body && body.description) ?? (current && current.description) ?? '').trim(),
       address: String((body && body.address) ?? (current && current.address) ?? '').trim(),
       developer: String((body && body.developer) ?? (current && current.developer) ?? '').trim(),

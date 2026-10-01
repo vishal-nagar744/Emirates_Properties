@@ -122,6 +122,18 @@ function headerStatus(user) {
   return badge(status);
 }
 
+function syncMemberHeader(user) {
+  if (document.body.dataset.app !== 'member') return;
+  const person = user || (typeof Store !== 'undefined' && Store.user ? Store.user() : null);
+  if (!person) return;
+  const name = document.querySelector('.who-card .who b');
+  const avatar = document.querySelector('.who-card .avatar');
+  const meta = document.querySelector('.who-card .who-meta');
+  if (name) name.textContent = person.fullName || 'User';
+  if (avatar) avatar.textContent = String(person.fullName || 'U').trim().charAt(0).toUpperCase() || 'U';
+  if (meta) meta.innerHTML = `<small>${esc(roleLine(false))}</small>${headerStatus(person)}`;
+}
+
 function setBreadcrumb(items) {
   const nav = document.getElementById('crumbs');
   if (!nav || !items || !items.length) return;

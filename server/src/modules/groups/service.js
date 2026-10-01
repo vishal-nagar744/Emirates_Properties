@@ -17,14 +17,35 @@ async function withCounts(groups) {
   return groups.map((group) => viewGroup(group, { projectCount: counts.get(String(group._id)) || 0 }));
 }
 
+function imageRef(value) {
+  const image = String(value || '').trim();
+  if (!image) return '';
+  if (image.startsWith('data:') || image.startsWith('blob:')) {
+    return { error: 'Upload the photo. It is not kept in the browser.' };
+  }
+  if (image.startsWith('/uploads/')) return image;
+  try {
+    const url = new URL(image);
+    if ((url.protocol === 'http:' || url.protocol === 'https:') && url.pathname.startsWith('/uploads/')) return image;
+  } catch {
+    /* not a stored upload */
+  }
+  return { error: 'Upload the photo before saving.' };
+}
+
 function readGroup(body, current) {
   const name = String((body && body.name) ?? (current && current.name) ?? '').trim();
   if (!name) return { status: 400, message: 'Enter a group name.' };
+  const imageInput = String((body && body.image) ?? (current && current.image) ?? '').trim();
+  const image = imageRef(imageInput);
+  if (image && image.error && imageInput !== String((current && current.image) || '')) {
+    return { status: 400, message: image.error };
+  }
   return {
     value: {
       name,
       description: String((body && body.description) ?? (current && current.description) ?? '').trim(),
-      image: String((body && body.image) ?? (current && current.image) ?? '').trim(),
+      image: image && image.error ? imageInput : image,
     },
   };
 }
