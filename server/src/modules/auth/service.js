@@ -21,6 +21,7 @@ function publicUser(user) {
     referralCode: user.referralCode,
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
+    trialBalance: user.trialBalance || 0,
     pendingCashOut: user.pendingCashOut || 0,
     hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
@@ -60,7 +61,7 @@ function loginBlock(user) {
 
 async function platformSettings() {
   const settings = await Settings.findOne({ key: 'platform' });
-  if (!settings) return { welcomeBonusAmount: 100 };
+  if (!settings) return { welcomeBonusAmount: 100, trialBonusAmount: 0 };
   return settings;
 }
 
@@ -83,6 +84,7 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
 
   const settings = await platformSettings();
   const bonus = Number(settings.welcomeBonusAmount) || 0;
+  const trialBonus = Number(settings.trialBonusAmount) || 0;
   let user;
   try {
     user = await User.create({
@@ -98,6 +100,7 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
       accountStatus: 'pending',
       welcomeBonusReceived: bonus > 0,
       walletBalance: bonus,
+      trialBalance: trialBonus,
       pendingCashOut: 0,
     });
   } catch (err) {
@@ -121,7 +124,21 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
       type: 'welcome_bonus',
       amount: bonus,
       direction: 'credit',
+      wallet: 'main',
       description: 'Welcome bonus',
+      status: 'completed',
+      referenceId: null,
+    });
+  }
+
+  if (trialBonus > 0) {
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'trial_bonus',
+      amount: trialBonus,
+      direction: 'credit',
+      wallet: 'trial',
+      description: 'Trial bonus',
       status: 'completed',
       referenceId: null,
     });

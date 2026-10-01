@@ -83,6 +83,7 @@ export async function updateGroup(id, body) {
 export async function deleteGroup(id) {
   const group = await findGroup(id);
   if (!group) return { status: 404, message: 'Group not found.' };
+  if (group.isTrial) return { status: 400, message: 'The trial group cannot be deleted.' };
   const used = await Project.exists({ groupId: String(group._id) });
   if (used) return { status: 409, message: 'Remove the projects in this group before deleting it.' };
   await group.deleteOne();

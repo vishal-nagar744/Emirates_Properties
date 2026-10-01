@@ -18,6 +18,7 @@ function viewUser(user, extra = {}) {
     referredBy: user.referredBy || null,
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
+    trialBalance: user.trialBalance || 0,
     pendingCashOut: user.pendingCashOut,
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
     ...extra,

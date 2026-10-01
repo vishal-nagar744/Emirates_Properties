@@ -490,6 +490,7 @@ const Store = (() => {
       referralCode: session.referralCode || '',
       createdAt: session.createdAt || local.createdAt || '',
       walletBalance: session.walletBalance == null ? Number(local.walletBalance) || 0 : Number(session.walletBalance),
+      trialBalance: session.trialBalance == null ? Number(local.trialBalance) || 0 : Number(session.trialBalance),
       pendingCashOut: session.pendingCashOut == null ? Number(local.pendingCashOut) || 0 : Number(session.pendingCashOut),
       role: session.role || 'user',
     };

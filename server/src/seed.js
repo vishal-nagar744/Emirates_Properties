@@ -76,6 +76,7 @@ export async function seed() {
         key: 'platform',
         platformName: 'Emirates Properties',
         welcomeBonusAmount: 100,
+        trialBonusAmount: 0,
         minCashOutAmount: 500,
         supportTelegramUsername: 'EmiratesPropertiesSupport',
         demoCashInUSDTAddress: '',
@@ -83,4 +84,24 @@ export async function seed() {
     },
     { upsert: true }
   );
+
+  await Settings.updateOne(
+    { key: 'platform', trialBonusAmount: { $exists: false } },
+    { $set: { trialBonusAmount: 0 } }
+  );
+
+  const trial = await ProjectGroup.findOne({ isTrial: true }) || await ProjectGroup.findOne({ name: /^trial$/i });
+  if (trial) {
+    if (!trial.isTrial) {
+      trial.isTrial = true;
+      await trial.save();
+    }
+  } else {
+    await ProjectGroup.create({
+      name: 'Trial',
+      description: '',
+      image: '',
+      isTrial: true,
+    });
+  }
 }

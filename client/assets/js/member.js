@@ -128,6 +128,7 @@ const Member = (() => {
       demo_cash_in: 'Cash in',
       project_activation: 'Activation',
       daily_commission: 'Commission',
+      trial_bonus: 'Trial bonus',
       project_purchase: 'Property',
       project_commission: 'Commission',
       cash_out: 'Cash out',
@@ -143,13 +144,20 @@ const Member = (() => {
     return `<a class="card kpi" href="${esc(href)}">${inner}</a>`;
   }
 
+  function placeLabel(row) {
+    const group = row && row.groupName ? String(row.groupName) : '';
+    const project = row && row.projectName ? String(row.projectName) : '';
+    if (group && project) return `${group} · ${project}`;
+    return project || group;
+  }
+
   function activeCard(order) {
     return `
       <a class="active-card" href="orders.html?id=${esc(order.id)}">
         <div class="active-card-top">
           ${order.image ? `<img src="${esc(order.image)}" alt="" width="64" height="64">` : ''}
           <div>
-            <h3>${esc(order.projectName)}</h3>
+            <h3>${esc(placeLabel(order))}</h3>
             <p class="muted">${esc(String(order.createdAt || '').slice(0, 10))}</p>
           </div>
           <span class="active-go">View order</span>
@@ -186,39 +194,61 @@ const Member = (() => {
       return;
     }
     const group = groupsCache.find((item) => item.id === groupId);
-    const list = catalog;
     setBreadcrumb([
       { href: 'dashboard.html', label: 'Workspace' },
       { href: 'projects.html', label: 'Projects' },
       { label: group ? group.name : 'Group' },
     ]);
     pageEl().innerHTML = `
-      <div class="page-head">
-        <div class="page-title-row">
-          <a class="icon-btn back-btn" href="projects.html" aria-label="Back to projects"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
-          <div>
-            <h2 class="serif">${esc(group ? group.name : 'Projects')}</h2>
-            ${group && group.description ? `<p class="muted">${esc(group.description)}</p>` : ''}
+      ${accountNote()}
+      <div class="offer-wrap">
+        <a class="icon-btn back-btn" href="projects.html" aria-label="Back to projects"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
+        ${offerCard(group)}
+      </div>`;
+  }
+
+  function addedOrder(list) {
+    return [...list].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  }
+
+  function offerCard(group) {
+    const list = addedOrder(catalog);
+    if (!list.length) return emptyState('grid', 'No projects in this group', 'Projects added to this group will appear here.');
+    const ordered = boughtIds();
+    const done = list.filter((project) => ordered.has(project.id)).length;
+    const next = list.find((project) => !ordered.has(project.id));
+    const title = group ? group.name : 'Projects';
+    const media = `<div class="offer-media">${group && group.image ? `<img src="${esc(group.image)}" alt="">` : ''}</div>`;
+    if (!next) {
+      return `
+        <section class="card offer-card offer-done">
+          ${media}
+          <div class="offer-body">
+            <h2 class="serif">${esc(title)}</h2>
+            <p>Every project in this group is done.</p>
+            <p class="offer-count">${done}/${list.length}</p>
           </div>
+        </section>`;
+    }
+    const status = Store.user().accountStatus;
+    const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
+    const label = status === 'pending' ? 'Approval required' : 'Submit';
+    return `
+      <section class="card offer-card">
+        ${media}
+        <div class="offer-body">
+          <h2 class="serif">${esc(title)}</h2>
+          <p class="offer-project">${esc(next.name)}</p>
+          <dl class="stack-stats offer-rows">
+            ${row('Commission rate', `${esc(next.commissionRatio)}%`)}
+            ${row('Earn commission', Store.money(next.commissionAmount))}
+            ${row('Price', Store.money(next.price))}
+            ${row('Ongoing projects', `${done}/${list.length}`)}
+            ${row(group && group.isTrial ? 'Trial balance' : 'Available balance', Store.money(group && group.isTrial ? Store.user().trialBalance : Store.user().walletBalance))}
+          </dl>
+          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${esc(next.id)}" ${blocked ? 'disabled' : ''}>${label}</button>
         </div>
-      </div>
-      ${list.length ? `
-      <div class="catalog-bar">
-        <label class="search-bar page-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16.5 20 20.5"/></svg>
-          <input id="project-search" type="search" placeholder="Search projects" aria-label="Search projects">
-        </label>
-        <div class="catalog-filters" id="project-filters" role="group" aria-label="Filter projects">
-          <button class="chip active" type="button" data-filter="all" aria-pressed="true">All</button>
-          <button class="chip" type="button" data-filter="available" aria-pressed="false">Available</button>
-          <button class="chip" type="button" data-filter="closed" aria-pressed="false">Closed</button>
-        </div>
-      </div>
-      <div class="grid-4" id="project-grid">
-        ${list.map(projectCard).join('')}
-      </div>
-      <div class="empty-state" id="projects-empty" hidden>${navIcon('grid')}<b>No projects match</b><p>Try another search or filter.</p></div>` : emptyState('grid', 'No projects in this group', 'Projects added to this group will appear here.')}`;
-    initCatalog('project-search', 'project-grid', 'project-filters');
+      </section>`;
   }
 
   function groupCard(group) {
@@ -236,33 +266,6 @@ const Member = (() => {
     return new Set(ordersCache.filter((order) => order.status === 'active' || order.status === 'completed').map((order) => order.projectId));
   }
 
-  function projectCard(p) {
-    const open = p.status === 'active';
-    const status = open ? 'Available' : 'Closed';
-    const bought = boughtIds().has(p.id);
-    const groupId = new URLSearchParams(location.search).get('group') || p.groupId || '';
-    const body = `
-        <div class="property-img">
-          ${p.image ? `<img src="${esc(p.image)}" alt="" loading="lazy">` : ''}
-          ${bought ? '<span class="prop-tag is-bought">Ordered</span>' : ''}
-        </div>
-        <div class="prop-body">
-          <div class="prop-meta"><span>${esc(p.commissionRatio)}%</span><span class="prop-status">${status}</span></div>
-          <h3>${esc(p.name)}</h3>
-          ${p.address ? `<p class="prop-line">${esc(p.address)}</p>` : ''}
-          ${p.developer ? `<p class="prop-line">${esc(p.developer)}</p>` : ''}
-          <dl class="prop-stats">
-            <div><dt>Price</dt><dd>${Store.money(p.price)}</dd></div>
-            <div><dt>Ratio</dt><dd>${esc(p.commissionRatio)}%</dd></div>
-            <div><dt>Commission</dt><dd>${Store.money(p.commissionAmount)}</dd></div>
-          </dl>
-        </div>`;
-    if (!open) {
-      return `<article class="card property-card is-closed" aria-disabled="true" data-name="${esc(p.name)}" data-open="0">${body}</article>`;
-    }
-    return `<a class="card property-card" href="project-details.html?id=${esc(p.id)}&group=${esc(groupId)}" data-name="${esc(p.name)}" data-open="1">${body}</a>`;
-  }
-
   function renderProject() {
     const id = new URLSearchParams(location.search).get('id') || '';
     const p = catalog.find((item) => item.id === id) || null;
@@ -273,8 +276,7 @@ const Member = (() => {
     const bought = boughtIds().has(p.id);
     const status = Store.user().accountStatus;
     const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
-    const closed = p.status !== 'active';
-    const label = bought ? 'Order submitted' : closed ? 'Closed' : blocked ? 'Approval required' : 'Submit order';
+    const label = bought ? 'Order submitted' : blocked ? 'Approval required' : 'Submit';
     const groupId = new URLSearchParams(location.search).get('group') || p.groupId || '';
     const backHref = groupId ? `projects.html?group=${encodeURIComponent(groupId)}` : 'projects.html';
     setBreadcrumb([
@@ -285,28 +287,18 @@ const Member = (() => {
     ]);
     pageEl().innerHTML = `
       ${accountNote()}
-      <div class="page-title-row detail-back">
+      <div class="offer-wrap">
         <a class="icon-btn back-btn" href="${esc(backHref)}" aria-label="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
-        <h2 class="serif">${esc(p.name)}</h2>
-        ${badge(p.status === 'active' ? 'available' : 'inactive')}
-      </div>
-      <div class="detail-grid">
-        <div>
-          <div class="detail-img">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}">` : ''}${bought ? '<span class="prop-tag is-bought detail-bought">Ordered</span>' : ''}</div>
-          ${(p.address || p.developer || p.description) ? `<section class="card box detail-copy">
-            ${p.address ? `<p class="prop-line">${esc(p.address)}</p>` : ''}
-            ${p.developer ? `<p class="prop-line">${esc(p.developer)}</p>` : ''}
-            ${p.description ? `<p class="lead">${esc(p.description)}</p>` : ''}
-          </section>` : ''}
-        </div>
-        <aside class="card box">
-          <dl class="stack-stats">
+        <section class="card offer-card">
+          <h2 class="serif">${esc(p.name)}</h2>
+          <dl class="stack-stats offer-rows">
+            ${row('Commission rate', `${esc(p.commissionRatio)}%`)}
+            ${row('Earn commission', Store.money(p.commissionAmount))}
             ${row('Price', Store.money(p.price))}
-            ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
-            ${row('Commission', Store.money(p.commissionAmount))}
+            ${row('Available balance', Store.money(Store.user().walletBalance))}
           </dl>
-          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${p.id}" ${bought || closed || blocked ? 'disabled' : ''}>${label}</button>
-        </aside>
+          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${esc(p.id)}" ${bought || blocked ? 'disabled' : ''}>${label}</button>
+        </section>
       </div>`;
   }
 
@@ -314,23 +306,34 @@ const Member = (() => {
     return `<div class="stack-row"><span>${label}</span><b>${value}</b></div>`;
   }
 
-  function canAfford(project) {
-    const balance = Math.round((Number(Store.user().walletBalance) || 0) * 100);
-    const price = Math.round((Number(project.price) || 0) * 100);
-    return balance >= price;
-  }
-
   function openActivate(projectId) {
     const p = catalog.find((item) => item.id === projectId);
-    if (!p || p.status !== 'active' || boughtIds().has(p.id)) return;
-    if (!canAfford(p)) {
-      openModal(`
-        <h3>Insufficient funds</h3>
-        <p>This property is ${Store.money(p.price)}. Your wallet has ${Store.money(Store.user().walletBalance)}.</p>
-        <div class="modal-actions">
-          <button class="btn light" type="button" data-dismiss>Close</button>
-        </div>`);
-      return;
+    if (!p || boughtIds().has(p.id)) return;
+    const trial = groupsCache.find((group) => group.id === p.groupId && group.isTrial);
+    const price = Number(p.price) || 0;
+    const priceCents = Math.round(price * 100);
+    if (trial) {
+      const trialBalance = Number(Store.user().trialBalance) || 0;
+      if (Math.round(trialBalance * 100) < priceCents) {
+        openModal(`
+          <h3>Insufficient trial balance</h3>
+          <p>This project is ${Store.money(price)}. Your trial balance is ${Store.money(trialBalance)}.</p>
+          <div class="modal-actions">
+            <button class="btn light" type="button" data-dismiss>Close</button>
+          </div>`);
+        return;
+      }
+    } else {
+      const walletBalance = Number(Store.user().walletBalance) || 0;
+      if (Math.round(walletBalance * 100) < priceCents) {
+        openModal(`
+          <h3>Insufficient wallet balance</h3>
+          <p>This project is ${Store.money(price)}. Your wallet balance is ${Store.money(walletBalance)}.</p>
+          <div class="modal-actions">
+            <button class="btn light" type="button" data-dismiss>Close</button>
+          </div>`);
+        return;
+      }
     }
     openModal(`
       <h3>Submit order</h3>
@@ -338,9 +341,8 @@ const Member = (() => {
       <dl class="stack-stats">
         ${row('Price', Store.money(p.price))}
         ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
-        ${row('Commission added to wallet', Store.money(p.commissionAmount))}
+        ${row('Commission', Store.money(p.commissionAmount))}
       </dl>
-      <p class="muted">${Store.money(p.price)} is taken from your wallet. ${Store.money(p.commissionAmount)} commission is added.</p>
       <div class="modal-actions">
         <button class="btn light" type="button" data-dismiss>Cancel</button>
         <button class="btn primary" type="button" data-action="confirm-activate" data-id="${p.id}">Submit order</button>
@@ -376,7 +378,7 @@ const Member = (() => {
           <div class="page-title-row">
             <a class="icon-btn back-btn" href="orders.html?status=${filter}&tab=orders" aria-label="Back to orders">${backIcon}</a>
             <div>
-              <h2 class="serif">${esc(selected.projectName)}</h2>
+              <h2 class="serif">${esc(placeLabel(selected))}</h2>
               <p class="muted">${esc(selected.id)}</p>
             </div>
           </div>
@@ -401,17 +403,17 @@ const Member = (() => {
         <div class="tablewrap">
           ${tab === 'commission' ? `
             <table class="data-table">
-              <thead><tr><th>Date</th><th>Project</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+              <thead><tr><th>Date</th><th>Group / project</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
-                ${commissions.length ? commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>Order</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="5">${emptyState('chart', commissionsCache.length ? 'No commission in this view' : 'No commission yet', commissionsCache.length ? 'Try another order status.' : 'Commission appears here after you submit an order.')}</td></tr>`}
+                ${commissions.length ? commissions.map((c) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(c.orderId)}"><td>${esc(c.date)}</td><td>${esc(placeLabel(c))}</td><td>Order</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('') : `<tr><td colspan="5">${emptyState('chart', commissionsCache.length ? 'No commission in this view' : 'No commission yet', commissionsCache.length ? 'Try another order status.' : 'Commission appears here after you submit an order.')}</td></tr>`}
               </tbody>
             </table>` : `
             <table class="data-table">
-              <thead><tr><th>Order</th><th>Project</th><th>Price</th><th>Commission</th><th>Status</th></tr></thead>
+              <thead><tr><th>Order</th><th>Group / project</th><th>Price</th><th>Commission</th><th>Status</th></tr></thead>
               <tbody>
                 ${list.length ? list.map((o) => `<tr class="order-row" tabindex="0" data-href="orders.html?status=${filter}&id=${esc(o.id)}">
                   <td>${esc(o.id)}<div class="muted">${esc(String(o.createdAt || '').slice(0, 10))}</div></td>
-                  <td>${esc(o.projectName)}</td>
+                  <td>${esc(placeLabel(o))}</td>
                   <td>${Store.money(o.price)}</td>
                   <td>${Store.money(o.commissionAmount)}</td>
                   <td>${badge(o.status)}</td>
@@ -436,6 +438,7 @@ const Member = (() => {
     return `
       <section class="card box order-panel" id="order-detail">
         <dl class="fact-grid">
+          <div><dt>Group</dt><dd>${esc(o.groupName || '—')}</dd></div>
           <div><dt>Project</dt><dd>${esc(o.projectName)}</dd></div>
           <div><dt>Submitted</dt><dd>${esc(String(o.createdAt || '').slice(0, 10))}</dd></div>
           <div><dt>Price</dt><dd>${Store.money(o.price)}</dd></div>
@@ -494,9 +497,9 @@ const Member = (() => {
         </div>
         <div class="tablewrap">
           <table class="data-table">
-            <thead><tr><th>Date</th><th>Project</th><th>Order</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Group / project</th><th>Order</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
-              ${list.map((c) => `<tr><td>${esc(c.date)}</td><td>${esc(c.projectName)}</td><td>${esc(c.orderId)}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('')}
+              ${list.map((c) => `<tr><td>${esc(c.date)}</td><td>${esc(placeLabel(c))}</td><td>${esc(c.orderId)}</td><td>+${Store.money(c.amount)}</td><td>${badge(c.status)}</td></tr>`).join('')}
             </tbody>
           </table>
         </div>` : `<div class="empty-wrap">${emptyState('chart', loadError ? 'Could not load earnings' : 'No commission in this range', loadError || 'Choose another range, or wait for the next credit.')}</div>`}
@@ -544,6 +547,7 @@ const Member = (() => {
           </div>
         </div>
         <div class="wallet-footer">
+          <span>Trial balance<br><b>${Store.money(u.trialBalance)}</b></span>
           <span>Pending cash out<br><b>${Store.money(u.pendingCashOut)}</b></span>
           <span>Total commission<br><b>${Store.money(totalCommission)}</b></span>
         </div>
@@ -1234,16 +1238,19 @@ const Member = (() => {
     if (action === 'open-cash-in') openCashIn();
     if (action === 'open-cash-out') openCashOut();
     if (action === 'confirm-activate') {
-      const project = catalog.find((item) => item.id === el.dataset.id);
-      if (project && !canAfford(project)) {
-        openActivate(project.id);
-        return;
-      }
       memberApi('/api/orders', { method: 'POST', body: { projectId: el.dataset.id } })
         .then((data) => {
           if (data.user) Store.applySession(data.user);
+          if (data.order) {
+            ordersCache = [data.order, ...ordersCache.filter((order) => order.id !== data.order.id)];
+          }
           closeModal();
           toast('Order submitted');
+          const groupId = new URLSearchParams(location.search).get('group');
+          if (document.body.dataset.page === 'projects' && groupId) {
+            renderProjects();
+            return;
+          }
           window.location.href = `orders.html?id=${data.order.id}`;
         })
         .catch((err) => toast(err.message));

@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     },
     welcomeBonusReceived: { type: Boolean, default: false },
     walletBalance: { type: Number, default: 0 },
+    trialBalance: { type: Number, default: 0 },
     pendingCashOut: { type: Number, default: 0 },
   },
   { timestamps: true }

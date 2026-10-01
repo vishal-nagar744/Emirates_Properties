@@ -189,6 +189,7 @@ const Admin = (() => {
       <p class="muted">${esc(u.mobile)} · ${esc(u.referralCode)}</p>
       <dl class="stack-stats">
         <div class="stack-row"><span>Balance</span><b>${Store.money(u.walletBalance)}</b></div>
+        <div class="stack-row"><span>Trial balance</span><b>${Store.money(u.trialBalance)}</b></div>
         <div class="stack-row"><span>Pending cash out</span><b>${Store.money(u.pendingCashOut)}</b></div>
         <div class="stack-row"><span>Referred by</span><b>${byName ? esc(byName) : '—'}</b></div>
         <div class="stack-row"><span>Referrals</span><b>${u.referralCount || 0}</b></div>
@@ -344,7 +345,9 @@ const Admin = (() => {
       return;
     }
     const group = groups.find((item) => item.id === groupId);
-    const list = catalog.filter((project) => project.groupId === groupId);
+    const list = catalog
+      .filter((project) => project.groupId === groupId)
+      .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
     setBreadcrumb([
       { href: 'dashboard.html', label: 'Admin' },
       { href: 'projects.html', label: 'Projects' },
@@ -360,26 +363,15 @@ const Admin = (() => {
       </div>
       ${list.length ? `<div class="admin-project-grid">
         ${list.map((p) => `
-          <article class="card admin-project${p.status === 'active' ? '' : ' is-closed'}">
-            <div class="admin-project-photo">
-              ${p.image ? `<img src="${esc(p.image)}" alt="">` : '<div class="admin-photo-empty"></div>'}
-            </div>
+          <article class="card admin-project">
             <div class="admin-project-body">
-              <div class="admin-project-top">
-                <span>${esc(p.commissionRatio)}%</span>
-                <span class="admin-project-state">${p.status === 'active' ? 'Available' : 'Closed'}</span>
-              </div>
               <h3>${esc(p.name)}</h3>
-              ${p.address ? `<p>${esc(p.address)}</p>` : ''}
-              ${p.developer ? `<p>${esc(p.developer)}</p>` : ''}
               <dl class="admin-project-stats">
                 <div><dt>Price</dt><dd>${Store.money(p.price)}</dd></div>
                 <div><dt>Ratio</dt><dd>${esc(p.commissionRatio)}%</dd></div>
-                <div><dt>Commission</dt><dd>${Store.money(p.commissionAmount)}</dd></div>
               </dl>
               <div class="admin-project-actions">
                 <button class="btn light" type="button" data-action="edit-project" data-id="${esc(p.id)}">Edit</button>
-                <button class="btn light" type="button" data-action="toggle-project" data-id="${esc(p.id)}" data-status="${p.status === 'active' ? 'inactive' : 'active'}">${p.status === 'active' ? 'Close' : 'Open'}</button>
                 <button class="icon-btn" type="button" data-action="delete-project" data-id="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="Delete ${esc(p.name)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
               </div>
             </div>
@@ -487,33 +479,14 @@ const Admin = (() => {
     const found = id ? catalog.find((item) => item.id === id) : null;
     if (id && !found) return;
     const p = found || {
-      id: '', groupId, name: '', image: '', description: '', address: '', developer: '', price: '', commissionRatio: '', status: 'active',
+      id: '', groupId, name: '', price: '', commissionRatio: '',
     };
     openModal(`
       <h3>${id ? 'Edit project' : 'New project'}</h3>
       <form id="proj-form" class="fields">
         <div class="field"><label for="pj-name">Name</label><input id="pj-name" value="${esc(p.name)}" required></div>
-        <div class="form-2">
-          <div class="field"><label for="pj-address">Address</label><input id="pj-address" value="${esc(p.address)}"></div>
-          <div class="field"><label for="pj-developer">Developer</label><input id="pj-developer" value="${esc(p.developer)}"></div>
-        </div>
-        <div class="field photo-field">
-          <span class="field-label" id="pj-photo-label">Photo</span>
-          <label class="btn light photo-pick" for="pj-file">Choose photo</label>
-          <input id="pj-file" class="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-labelledby="pj-photo-label">
-          <p class="field-error" id="pj-photo-note" role="alert"></p>
-          <img id="pj-preview" alt="" ${p.image ? `src="${esc(p.image)}"` : 'hidden'}>
-        </div>
-        <div class="form-2">
-          <div class="field"><label for="pj-price">Price (AED)</label><input id="pj-price" type="number" min="0" step="0.01" value="${p.price === '' ? '' : p.price}"></div>
-          <div class="field"><label for="pj-ratio">Commission ratio (%)</label><input id="pj-ratio" type="number" min="0" max="100" step="0.01" value="${p.commissionRatio === '' ? '' : p.commissionRatio}"></div>
-          <div class="field"><label for="pj-status">Status</label>
-            <select id="pj-status">
-              <option value="active" ${p.status === 'active' ? 'selected' : ''}>Available</option>
-              <option value="inactive" ${p.status === 'inactive' ? 'selected' : ''}>Closed</option>
-            </select>
-          </div>
-        </div>
+        <div class="field"><label for="pj-price">Price (AED)</label><input id="pj-price" type="number" min="0" step="0.01" value="${p.price === '' ? '' : p.price}"></div>
+        <div class="field"><label for="pj-ratio">Commission ratio (%)</label><input id="pj-ratio" type="number" min="0" max="100" step="0.01" value="${p.commissionRatio === '' ? '' : p.commissionRatio}"></div>
         <p class="muted" id="pj-total"></p>
         <p class="field-error" id="pj-error" role="alert" hidden></p>
         <div class="modal-actions">
@@ -525,13 +498,12 @@ const Admin = (() => {
       const price = Number(document.getElementById('pj-price').value);
       const ratio = Number(document.getElementById('pj-ratio').value);
       const amount = Number.isFinite(price) && Number.isFinite(ratio) ? (price * ratio) / 100 : 0;
-      document.getElementById('pj-total').textContent = `Commission ${Store.money(amount)}`;
+      document.getElementById('pj-total').textContent = `Earn commission ${Store.money(amount)}`;
     };
     document.getElementById('pj-price').addEventListener('input', updateTotal);
     document.getElementById('pj-ratio').addEventListener('input', updateTotal);
     updateTotal();
     const saveBtn = document.querySelector('#proj-form button[type="submit"]');
-    const currentImage = bindPhotoUpload('pj-file', 'pj-photo-note', 'pj-preview', saveBtn, p.image || '');
     document.getElementById('proj-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('pj-error');
@@ -548,23 +520,12 @@ const Admin = (() => {
         err.textContent = 'Commission ratio must be between 0 and 100.';
         return;
       }
-      await currentImage.ready();
-      const image = currentImage.url();
-      if (image.startsWith('blob:') || image.startsWith('data:')) {
-        err.hidden = false;
-        err.textContent = 'Wait for the photo to finish uploading.';
-        return;
-      }
       const payload = {
         groupId: p.groupId || groupId,
         name: document.getElementById('pj-name').value.trim(),
-        description: p.description || '',
-        address: document.getElementById('pj-address').value.trim(),
-        developer: document.getElementById('pj-developer').value.trim(),
-        image,
         price,
         commissionRatio: ratio,
-        status: document.getElementById('pj-status').value,
+        status: 'active',
       };
       saveBtn.disabled = true;
       try {
@@ -679,6 +640,7 @@ const Admin = (() => {
     const s = platform || {
       platformName: '',
       welcomeBonusAmount: 100,
+      trialBonusAmount: 0,
       minCashOutAmount: 500,
       supportTelegramUsername: '',
       demoCashInUSDTAddress: '',
@@ -689,7 +651,8 @@ const Admin = (() => {
       <form id="settings-form" class="card box fields">
         <div class="field"><label for="set-name">Platform name</label><input id="set-name" value="${esc(s.platformName)}"></div>
         <div class="form-2">
-          <div class="field"><label for="set-bonus">Welcome bonus (AED)</label><input id="set-bonus" type="number" value="${s.welcomeBonusAmount}"></div>
+          <div class="field"><label for="set-bonus">Welcome bonus (AED)</label><input id="set-bonus" type="number" min="0" step="0.01" value="${s.welcomeBonusAmount}"></div>
+          <div class="field"><label for="set-trial">Trial bonus (AED)</label><input id="set-trial" type="number" min="0" step="0.01" value="${s.trialBonusAmount || 0}"></div>
           <div class="field"><label for="set-min">Minimum cash out (AED)</label><input id="set-min" type="number" value="${s.minCashOutAmount}"></div>
         </div>
         <div class="form-2">
@@ -710,6 +673,7 @@ const Admin = (() => {
           body: {
             platformName: document.getElementById('set-name').value.trim(),
             welcomeBonusAmount: document.getElementById('set-bonus').value,
+            trialBonusAmount: document.getElementById('set-trial').value,
             minCashOutAmount: document.getElementById('set-min').value,
             supportTelegramUsername: document.getElementById('set-tg').value.trim(),
             demoCashInUSDTAddress: document.getElementById('set-addr').value.trim(),

@@ -5,6 +5,7 @@ const groupSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String, default: '' },
     image: { type: String, default: '' },
+    isTrial: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -17,6 +18,7 @@ export function viewGroup(group, extra = {}) {
     name: group.name,
     description: group.description || '',
     image: group.image || '',
+    isTrial: Boolean(group.isTrial),
     projectCount: extra.projectCount || 0,
     createdAt: group.createdAt ? new Date(group.createdAt).toISOString() : '',
   };

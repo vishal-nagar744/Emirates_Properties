@@ -12,22 +12,6 @@ function money(value) {
   return Math.round(value * 100) / 100;
 }
 
-function imageRef(value) {
-  const image = String(value || '').trim();
-  if (!image) return '';
-  if (image.startsWith('data:') || image.startsWith('blob:')) {
-    return { error: 'Upload the photo. It is not kept in the browser.' };
-  }
-  if (image.startsWith('/uploads/')) return image;
-  try {
-    const url = new URL(image);
-    if ((url.protocol === 'http:' || url.protocol === 'https:') && url.pathname.startsWith('/uploads/')) return image;
-  } catch {
-    /* not a stored upload */
-  }
-  return { error: 'Upload the photo before saving.' };
-}
-
 async function groupNames(projects) {
   const ids = [...new Set(projects.map((project) => project.groupId).filter(Boolean))];
   const groups = await ProjectGroup.find({ _id: { $in: ids } });
@@ -43,7 +27,6 @@ async function readProject(body, current) {
   const groupId = String((body && body.groupId) ?? (current && current.groupId) ?? '').trim();
   const price = numberValue(body && body.price !== undefined ? body.price : current && current.price);
   const commissionRatio = numberValue(body && body.commissionRatio !== undefined ? body.commissionRatio : current && current.commissionRatio);
-  const status = String((body && body.status) || (current && current.status) || 'active');
 
   if (!name) return { status: 400, message: 'Enter a project name.' };
   if (!mongoose.isValidObjectId(groupId) || !(await ProjectGroup.exists({ _id: groupId }))) {
@@ -53,26 +36,14 @@ async function readProject(body, current) {
   if (!Number.isFinite(commissionRatio) || commissionRatio < 0 || commissionRatio > 100) {
     return { status: 400, message: 'Commission ratio must be between 0 and 100.' };
   }
-  if (status !== 'active' && status !== 'inactive') return { status: 400, message: 'Status must be active or inactive.' };
-
-  const imageInput = String((body && body.image) ?? (current && current.image) ?? '').trim();
-  const image = imageRef(imageInput);
-  if (image && image.error && imageInput !== String((current && current.image) || '')) {
-    return { status: 400, message: image.error };
-  }
 
   return {
     value: {
       groupId,
       name,
-      image: image && image.error ? imageInput : image,
-      description: String((body && body.description) ?? (current && current.description) ?? '').trim(),
-      address: String((body && body.address) ?? (current && current.address) ?? '').trim(),
-      developer: String((body && body.developer) ?? (current && current.developer) ?? '').trim(),
       price: money(price),
       commissionRatio: money(commissionRatio),
       commissionAmount: money((price * commissionRatio) / 100),
-      status,
     },
   };
 }
@@ -82,8 +53,8 @@ async function findProject(id) {
   return Project.findById(id);
 }
 
-export async function listProjects({ includeInactive, groupId }) {
-  const filter = includeInactive ? {} : { status: 'active' };
+export async function listProjects({ groupId }) {
+  const filter = {};
   if (groupId) {
     if (!mongoose.isValidObjectId(groupId)) return { status: 200, data: { projects: [] } };
     filter.groupId = groupId;
@@ -118,14 +89,8 @@ export async function updateProject(id, body) {
   return { status: 200, data: { project: viewProject(project, { groupName: names.get(project.groupId) || '' }) } };
 }
 
-export async function setProjectStatus(id, status) {
-  if (status !== 'active' && status !== 'inactive') return { status: 400, message: 'Status must be active or inactive.' };
-  const project = await findProject(id);
-  if (!project) return { status: 404, message: 'Project not found.' };
-  project.status = status;
-  await project.save();
-  const names = await groupNames([project]);
-  return { status: 200, data: { project: viewProject(project, { groupName: names.get(project.groupId) || '' }) } };
+export async function setProjectStatus() {
+  return { status: 400, message: 'Project status is no longer used.' };
 }
 
 export async function deleteProject(id) {

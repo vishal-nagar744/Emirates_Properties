@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Commission } from '../commissions/model.js';
+import { ProjectGroup } from '../groups/model.js';
 import { Project } from '../projects/model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
@@ -16,10 +17,6 @@ function cents(value) {
   return Math.round((Number(value) || 0) * 100);
 }
 
-function aed(centsValue) {
-  return `AED ${(centsValue / 100).toLocaleString('en-AE')}`;
-}
-
 function memberView(user) {
   return {
     id: String(user._id),
@@ -28,6 +25,7 @@ function memberView(user) {
     accountStatus: user.accountStatus,
     referralCode: user.referralCode,
     walletBalance: user.walletBalance,
+    trialBalance: user.trialBalance || 0,
     pendingCashOut: user.pendingCashOut || 0,
     hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
@@ -39,17 +37,39 @@ async function findOrder(id) {
   return Order.findById(id);
 }
 
+async function withGroups(rows) {
+  const missing = rows.filter((order) => !order.groupName && mongoose.isValidObjectId(order.projectId));
+  const projects = missing.length
+    ? await Project.find({ _id: { $in: missing.map((order) => order.projectId) } })
+    : [];
+  const groupIds = [...new Set(projects.map((project) => project.groupId).filter((id) => mongoose.isValidObjectId(id)))];
+  const groups = groupIds.length ? await ProjectGroup.find({ _id: { $in: groupIds } }) : [];
+  const projectById = new Map(projects.map((project) => [String(project._id), project]));
+  const groupById = new Map(groups.map((item) => [String(item._id), item]));
+  return rows.map((order) => {
+    const view = viewOrder(order);
+    if (!view.groupName) {
+      const project = projectById.get(String(order.projectId));
+      const group = project ? groupById.get(String(project.groupId)) : null;
+      view.groupId = project ? String(project.groupId || '') : '';
+      view.groupName = group ? group.name : '';
+    }
+    return view;
+  });
+}
+
 export async function listOrders({ userId, all }) {
   const filter = all ? {} : { userId: String(userId) };
   const rows = await Order.find(filter).sort({ createdAt: -1 });
-  return { status: 200, data: { orders: rows.map(viewOrder) } };
+  return { status: 200, data: { orders: await withGroups(rows) } };
 }
 
 export async function getOrder({ id, userId, admin }) {
   const order = await findOrder(id);
   if (!order) return { status: 404, message: 'Order not found.' };
   if (!admin && order.userId !== String(userId)) return { status: 404, message: 'Order not found.' };
-  return { status: 200, data: { order: viewOrder(order) } };
+  const [view] = await withGroups([order]);
+  return { status: 200, data: { order: view } };
 }
 
 export async function activateOrder({ userId, projectId }) {
@@ -62,7 +82,7 @@ export async function activateOrder({ userId, projectId }) {
   if (!mongoose.isValidObjectId(projectId)) return { status: 404, message: 'This project is not available.' };
 
   const project = await Project.findById(projectId);
-  if (!project || project.status !== 'active') return { status: 404, message: 'This project is not available.' };
+  if (!project) return { status: 404, message: 'This project is not available.' };
 
   const already = await Order.findOne({
     userId: String(user._id),
@@ -75,19 +95,28 @@ export async function activateOrder({ userId, projectId }) {
   const priceCents = cents(project.price);
   const balanceCents = cents(user.walletBalance);
   const commissionCents = cents(project.commissionAmount);
-  if (balanceCents < priceCents) {
+  const amount = commissionCents / 100;
+  const group = await ProjectGroup.findById(project.groupId);
+  const trialOrder = Boolean(group && group.isTrial);
+  if (trialOrder && cents(user.trialBalance) < priceCents) {
     return {
       status: 400,
-      message: `Insufficient funds. This property is ${aed(priceCents)} and your wallet has ${aed(balanceCents)}.`,
+      message: `Insufficient trial balance. This project is AED ${(priceCents / 100).toFixed(2)} and your trial balance is AED ${(cents(user.trialBalance) / 100).toFixed(2)}.`,
     };
   }
-
-  const amount = commissionCents / 100;
+  if (!trialOrder && balanceCents < priceCents) {
+    return {
+      status: 400,
+      message: `Insufficient wallet balance. This project is AED ${(priceCents / 100).toFixed(2)} and your wallet balance is AED ${(balanceCents / 100).toFixed(2)}.`,
+    };
+  }
   const order = await Order.create({
     userId: String(user._id),
     projectId: String(project._id),
     projectName: project.name,
-    image: project.image || '',
+    groupId: group ? String(group._id) : String(project.groupId || ''),
+    groupName: group ? group.name : '',
+    image: '',
     price: priceCents / 100,
     commissionRatio: project.commissionRatio,
     commissionAmount: amount,
@@ -98,7 +127,13 @@ export async function activateOrder({ userId, projectId }) {
     status: 'completed',
   });
 
-  user.walletBalance = (balanceCents - priceCents + commissionCents) / 100;
+  if (trialOrder) {
+    user.trialBalance = (cents(user.trialBalance) - priceCents + priceCents) / 100;
+    user.walletBalance = (balanceCents + commissionCents) / 100;
+  } else {
+    const returnCents = priceCents + commissionCents;
+    user.walletBalance = (balanceCents - priceCents + returnCents) / 100;
+  }
   await user.save();
 
   if (priceCents > 0) {
@@ -107,7 +142,21 @@ export async function activateOrder({ userId, projectId }) {
       type: 'project_purchase',
       amount: priceCents / 100,
       direction: 'debit',
-      description: `Property · ${project.name}`,
+      wallet: trialOrder ? 'trial' : 'main',
+      description: group && group.name ? `${group.name} · ${project.name}` : project.name,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+  }
+
+  if (trialOrder && priceCents > 0) {
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'project_purchase',
+      amount: priceCents / 100,
+      direction: 'credit',
+      wallet: 'trial',
+      description: group && group.name ? `${group.name} · ${project.name}` : project.name,
       status: 'completed',
       referenceId: String(order._id),
     });
@@ -118,18 +167,21 @@ export async function activateOrder({ userId, projectId }) {
     orderId: String(order._id),
     projectId: String(project._id),
     projectName: project.name,
+    groupName: group ? group.name : '',
     amount,
     dayIndex: 1,
     date: dayKey(now),
     status: 'completed',
   });
 
+  const creditCents = trialOrder ? commissionCents : priceCents + commissionCents;
   await Transaction.create({
     userId: String(user._id),
     type: 'project_commission',
-    amount,
+    amount: creditCents / 100,
     direction: 'credit',
-    description: `Commission · ${project.name}`,
+    wallet: 'main',
+    description: group && group.name ? `${group.name} · ${project.name}` : project.name,
     status: 'completed',
     referenceId: String(order._id),
   });
