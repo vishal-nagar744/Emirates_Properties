@@ -318,6 +318,187 @@ const Admin = (() => {
     }
   }
 
+  function bindManageTabs(userId) {
+    let groupId = '';
+    let editing = '';
+    let setNumber = 1;
+    let mode = 'premium';
+    let reward = 'cash';
+    const account = document.getElementById('manage-account');
+    const premium = document.getElementById('manage-premium');
+    const form = document.getElementById('premium-form');
+    const meta = document.getElementById('premium-meta');
+    const list = document.getElementById('premium-list');
+    const err = document.getElementById('prem-error');
+    document.querySelectorAll('[data-manage-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const on = button.dataset.manageTab === 'premium';
+        account.hidden = on;
+        premium.hidden = !on;
+        document.querySelectorAll('[data-manage-tab]').forEach((item) => {
+          const active = item === button;
+          item.classList.toggle('active', active);
+          item.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+      });
+    });
+    document.querySelectorAll('[data-premium-set]').forEach((button) => {
+      button.addEventListener('click', () => {
+        setNumber = Number(button.dataset.premiumSet) || 1;
+        document.querySelectorAll('[data-premium-set]').forEach((item) => {
+          item.classList.toggle('active', item === button);
+        });
+      });
+    });
+    const paintSets = () => {
+      document.querySelectorAll('[data-premium-set]').forEach((item) => {
+        item.classList.toggle('active', Number(item.dataset.premiumSet) === setNumber);
+      });
+    };
+    const paintKind = () => {
+      const fortune = mode === 'fortune';
+      const cash = fortune && reward === 'cash';
+      document.querySelectorAll('[data-prem-kind]').forEach((item) => {
+        item.classList.toggle('active', item.dataset.premKind === mode);
+      });
+      document.querySelectorAll('[data-prem-reward]').forEach((item) => {
+        item.classList.toggle('active', item.dataset.premReward === reward);
+      });
+      const rewardWrap = document.getElementById('prem-reward-wrap');
+      const nameWrap = document.getElementById('prem-name-wrap');
+      const ratioWrap = document.getElementById('prem-ratio-wrap');
+      if (rewardWrap) rewardWrap.hidden = !fortune;
+      if (nameWrap) nameWrap.hidden = cash;
+      if (ratioWrap) ratioWrap.hidden = cash;
+      const priceLabel = document.querySelector('label[for="prem-price"]');
+      if (priceLabel) priceLabel.textContent = cash ? 'Amount (AED)' : 'Price (AED)';
+      const save = document.getElementById('prem-save');
+      if (save) save.textContent = editing
+        ? (fortune ? 'Save fortune box' : 'Save premium')
+        : (fortune ? 'Add fortune box' : 'Add premium');
+    };
+    document.querySelectorAll('[data-prem-kind]').forEach((button) => {
+      button.addEventListener('click', () => {
+        mode = button.dataset.premKind === 'fortune' ? 'fortune' : 'premium';
+        paintKind();
+      });
+    });
+    document.querySelectorAll('[data-prem-reward]').forEach((button) => {
+      button.addEventListener('click', () => {
+        reward = button.dataset.premReward === 'project' ? 'project' : 'cash';
+        paintKind();
+      });
+    });
+    function premiumNote(row) {
+      if (row.kind === 'fortune' && row.reward === 'cash') {
+        return `Fortune box · Cash · Set ${row.setNumber} · Position ${row.position} · ${Store.money(row.price)}`;
+      }
+      if (row.kind === 'fortune') {
+        return `Fortune box · Set ${row.setNumber} · Position ${row.position} · ${Store.money(row.price)} · ${esc(row.commissionRatio)}%`;
+      }
+      return `Set ${row.setNumber} · Position ${row.position} · ${Store.money(row.price)} · ${esc(row.commissionRatio)}%`;
+    }
+    async function load(nextGroup) {
+      groupId = nextGroup;
+      editing = '';
+      mode = 'premium';
+      reward = 'cash';
+      paintKind();
+      document.querySelectorAll('[data-premium-group]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.premiumGroup === groupId);
+      });
+      const group = groups.find((item) => item.id === groupId);
+      meta.textContent = group ? `${group.projectCount} projects · 3 sets` : '';
+      form.hidden = false;
+      const data = await adminApi(`/api/users/${encodeURIComponent(userId)}/premiums?groupId=${encodeURIComponent(groupId)}`);
+      const rows = data.premiums || [];
+      list.innerHTML = rows.length ? rows.map((row) => `
+        <article class="premium-row">
+          <div>
+            <b>${esc(row.kind === 'fortune' && row.reward === 'cash' ? 'Cash reward' : row.name)}</b>
+            <small>${premiumNote(row)}</small>
+          </div>
+          <button class="btn light" type="button" data-premium-edit="${esc(row.id)}">Edit</button>
+          <button class="btn light" type="button" data-premium-remove="${esc(row.id)}">Remove</button>
+        </article>`).join('') : '<p class="muted">No premium or fortune box for this member in this group.</p>';
+      list.querySelectorAll('[data-premium-edit]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const row = rows.find((item) => item.id === button.dataset.premiumEdit);
+          if (!row) return;
+          editing = row.id;
+          mode = row.kind === 'fortune' ? 'fortune' : 'premium';
+          reward = row.reward === 'project' ? 'project' : 'cash';
+          setNumber = Number(row.setNumber) || 1;
+          document.getElementById('prem-position').value = row.position;
+          document.getElementById('prem-name').value = row.reward === 'cash' ? '' : row.name;
+          document.getElementById('prem-price').value = row.price;
+          document.getElementById('prem-ratio').value = row.commissionRatio;
+          paintSets();
+          paintKind();
+        });
+      });
+      list.querySelectorAll('[data-premium-remove]').forEach((button) => {
+        button.addEventListener('click', () => {
+          adminApi(`/api/users/${encodeURIComponent(userId)}/premiums/${encodeURIComponent(button.dataset.premiumRemove)}`, { method: 'DELETE' })
+            .then(() => {
+              toast('Premium removed');
+              return load(groupId);
+            })
+            .catch((error) => toast(error.message));
+        });
+      });
+    }
+    document.querySelectorAll('[data-premium-group]').forEach((button) => {
+      button.addEventListener('click', () => {
+        load(button.dataset.premiumGroup).catch((error) => toast(error.message));
+      });
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      if (!groupId) {
+        err.hidden = false;
+        err.textContent = 'Choose a group.';
+        return;
+      }
+      const cash = mode === 'fortune' && reward === 'cash';
+      const payload = {
+        groupId,
+        setNumber,
+        position: Number(document.getElementById('prem-position').value),
+        name: cash ? 'Cash reward' : document.getElementById('prem-name').value.trim(),
+        price: document.getElementById('prem-price').value,
+        commissionRatio: cash ? 0 : document.getElementById('prem-ratio').value,
+        kind: mode,
+        reward: mode === 'fortune' ? reward : 'project',
+      };
+      const fortune = mode === 'fortune';
+      try {
+        if (editing) {
+          await adminApi(`/api/users/${encodeURIComponent(userId)}/premiums/${encodeURIComponent(editing)}`, { method: 'PATCH', body: payload });
+          toast(fortune ? 'Fortune box updated' : 'Premium updated');
+        } else {
+          await adminApi(`/api/users/${encodeURIComponent(userId)}/premiums`, { method: 'POST', body: payload });
+          toast(fortune ? 'Fortune box added' : 'Premium added');
+        }
+        editing = '';
+        mode = 'premium';
+        reward = 'cash';
+        document.getElementById('prem-name').value = '';
+        document.getElementById('prem-price').value = '';
+        document.getElementById('prem-ratio').value = '';
+        document.getElementById('prem-position').value = '1';
+        setNumber = 1;
+        paintSets();
+        paintKind();
+        await load(groupId);
+      } catch (error) {
+        err.hidden = false;
+        err.textContent = error.message;
+      }
+    });
+  }
+
   function openUser(id) {
     const u = directory.find((x) => x.id === id);
     if (!u) return;
@@ -328,6 +509,11 @@ const Admin = (() => {
         <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
       </div>
       <p class="muted">${esc(u.mobile)} · ${esc(u.referralCode)}</p>
+      <div class="set-tabs manage-tabs" role="tablist" aria-label="Manage">
+        <button class="set-tab active" type="button" data-manage-tab="account" aria-selected="true">Account</button>
+        <button class="set-tab" type="button" data-manage-tab="premium" aria-selected="false">Premium</button>
+      </div>
+      <div id="manage-account">
       <dl class="stack-stats">
         <div class="stack-row"><span>Balance</span><b>${Store.money(u.walletBalance)}</b></div>
         <div class="stack-row"><span>Hold balance</span><b>${Store.money(u.holdBalance)}</b></div>
@@ -370,8 +556,54 @@ const Admin = (() => {
           <button class="btn light" type="button" data-dismiss>Close</button>
           <button class="btn primary" type="submit">Apply adjustment</button>
         </div>
-      </form>`);
+      </form>
+      </div>
+      <div id="manage-premium" hidden>
+        <div class="premium-groups" id="premium-groups">
+          ${groups.map((group) => `<button class="chip" type="button" data-premium-group="${esc(group.id)}">${esc(group.name)}</button>`).join('') || '<p class="muted">No groups yet.</p>'}
+        </div>
+        <p class="muted" id="premium-meta"></p>
+        <form id="premium-form" class="fields" hidden>
+          <div class="field">
+            <span class="field-label">Add</span>
+            <div class="type-picks" id="prem-kind">
+              <button class="chip active" type="button" data-prem-kind="premium">Premium project</button>
+              <button class="chip" type="button" data-prem-kind="fortune">Fortune box</button>
+            </div>
+          </div>
+          <div class="field" id="prem-reward-wrap" hidden>
+            <span class="field-label">Inside the box</span>
+            <div class="type-picks">
+              <button class="chip active" type="button" data-prem-reward="cash">Cash</button>
+              <button class="chip" type="button" data-prem-reward="project">Premium project</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Set</span>
+            <div class="type-picks" id="premium-sets">
+              <button class="chip active" type="button" data-premium-set="1">Set 1</button>
+              <button class="chip" type="button" data-premium-set="2">Set 2</button>
+              <button class="chip" type="button" data-premium-set="3">Set 3</button>
+            </div>
+          </div>
+          <div class="form-2">
+            <div class="field"><label for="prem-position">Position</label><input id="prem-position" type="number" min="1" step="1" value="1"></div>
+            <div class="field" id="prem-name-wrap"><label for="prem-name">Name</label><input id="prem-name"></div>
+          </div>
+          <div class="form-2">
+            <div class="field"><label for="prem-price">Price (AED)</label><input id="prem-price" type="number" min="0" step="0.01"></div>
+            <div class="field" id="prem-ratio-wrap"><label for="prem-ratio">Commission ratio (%)</label><input id="prem-ratio" type="number" min="0" max="100" step="0.01"></div>
+          </div>
+          <p class="field-error" id="prem-error" role="alert" hidden></p>
+          <div class="modal-actions">
+            <button class="btn light" type="button" data-dismiss>Close</button>
+            <button class="btn primary" type="submit" id="prem-save">Add premium</button>
+          </div>
+        </form>
+        <div id="premium-list"></div>
+      </div>`);
     bindGroupPicker(id);
+    bindManageTabs(id);
     document.getElementById('adjust-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const accountStatus = document.getElementById('user-status').value;
@@ -493,7 +725,6 @@ const Admin = (() => {
                 </div>
                 <h3><a href="projects.html?group=${esc(group.id)}">${esc(group.name)}</a></h3>
                 ${group.description ? `<p class="group-desc">${esc(group.description)}</p>` : ''}
-                ${Number(group.unlockDeposit) > 0 ? `<p class="group-desc">Unlock deposit ${Store.money(group.unlockDeposit)}</p>` : ''}
                 <div class="admin-project-actions">
                   <a class="btn light" href="projects.html?group=${esc(group.id)}">Open</a>
                   <button class="btn light" type="button" data-action="edit-group" data-id="${esc(group.id)}">Edit</button>
@@ -505,7 +736,10 @@ const Admin = (() => {
       return;
     }
     const group = groups.find((item) => item.id === groupId);
-    const list = offerSequence(catalog.filter((project) => project.groupId === groupId));
+    const setNumber = currentSet();
+    const list = catalog
+      .filter((project) => project.groupId === groupId && setNumberOf(project) === setNumber)
+      .sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0) || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
     setBreadcrumb([
       { href: 'dashboard.html', label: 'Admin' },
       { href: 'projects.html', label: 'Projects' },
@@ -519,12 +753,17 @@ const Admin = (() => {
         </div>
         <button class="btn primary" type="button" data-action="edit-project">New project</button>
       </div>
+      <div class="set-tabs" role="tablist" aria-label="Sets">
+        ${[1, 2, 3].map((number) => {
+          const count = catalog.filter((project) => project.groupId === groupId && setNumberOf(project) === number).length;
+          return `<a class="set-tab${number === setNumber ? ' active' : ''}" role="tab" aria-selected="${number === setNumber}" href="projects.html?group=${esc(groupId)}&set=${number}">Set ${number}<small>${count}</small></a>`;
+        }).join('')}
+      </div>
       ${list.length ? `<div class="admin-project-grid">
         ${list.map((p) => `
           <article class="card admin-project">
             <div class="admin-project-body">
               <h3>${esc(p.name)}</h3>
-              <p class="type-tag${p.projectType === 'premium' ? ' is-premium' : ''}">${p.projectType === 'premium' ? 'Premium' : 'Normal'}</p>
               <dl class="admin-project-stats">
                 <div><dt>Price</dt><dd>${Store.money(p.price)}</dd></div>
                 <div><dt>Ratio</dt><dd>${esc(p.commissionRatio)}%</dd></div>
@@ -573,13 +812,12 @@ const Admin = (() => {
   function editGroup(id) {
     const found = id ? groups.find((item) => item.id === id) : null;
     if (id && !found) return;
-    const group = found || { id: '', name: '', description: '', image: '', unlockDeposit: 0 };
+    const group = found || { id: '', name: '', description: '', image: '' };
     openModal(`
       <h3>${id ? 'Edit group' : 'New group'}</h3>
       <form id="group-form" class="fields">
         <div class="field"><label for="gr-name">Group name</label><input id="gr-name" value="${esc(group.name)}" required></div>
         <div class="field"><label for="gr-desc">Description</label><textarea id="gr-desc" rows="3">${esc(group.description)}</textarea></div>
-        <div class="field"><label for="gr-deposit">Unlock deposit (AED)</label><input id="gr-deposit" type="number" min="0" step="1" inputmode="numeric" value="${esc(group.unlockDeposit || 0)}"></div>
         <div class="field photo-field">
           <span class="field-label" id="gr-photo-label">Image</span>
           <label class="btn light photo-pick" for="gr-file">Choose image</label>
@@ -615,16 +853,9 @@ const Admin = (() => {
           saveBtn.disabled = false;
           return;
         }
-        const unlockDeposit = Number(document.getElementById('gr-deposit').value);
-        if (!Number.isFinite(unlockDeposit) || unlockDeposit < 0) {
-          err.hidden = false;
-          err.textContent = 'Enter an unlock deposit of zero or more.';
-          return;
-        }
         const payload = {
           name,
           description: document.getElementById('gr-desc').value.trim(),
-          unlockDeposit,
           image,
         };
         if (group.id) await adminApi(`/api/groups/${group.id}`, { method: 'PATCH', body: payload });
@@ -641,24 +872,14 @@ const Admin = (() => {
     });
   }
 
-  function offerSequence(projects) {
-    const priceOrder = (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
-      || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
-    const normal = projects.filter((project) => project.projectType !== 'premium').sort(priceOrder);
-    const premium = projects.filter((project) => project.projectType === 'premium').sort(priceOrder);
-    if (!premium.length) return normal;
-    if (!normal.length) return premium;
-    const stride = Math.floor(normal.length / premium.length);
-    const every = stride > 1 && stride * premium.length >= normal.length ? stride - 1 : Math.max(stride, 1);
-    const sequence = [];
-    let normalIndex = 0;
-    let premiumIndex = 0;
-    while (normalIndex < normal.length || premiumIndex < premium.length) {
-      const take = Math.min(every, normal.length - normalIndex);
-      for (let i = 0; i < take; i += 1) sequence.push(normal[normalIndex++]);
-      if (premiumIndex < premium.length) sequence.push(premium[premiumIndex++]);
-    }
-    return sequence;
+  function currentSet() {
+    const value = Number(new URLSearchParams(location.search).get('set'));
+    return value === 2 || value === 3 ? value : 1;
+  }
+
+  function setNumberOf(project) {
+    const value = Number(project && project.setNumber);
+    return value === 2 || value === 3 ? value : 1;
   }
 
   function editProject(id) {
@@ -666,18 +887,17 @@ const Admin = (() => {
     const found = id ? catalog.find((item) => item.id === id) : null;
     if (id && !found) return;
     const p = found || {
-      id: '', groupId, name: '', price: '', commissionRatio: '', projectType: 'normal',
+      id: '', groupId, name: '', price: '', commissionRatio: '', setNumber: currentSet(),
     };
-    const startingType = p.projectType === 'premium' ? 'premium' : 'normal';
+    const startingSet = setNumberOf(p);
     openModal(`
       <h3>${id ? 'Edit project' : 'New project'}</h3>
       <form id="proj-form" class="fields">
         <div class="field"><label for="pj-name">Name</label><input id="pj-name" value="${esc(p.name)}" required></div>
         <div class="field">
-          <span class="field-label" id="pj-type-label">Type</span>
-          <div class="type-picks" role="radiogroup" aria-labelledby="pj-type-label">
-            <button class="chip${startingType === 'normal' ? ' active' : ''}" type="button" data-project-type="normal" aria-pressed="${startingType === 'normal' ? 'true' : 'false'}">Normal</button>
-            <button class="chip${startingType === 'premium' ? ' active' : ''}" type="button" data-project-type="premium" aria-pressed="${startingType === 'premium' ? 'true' : 'false'}">Premium</button>
+          <span class="field-label" id="pj-set-label">Set</span>
+          <div class="type-picks" role="radiogroup" aria-labelledby="pj-set-label">
+            ${[1, 2, 3].map((number) => `<button class="chip${startingSet === number ? ' active' : ''}" type="button" data-set-number="${number}" aria-pressed="${startingSet === number ? 'true' : 'false'}">Set ${number}</button>`).join('')}
           </div>
         </div>
         <div class="field"><label for="pj-price">Price (AED)</label><input id="pj-price" type="number" min="0" step="0.01" value="${p.price === '' ? '' : p.price}"></div>
@@ -698,11 +918,11 @@ const Admin = (() => {
     document.getElementById('pj-price').addEventListener('input', updateTotal);
     document.getElementById('pj-ratio').addEventListener('input', updateTotal);
     updateTotal();
-    let projectType = startingType;
-    document.querySelectorAll('[data-project-type]').forEach((button) => {
+    let setNumber = startingSet;
+    document.querySelectorAll('[data-set-number]').forEach((button) => {
       button.addEventListener('click', () => {
-        projectType = button.dataset.projectType === 'premium' ? 'premium' : 'normal';
-        document.querySelectorAll('[data-project-type]').forEach((item) => {
+        setNumber = Number(button.dataset.setNumber) || 1;
+        document.querySelectorAll('[data-set-number]').forEach((item) => {
           const on = item === button;
           item.classList.toggle('active', on);
           item.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -731,7 +951,7 @@ const Admin = (() => {
         name: document.getElementById('pj-name').value.trim(),
         price,
         commissionRatio: ratio,
-        projectType,
+        setNumber,
         status: 'active',
       };
       saveBtn.disabled = true;

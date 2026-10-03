@@ -17,22 +17,41 @@ function priceOrder(a, b) {
     || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
 }
 
-export function offerSequence(projects) {
-  const normal = projects.filter((project) => project.projectType !== 'premium').sort(priceOrder);
-  const premium = projects.filter((project) => project.projectType === 'premium').sort(priceOrder);
-  if (!premium.length) return normal;
-  if (!normal.length) return premium;
-  const stride = Math.floor(normal.length / premium.length);
-  const every = stride > 1 && stride * premium.length >= normal.length ? stride - 1 : Math.max(stride, 1);
-  const sequence = [];
-  let normalIndex = 0;
-  let premiumIndex = 0;
-  while (normalIndex < normal.length || premiumIndex < premium.length) {
-    const take = Math.min(every, normal.length - normalIndex);
-    for (let i = 0; i < take; i += 1) sequence.push(normal[normalIndex++]);
-    if (premiumIndex < premium.length) sequence.push(premium[premiumIndex++]);
+export function itemId(item) {
+  return String((item && (item.id || item._id)) || '');
+}
+
+export function setNumberOf(item) {
+  const value = Number(item && item.setNumber);
+  return value === 2 || value === 3 ? value : 1;
+}
+
+export function setSequence(projects, premiums = []) {
+  const list = projects
+    .filter((project) => project.projectType !== 'premium')
+    .slice()
+    .sort(priceOrder);
+  const inserts = premiums.slice().sort((a, b) => (
+    (Number(a.position) || 0) - (Number(b.position) || 0)
+    || String(a.createdAt || '').localeCompare(String(b.createdAt || ''))
+  ));
+  inserts.forEach((premium) => {
+    const at = Math.max(0, (Number(premium.position) || (list.length + 1)) - 1);
+    list.splice(Math.min(at, list.length), 0, premium);
+  });
+  return list;
+}
+
+export function nextGroupProject(projects, premiums, doneIds) {
+  for (const setNumber of [1, 2, 3]) {
+    const sequence = setSequence(
+      projects.filter((project) => setNumberOf(project) === setNumber),
+      premiums.filter((premium) => setNumberOf(premium) === setNumber),
+    );
+    const next = sequence.find((item) => !doneIds.has(itemId(item)));
+    if (next) return next;
   }
-  return sequence;
+  return null;
 }
 
 async function groupNames(projects) {
@@ -59,11 +78,8 @@ async function readProject(body, current) {
   if (!Number.isFinite(commissionRatio) || commissionRatio < 0 || commissionRatio > 100) {
     return { status: 400, message: 'Commission ratio must be between 0 and 100.' };
   }
-  const hasType = Boolean(body) && Object.prototype.hasOwnProperty.call(body, 'projectType');
-  const projectType = String(hasType ? body.projectType : (current && current.projectType) || 'normal').trim().toLowerCase();
-  if (projectType !== 'normal' && projectType !== 'premium') {
-    return { status: 400, message: 'Choose normal or premium.' };
-  }
+  const rawSet = body && body.setNumber !== undefined ? body.setNumber : current && current.setNumber;
+  const setNumber = Number(rawSet) === 2 || Number(rawSet) === 3 ? Number(rawSet) : 1;
 
   return {
     value: {
@@ -72,7 +88,8 @@ async function readProject(body, current) {
       price: money(price),
       commissionRatio: money(commissionRatio),
       commissionAmount: money((price * commissionRatio) / 100),
-      projectType,
+      projectType: 'normal',
+      setNumber,
     },
   };
 }
@@ -88,9 +105,8 @@ export async function listProjects({ groupId }) {
     if (!mongoose.isValidObjectId(groupId)) return { status: 200, data: { projects: [] } };
     filter.groupId = groupId;
   }
-  const rows = await Project.find(filter).sort({ price: 1, createdAt: 1 });
-  const ordered = groupId ? offerSequence(rows) : rows;
-  return { status: 200, data: { projects: presentList(ordered, await groupNames(rows)) } };
+  const rows = await Project.find(filter).sort({ setNumber: 1, price: 1, createdAt: 1 });
+  return { status: 200, data: { projects: presentList(rows, await groupNames(rows)) } };
 }
 
 export async function getProject(id) {

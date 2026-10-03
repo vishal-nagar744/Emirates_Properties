@@ -19,6 +19,10 @@ export async function seed() {
     await User.collection.dropIndex('loginId_1');
   }
   await User.updateMany({ accountStatus: 'frozen' }, { accountStatus: 'blocked' });
+  await ProjectGroup.collection.updateMany({}, { $unset: { unlockDeposit: '' } });
+  await Project.updateMany({ setNumber: { $in: [null, 0] } }, { $set: { setNumber: 1 } });
+  await Project.updateMany({ projectType: 'premium' }, { $set: { projectType: 'normal', setNumber: 1 } });
+  await Project.collection.updateMany({ setNumber: { $exists: false } }, { $set: { setNumber: 1 } });
   await User.syncIndexes();
   const sessionIndexes = await Session.collection.indexes();
   const ttl = sessionIndexes.find((index) => index.expireAfterSeconds != null);

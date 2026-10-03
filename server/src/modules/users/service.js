@@ -5,7 +5,8 @@ import { User } from './model.js';
 import { Transaction } from '../wallet/model.js';
 import { Order } from '../orders/model.js';
 import { Project } from '../projects/model.js';
-import { offerSequence } from '../projects/service.js';
+import { nextGroupProject } from '../projects/service.js';
+import { UserPremium } from './premium-model.js';
 import { orderWorkDate } from '../../lib/workDate.js';
 import { ensureDailyReset } from './daily.js';
 
@@ -156,9 +157,10 @@ export async function memberDailyHistory(id) {
     .select('-image.data')
     .sort({ createdAt: 1 });
   const groupIds = [...new Set(orders.map((order) => order.groupId).filter(Boolean))];
-  const [groupRows, projectRows] = await Promise.all([
+  const [groupRows, projectRows, premiumRows] = await Promise.all([
     groupIds.length ? ProjectGroup.find({ _id: { $in: groupIds } }).select('name') : [],
-    groupIds.length ? Project.find({ groupId: { $in: groupIds } }).select('name price projectType groupId createdAt') : [],
+    groupIds.length ? Project.find({ groupId: { $in: groupIds } }).select('name price projectType setNumber groupId createdAt') : [],
+    groupIds.length ? UserPremium.find({ userId: String(user._id), groupId: { $in: groupIds } }) : [],
   ]);
   const groupName = new Map(groupRows.map((group) => [String(group._id), group.name]));
   const projectsByGroup = new Map();
@@ -186,17 +188,18 @@ export async function memberDailyHistory(id) {
       date,
       groups: [...groups.entries()].map(([groupId, rows]) => {
         const projects = projectsByGroup.get(groupId) || [];
-        const sequence = offerSequence(projects);
+        const premiums = premiumRows.filter((row) => String(row.groupId) === groupId);
         const done = new Set(rows.map((order) => String(order.projectId)));
-        const next = sequence.find((project) => !done.has(String(project._id)));
+        const next = nextGroupProject(projects, premiums, done);
+        const total = projects.length + premiums.length;
         const commission = rows.reduce((sum, order) => sum + (Number(order.commissionAmount) || Number(order.earnedCommission) || 0), 0);
         const spent = rows.reduce((sum, order) => sum + (Number(order.price) || 0), 0);
         return {
           groupId,
           groupName: groupName.get(groupId) || rows[0].groupName || 'Group',
           completed: done.size,
-          total: projects.length || done.size,
-          finished: !next && projects.length > 0 && done.size >= projects.length,
+          total: total || done.size,
+          finished: !next && total > 0 && done.size >= total,
           stoppedAt: next ? next.name : '',
           spent: Math.round(spent * 100) / 100,
           commission: Math.round(commission * 100) / 100,

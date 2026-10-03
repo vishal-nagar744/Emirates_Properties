@@ -5,6 +5,7 @@
 const Member = (() => {
   const API_BASE = window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000';
   let catalog = [];
+  let premiumsCache = [];
   let groupsCache = [];
   let ordersCache = [];
   let commissionsCache = [];
@@ -23,6 +24,10 @@ const Member = (() => {
   };
   let loadError = '';
   let premiumAfterOrder = null;
+  let fortuneAfterOrder = null;
+  let fortuneBusy = false;
+  let premiumUnlocking = false;
+  let holdNextOffer = false;
 
   function pageEl() {
     return document.getElementById('page');
@@ -108,7 +113,7 @@ const Member = (() => {
       const locked = groupLocked(group);
       const media = group.image ? `<img src="${esc(group.image)}" alt="" loading="lazy">` : `<img src="../assets/images/dubai-hero.jpg" alt="" loading="lazy">`;
       const mark = locked ? `<span class="lock-mark">${lockIcon()}</span>` : '';
-      const lockNote = locked ? ` · ${unlockNote(group)}` : (group.isTrial ? ' · Trial' : '');
+      const lockNote = locked ? ' · Locked' : (group.isTrial ? ' · Trial' : '');
       const copy = `<span class="dubai-slide-copy"><small>${group.projectCount} project${group.projectCount === 1 ? '' : 's'}${lockNote}</small><strong>${esc(group.name)}</strong></span>`;
       if (locked) return `<article class="dubai-slide is-locked" data-index="${index}">${media}${mark}${copy}</article>`;
       return `<a class="dubai-slide" href="projects.html?group=${esc(group.id)}" data-index="${index}">${media}${copy}</a>`;
@@ -334,32 +339,87 @@ const Member = (() => {
         <a class="icon-btn back-btn" href="projects.html" aria-label="Back to projects"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></a>
         ${offerCard(group)}
       </div>`;
-    if (group && !groupLocked(group)) maybePremiumNotice(nextOffer(catalog));
+    if (holdNextOffer) {
+      holdNextOffer = false;
+      armOfferLoad();
+    }
+    if (group && !groupLocked(group)) maybeNextSurprise(nextOffer());
   }
 
-  function offerSequence(projects) {
+  function armOfferLoad() {
+    const card = document.querySelector('.offer-card');
+    if (!card || card.querySelector('.offer-load')) return;
+    card.classList.add('is-loading');
+    const veil = document.createElement('div');
+    veil.className = 'offer-load';
+    veil.setAttribute('role', 'status');
+    veil.innerHTML = '<span class="offer-load-spin" aria-hidden="true"></span><p>Loading next project</p><span class="offer-load-bars" aria-hidden="true"><i></i><i></i><i></i></span>';
+    card.appendChild(veil);
+  }
+
+  function revealOffer(done) {
+    const card = document.querySelector('.offer-card.is-loading');
+    if (!card) {
+      if (done) done();
+      return;
+    }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const veil = card.querySelector('.offer-load');
+    card.classList.add('is-in');
+    card.classList.remove('is-loading');
+    if (veil) veil.classList.add('is-done');
+    window.setTimeout(() => {
+      if (veil) veil.remove();
+      if (done) done();
+    }, reduced ? 0 : 420);
+  }
+
+  function setNumberOf(item) {
+    const value = Number(item && item.setNumber);
+    return value === 2 || value === 3 ? value : 1;
+  }
+
+  function setSequence(projects, premiums) {
     const priceOrder = (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
       || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
-    const normal = projects.filter((project) => project.projectType !== 'premium').sort(priceOrder);
-    const premium = projects.filter((project) => project.projectType === 'premium').sort(priceOrder);
-    if (!premium.length) return normal;
-    if (!normal.length) return premium;
-    const stride = Math.floor(normal.length / premium.length);
-    const every = stride > 1 && stride * premium.length >= normal.length ? stride - 1 : Math.max(stride, 1);
-    const sequence = [];
-    let normalIndex = 0;
-    let premiumIndex = 0;
-    while (normalIndex < normal.length || premiumIndex < premium.length) {
-      const take = Math.min(every, normal.length - normalIndex);
-      for (let i = 0; i < take; i += 1) sequence.push(normal[normalIndex++]);
-      if (premiumIndex < premium.length) sequence.push(premium[premiumIndex++]);
-    }
-    return sequence;
+    const list = projects.filter((project) => project.projectType !== 'premium').slice().sort(priceOrder);
+    const inserts = (premiums || []).slice().sort((a, b) => (
+      (Number(a.position) || 0) - (Number(b.position) || 0)
+    ));
+    inserts.forEach((premium) => {
+      const at = Math.max(0, (Number(premium.position) || (list.length + 1)) - 1);
+      list.splice(Math.min(at, list.length), 0, premium);
+    });
+    return list;
   }
 
-  function nextOffer(list) {
-    const ordered = boughtIds();
-    return offerSequence(list).find((project) => !ordered.has(project.id)) || null;
+  function setBoards() {
+    const done = boughtIds();
+    return [1, 2, 3].map((setNumber) => {
+      const projects = setSequence(
+        catalog.filter((project) => setNumberOf(project) === setNumber),
+        premiumsCache.filter((premium) => setNumberOf(premium) === setNumber),
+      );
+      const finished = projects.filter((project) => done.has(project.id)).length;
+      return {
+        setNumber,
+        projects,
+        finished,
+        empty: projects.length === 0,
+        complete: projects.length > 0 && finished === projects.length,
+      };
+    });
+  }
+
+  function nextOffer() {
+    const boards = setBoards();
+    for (const board of boards) {
+      const blocked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
+      if (blocked) return null;
+      const next = board.projects.find((project) => !boughtIds().has(project.id));
+      if (next) return next;
+    }
+    return null;
   }
 
   function seenPremiums() {
@@ -386,16 +446,124 @@ const Member = (() => {
         <div class="celebrate-body">
           <p class="celebrate-kicker">Premium project</p>
           <p class="celebrate-name">${esc(project.name)}</p>
-          <p class="muted">This project is ready to complete.</p>
+          <p class="muted">${premiumUnlockNote(project)}</p>
           <button class="btn primary btn-full" type="button" data-dismiss>Continue</button>
         </div>
       </div>`, 'celebrate-modal');
   }
 
-  function maybePremiumNotice(project) {
-    if (!project || project.projectType !== 'premium' || premiumAfterOrder) return;
+  function premiumUnlockNote(project) {
+    const wallet = Number(Store.user().walletBalance) || 0;
+    const price = Store.money(project.price);
+    if (wallet < 0) {
+      return `${price} was taken from your wallet. Deposit enough to clear the balance, then submit this project.`;
+    }
+    return `${price} was taken from your wallet. This project is ready to submit.`;
+  }
+
+  async function maybePremiumNotice(project) {
+    if (!project || project.projectType !== 'premium' || (project.box && !project.opened) || premiumAfterOrder) return;
+    if (!project.charged) {
+      if (premiumUnlocking) return;
+      premiumUnlocking = true;
+      try {
+        const data = await memberApi(`/api/users/me/premiums/${encodeURIComponent(project.id)}/unlock`, { method: 'POST' });
+        const row = premiumsCache.find((item) => item.id === project.id);
+        if (row && data.premium) Object.assign(row, data.premium);
+        if (data.user) Store.applySession(data.user);
+      } catch (err) {
+        toast(err.message);
+        premiumUnlocking = false;
+        return;
+      }
+      premiumUnlocking = false;
+      if (document.body.dataset.page === 'projects') renderProjects();
+      return;
+    }
     if (seenPremiums().has(project.id)) return;
     showPremiumUnlock(project);
+  }
+
+  function giftBox() {
+    return `<svg viewBox="0 0 88 100" aria-hidden="true">
+      <ellipse cx="44" cy="94" rx="26" ry="4.5" fill="rgba(0,0,0,.35)"/>
+      <path d="M18 46h52v38a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V46z" fill="#1f6a54"/>
+      <path d="M18 46h52v9H18z" fill="#174e3e"/>
+      <path d="M14 38h60a4 4 0 0 1 4 4v8H10v-8a4 4 0 0 1 4-4z" fill="#2a8064"/>
+      <rect x="40" y="38" width="8" height="52" fill="#e4cb90"/>
+      <rect x="14" y="42" width="60" height="7" fill="#d4b483"/>
+      <path d="M44 40c0-8-8-14-16-10-4 2-5 7-2 10 4 4 12 6 18 7 6-1 14-3 18-7 3-3 2-8-2-10-8-4-16 2-16 10z" fill="#f0ddb0"/>
+      <path d="M44 40c-6-2-14 0-16 6M44 40c6-2 14 0 16 6" fill="none" stroke="#b69b68" stroke-width="1.4"/>
+    </svg>`;
+  }
+
+  function showFortune(project) {
+    if (!project) return;
+    const id = esc(project.id);
+    openModal(`
+      <div class="fortune">
+        <button class="fortune-x" type="button" data-dismiss aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <p class="fortune-kicker">A gift is waiting</p>
+        <h3 class="serif">Fortune Box</h3>
+        <div class="fortune-row">
+          <button class="fortune-gift" type="button" data-action="open-fortune" data-id="${id}" aria-label="Open fortune box">${giftBox()}</button>
+          <button class="fortune-gift" type="button" data-action="open-fortune" data-id="${id}" aria-label="Open fortune box">${giftBox()}</button>
+          <button class="fortune-gift" type="button" data-action="open-fortune" data-id="${id}" aria-label="Open fortune box">${giftBox()}</button>
+        </div>
+      </div>`, 'fortune-modal');
+  }
+
+  function showFortuneCash(amount) {
+    openModal(`
+      <div class="fortune">
+        <p class="fortune-kicker">Cash reward</p>
+        <h3 class="serif">Fortune Box</h3>
+        <p class="fortune-amount">${Store.money(amount)}</p>
+        <p class="fortune-note">Added to your main wallet.</p>
+        <button class="btn primary btn-full" type="button" data-action="fortune-continue">Continue</button>
+      </div>`, 'fortune-modal');
+    const root = document.getElementById('modal-root');
+    const back = root && root.querySelector('.modal-back');
+    if (!back) return;
+    back.addEventListener('click', (event) => {
+      if (event.target !== back) return;
+      if (document.body.dataset.page === 'projects') renderProjects();
+    });
+  }
+
+  function maybeNextSurprise(project) {
+    if (premiumAfterOrder || fortuneAfterOrder) return;
+    if (project && project.box && !project.opened) {
+      showFortune(project);
+      return;
+    }
+    maybePremiumNotice(project);
+  }
+
+  async function claimFortune(id) {
+    if (fortuneBusy) return;
+    fortuneBusy = true;
+    try {
+      const data = await memberApi(`/api/users/me/fortune/${encodeURIComponent(id)}/open`, { method: 'POST' });
+      const row = premiumsCache.find((item) => item.id === id);
+      if (row && data.fortune) Object.assign(row, data.fortune);
+      if (data.user) Store.applySession(data.user);
+      if (data.order) ordersCache = [data.order, ...ordersCache.filter((order) => order.id !== data.order.id)];
+      if (data.fortune && data.fortune.reward === 'cash') {
+        showFortuneCash(data.amount);
+      } else if (data.fortune) {
+        const seen = seenPremiums();
+        seen.add(data.fortune.id);
+        sessionStorage.setItem('ps_premium_seen', JSON.stringify([...seen]));
+        closeModal();
+        if (document.body.dataset.page === 'projects') renderProjects();
+        showPremiumUnlock(data.fortune);
+      }
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      fortuneBusy = false;
+    }
   }
 
   function groupLocked(group) {
@@ -424,12 +592,6 @@ const Member = (() => {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   }
 
-  function unlockNote(group) {
-    const amount = Number(group && group.unlockDeposit) || 0;
-    if (amount <= 0) return 'Locked';
-    return `Deposit ${Store.money(amount)} to unlock`;
-  }
-
   function offerCard(group) {
     if (groupLocked(group)) {
       const media = group && group.image ? `<img src="${esc(group.image)}" alt="">` : '';
@@ -438,23 +600,35 @@ const Member = (() => {
           <div class="offer-media">${media}<span class="lock-mark">${lockIcon()}</span></div>
           <div class="offer-body">
             <h2 class="serif">${esc(group.name)}</h2>
-            <p class="lock-note">${lockIcon()}${esc(unlockNote(group))}</p>
+            <p class="lock-note">${lockIcon()}Locked</p>
           </div>
         </section>`;
     }
-    const list = offerSequence(catalog);
+    const boards = setBoards();
+    const list = boards.flatMap((board) => board.projects);
     if (!list.length) return emptyState('grid', 'No projects in this group', 'Projects added to this group will appear here.');
     const ordered = boughtIds();
+    const active = boards.find((board) => {
+      const locked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
+      return !locked && !board.empty && !board.complete;
+    });
+    const next = active ? active.projects.find((project) => !ordered.has(project.id)) : null;
     const done = list.filter((project) => ordered.has(project.id)).length;
-    const next = list.find((project) => !ordered.has(project.id));
     const title = group ? group.name : 'Projects';
     const media = `<div class="offer-media">${group && group.image ? `<img src="${esc(group.image)}" alt="">` : ''}</div>`;
+    const sets = `<div class="tabbar offer-sets" role="list" aria-label="Sets">${boards.map((board) => {
+      const locked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
+      const on = active && board.setNumber === active.setNumber;
+      const mark = board.empty ? '—' : locked ? 'Locked' : board.complete ? 'Done' : `${board.finished}/${board.projects.length}`;
+      return `<span class="seg-btn${on ? ' active' : ''}" role="listitem">Set ${board.setNumber}<small>${mark}</small></span>`;
+    }).join('')}</div>`;
     if (!next) {
       return `
         <section class="card offer-card offer-done">
           ${media}
           <div class="offer-body">
             <h2 class="serif">${esc(title)}</h2>
+            ${sets}
             <p>Every project in this group is done.</p>
             <p class="offer-count">${done}/${list.length}</p>
           </div>
@@ -462,13 +636,31 @@ const Member = (() => {
     }
     const status = Store.user().accountStatus;
     const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
-    const label = status === 'pending' ? 'Approval required' : 'Submit';
+    const walletNow = Number(Store.user().walletBalance) || 0;
+    const label = status === 'pending'
+      ? 'Approval required'
+      : (next.projectType === 'premium' && walletNow < 0 ? 'Deposit to submit' : 'Submit');
+    if (next.box && !next.opened) {
+      return `
+        <section class="card offer-card">
+          ${media}
+          <div class="offer-body">
+            <h2 class="serif">${esc(title)}</h2>
+            ${sets}
+            <p class="offer-fortune">Fortune box</p>
+            <p class="offer-project">A gift is waiting in this set.</p>
+            <p class="offer-count">${done}/${list.length}</p>
+            <button class="btn primary btn-full" type="button" data-action="show-fortune" data-id="${esc(next.id)}" ${blocked ? 'disabled' : ''}>${blocked && status === 'pending' ? 'Approval required' : 'Open fortune box'}</button>
+          </div>
+        </section>`;
+    }
     const funds = spendBalance(group);
     return `
       <section class="card offer-card">
         ${media}
         <div class="offer-body">
           <h2 class="serif">${esc(title)}</h2>
+          ${sets}
           ${next.projectType === 'premium' ? '<p class="offer-premium"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.2 6.2L21 12l-6.8 2.8L12 21l-2.2-6.2L3 12l6.8-2.8z"/></svg>Premium project</p>' : ''}
           <p class="offer-project">${esc(next.name)}</p>
           <dl class="stack-stats offer-rows">
@@ -491,7 +683,7 @@ const Member = (() => {
       <div class="prop-body">
         <div class="prop-meta"><span>${group.projectCount} project${group.projectCount === 1 ? '' : 's'}</span></div>
         <h3>${esc(group.name)}</h3>
-        ${locked ? `<p class="lock-note">${lockIcon()}${esc(unlockNote(group))}</p>` : (group.description ? `<p class="prop-line group-desc">${esc(group.description)}</p>` : '')}
+        ${locked ? `<p class="lock-note">${lockIcon()}Locked</p>` : (group.description ? `<p class="prop-line group-desc">${esc(group.description)}</p>` : '')}
       </div>`;
     if (locked) {
       return `<article class="card property-card is-locked" data-name="${esc(group.name)}" data-trial="${group.isTrial ? '1' : '0'}" data-order="${index}">${inner}</article>`;
@@ -559,9 +751,15 @@ const Member = (() => {
   }
 
   function openActivate(projectId) {
-    const p = catalog.find((item) => item.id === projectId);
+    const p = catalog.find((item) => item.id === projectId) || premiumsCache.find((item) => item.id === projectId);
     if (!p || boughtIds().has(p.id)) return;
-    const trial = groupsCache.find((group) => group.id === p.groupId && group.isTrial);
+    if (p.box && !p.opened) {
+      showFortune(p);
+      return;
+    }
+    if (p.projectType === 'fortune') return;
+    const premium = p.projectType === 'premium';
+    const trial = !premium && groupsCache.find((group) => group.id === p.groupId && group.isTrial);
     const price = Number(p.price) || 0;
     const priceCents = Math.round(price * 100);
     if (trial) {
@@ -570,6 +768,17 @@ const Member = (() => {
         openModal(`
           <h3>Insufficient trial balance</h3>
           <p>This project is ${Store.money(price)}. Your trial balance is ${Store.money(trialBalance)}.</p>
+          <div class="modal-actions">
+            <button class="btn light" type="button" data-dismiss>Close</button>
+          </div>`);
+        return;
+      }
+    } else if (premium) {
+      const wallet = Number(Store.user().walletBalance) || 0;
+      if (Math.round(wallet * 100) < 0) {
+        openModal(`
+          <h3>Deposit to complete</h3>
+          <p>${Store.money(price)} was taken from your wallet when this premium unlocked. Your wallet balance is ${Store.money(wallet)}. Deposit enough to clear it, then submit.</p>
           <div class="modal-actions">
             <button class="btn light" type="button" data-dismiss>Close</button>
           </div>`);
@@ -587,7 +796,7 @@ const Member = (() => {
         return;
       }
       const available = funds.kind === 'hold' ? funds.amount + funds.wallet : funds.amount;
-      if (Math.round(available * 100) < priceCents) {
+      if (!premium && Math.round(available * 100) < priceCents) {
         const detail = funds.kind === 'hold'
           ? `Hold is ${Store.money(funds.amount)} and your wallet is ${Store.money(funds.wallet)}.`
           : `Your wallet balance is ${Store.money(funds.amount)}.`;
@@ -600,7 +809,7 @@ const Member = (() => {
         return;
       }
     }
-    const funds = trial ? null : spendBalance(groupsCache.find((group) => group.id === p.groupId) || { id: p.groupId, isTrial: false });
+    const funds = trial || premium ? null : spendBalance(groupsCache.find((group) => group.id === p.groupId) || { id: p.groupId, isTrial: false });
     const fromHold = funds && funds.kind === 'hold' ? Math.min(funds.amount, price) : 0;
     const fromWallet = funds && funds.kind === 'hold' ? Math.max(price - fromHold, 0) : 0;
     openModal(`
@@ -1511,12 +1720,19 @@ const Member = (() => {
           </div>
         </div>
       </div>`, 'celebrate-modal');
-    if (!pendingPremium) return;
+    const pendingFortune = fortuneAfterOrder;
     const root = document.getElementById('modal-root');
-    if (!root) return;
+    if (!root) {
+      revealOffer();
+      return;
+    }
     const reveal = () => {
       premiumAfterOrder = null;
-      showPremiumUnlock(pendingPremium);
+      fortuneAfterOrder = null;
+      revealOffer(() => {
+        if (pendingFortune) showFortune(pendingFortune);
+        else if (pendingPremium) maybePremiumNotice(pendingPremium);
+      });
     };
     root.querySelectorAll('[data-dismiss]').forEach((button) => button.addEventListener('click', reveal));
     const back = root.querySelector('.modal-back');
@@ -1559,12 +1775,21 @@ const Member = (() => {
       try {
         groupsCache = ((await memberApi('/api/groups')).groups || [])
           .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
-        catalog = groupId
-          ? ((await memberApi(`/api/projects?groupId=${encodeURIComponent(groupId)}`)).projects || [])
-          : [];
+        if (groupId) {
+          const [projectData, premiumData] = await Promise.all([
+            memberApi(`/api/projects?groupId=${encodeURIComponent(groupId)}`),
+            memberApi(`/api/users/me/premiums?groupId=${encodeURIComponent(groupId)}`),
+          ]);
+          catalog = projectData.projects || [];
+          premiumsCache = premiumData.premiums || [];
+        } else {
+          catalog = [];
+          premiumsCache = [];
+        }
       } catch (err) {
         groupsCache = [];
         catalog = [];
+        premiumsCache = [];
         if (page === 'projects') loadError = err.message;
       }
     }
@@ -1628,6 +1853,12 @@ const Member = (() => {
     if (!el || document.body.dataset.app !== 'member') return;
     const action = el.dataset.action;
     if (action === 'open-activate') openActivate(el.dataset.id);
+    if (action === 'show-fortune') showFortune(premiumsCache.find((item) => item.id === el.dataset.id));
+    if (action === 'open-fortune') claimFortune(el.dataset.id);
+    if (action === 'fortune-continue') {
+      closeModal();
+      if (document.body.dataset.page === 'projects') renderProjects();
+    }
     if (action === 'open-cash-in') openCashIn();
     if (action === 'open-cash-out') openCashOut();
     if (action === 'confirm-activate') {
@@ -1637,9 +1868,11 @@ const Member = (() => {
           if (data.order) {
             ordersCache = [data.order, ...ordersCache.filter((order) => order.id !== data.order.id)];
           }
-          const upcoming = nextOffer(catalog);
-          premiumAfterOrder = upcoming && upcoming.projectType === 'premium' ? upcoming : null;
+          const upcoming = nextOffer();
+          fortuneAfterOrder = upcoming && upcoming.box && !upcoming.opened ? upcoming : null;
+          premiumAfterOrder = !fortuneAfterOrder && upcoming && upcoming.projectType === 'premium' ? upcoming : null;
           closeModal();
+          holdNextOffer = document.body.dataset.page === 'projects' && Boolean(new URLSearchParams(location.search).get('group'));
           if (document.body.dataset.page === 'projects') renderProjects();
           orderSubmitted(data.order || {});
         })
@@ -1672,6 +1905,7 @@ const Member = (() => {
       renderAccount();
     }
     if (action === 'view-submitted-order') {
+      revealOffer();
       window.location.href = `orders.html?id=${encodeURIComponent(el.dataset.id || '')}`;
     }
     if (action === 'invite-filter') {

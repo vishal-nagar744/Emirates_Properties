@@ -2405,6 +2405,58 @@ a.back-btn:hover { transform: none; }
   border-color: var(--g);
 }
 
+.set-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.set-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.set-tab small { color: var(--muted); font-weight: 700; }
+
+.set-tab.active {
+  background: var(--g);
+  border-color: var(--g);
+  color: #fff;
+}
+
+.set-tab.active small { color: rgba(255, 255, 255, 0.8); }
+
+.manage-tabs { margin-top: 12px; }
+
+.premium-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.premium-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.premium-row div { flex: 1; min-width: 0; }
+.premium-row small { display: block; color: var(--muted); font-size: 12px; }
+
 button.chip {
   cursor: pointer;
   min-height: 44px;

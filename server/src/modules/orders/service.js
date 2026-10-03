@@ -3,7 +3,8 @@ import { Commission } from '../commissions/model.js';
 import { ProjectGroup, hasImage } from '../groups/model.js';
 import { groupImageUrl } from '../images/service.js';
 import { Project } from '../projects/model.js';
-import { offerSequence } from '../projects/service.js';
+import { itemId, nextGroupProject } from '../projects/service.js';
+import { UserPremium, viewPremium } from '../users/premium-model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { openGroupIds } from '../users/service.js';
@@ -121,9 +122,16 @@ function onWorkDate(rows, date) {
   return rows.filter((row) => orderWorkDate(row) === date);
 }
 
+async function expectedIds(userId, groupId) {
+  const [projects, premiums] = await Promise.all([
+    Project.find({ groupId: String(groupId) }).select('_id'),
+    UserPremium.find({ userId: String(userId), groupId: String(groupId) }).select('_id'),
+  ]);
+  return [...projects, ...premiums].map((row) => String(row._id));
+}
+
 async function trialGroupFinished(userId, groupId, date = workDate()) {
-  const projects = await Project.find({ groupId: String(groupId) }).select('_id');
-  const ids = projects.map((project) => String(project._id));
+  const ids = await expectedIds(userId, groupId);
   if (!ids.length) return false;
   const done = onWorkDate(await ordersForUser(userId, { projectId: { $in: ids } }), date);
   return new Set(done.map((row) => String(row.projectId))).size >= ids.length;
@@ -133,11 +141,13 @@ export async function resetCompletedTrialBalances() {
   const group = await ProjectGroup.findOne({ isTrial: true }).select('_id name');
   if (!group) return 0;
   const projects = await Project.find({ groupId: String(group._id) }).select('_id');
-  const ids = projects.map((project) => String(project._id));
-  if (!ids.length) return 0;
+  const baseIds = projects.map((project) => String(project._id));
+  if (!baseIds.length) return 0;
   const users = await User.find({ role: 'user', trialBalance: { $gt: 0 } }).select('trialBalance');
   let cleared = 0;
   for (const user of users) {
+    const premiums = await UserPremium.find({ userId: String(user._id), groupId: String(group._id) }).select('_id');
+    const ids = baseIds.concat(premiums.map((row) => String(row._id)));
     const done = await Order.distinct('projectId', {
       userId: String(user._id),
       projectId: { $in: ids },
@@ -163,6 +173,83 @@ export async function resetCompletedTrialBalances() {
   return cleared;
 }
 
+async function takePremiumPrice(user, row, group) {
+  if (row.charged) return false;
+  const claimed = await UserPremium.findOneAndUpdate(
+    { _id: row._id, charged: { $ne: true } },
+    { $set: { charged: true } },
+    { new: true },
+  );
+  if (!claimed) {
+    row.charged = true;
+    return false;
+  }
+  row.charged = true;
+  const priceCents = cents(row.price);
+  if (priceCents <= 0) return true;
+  user.walletBalance = (cents(user.walletBalance) - priceCents) / 100;
+  await user.save();
+  const note = group && group.name ? `${group.name} · ${row.name}` : row.name;
+  await Transaction.create({
+    userId: String(user._id),
+    type: 'project_purchase',
+    amount: priceCents / 100,
+    direction: 'debit',
+    wallet: 'main',
+    description: note,
+    status: 'completed',
+    referenceId: String(row._id),
+  });
+  return true;
+}
+
+async function premiumReady(user, row) {
+  if (row.kind === 'fortune' && row.reward === 'cash') {
+    return { status: 400, message: 'Open the fortune box to claim this reward.' };
+  }
+  if (row.kind === 'fortune' && !row.opened) {
+    return { status: 409, message: 'Open the fortune box first.' };
+  }
+  const group = await ProjectGroup.findById(row.groupId);
+  const groupKey = group ? String(group._id) : String(row.groupId || '');
+  const openIds = await openGroupIds(user);
+  if (groupKey && !openIds.includes(groupKey)) {
+    return { status: 403, message: 'This group is locked.' };
+  }
+  if (groupKey) {
+    const today = workDate();
+    const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
+    const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
+    const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
+    const done = new Set(doneOrders.map((order) => String(order.projectId)));
+    const next = nextGroupProject(siblings, premiums, done);
+    if (!next || itemId(next) !== String(row._id)) {
+      return { status: 409, message: 'Complete the current project before this one.' };
+    }
+  }
+  return { group, openIds };
+}
+
+export async function unlockPremium({ userId, premiumId }) {
+  if (!mongoose.isValidObjectId(userId)) return { status: 401, message: 'Sign in required.' };
+  const user = await User.findById(userId);
+  if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
+  await ensureDailyReset(user);
+  if (user.accountStatus === 'pending') return { status: 403, message: 'Your account is pending admin approval.' };
+  if (user.accountStatus === 'blocked') return { status: 403, message: 'This account is blocked.' };
+  if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
+  if (!mongoose.isValidObjectId(premiumId)) return { status: 404, message: 'This premium is not available.' };
+  const row = await UserPremium.findOne({ _id: premiumId, userId: String(user._id) });
+  if (!row || row.reward === 'cash') return { status: 404, message: 'This premium is not available.' };
+  const ready = await premiumReady(user, row);
+  if (ready.message) return ready;
+  await takePremiumPrice(user, row, ready.group);
+  return {
+    status: 200,
+    data: { premium: viewPremium(row), user: memberView(user, ready.openIds) },
+  };
+}
+
 export async function activateOrder({ userId, projectId }) {
   if (!mongoose.isValidObjectId(userId)) return { status: 401, message: 'Sign in required.' };
   const user = await User.findById(userId);
@@ -173,8 +260,28 @@ export async function activateOrder({ userId, projectId }) {
   if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
   if (!mongoose.isValidObjectId(projectId)) return { status: 404, message: 'This project is not available.' };
 
-  const project = await Project.findById(projectId);
+  let premiumOrder = false;
+  let project = await Project.findById(projectId);
+  if (!project) {
+    project = await UserPremium.findOne({ _id: projectId, userId: String(user._id) });
+    premiumOrder = Boolean(project);
+  }
   if (!project) return { status: 404, message: 'This project is not available.' };
+  if (premiumOrder && project.kind === 'fortune' && project.reward === 'cash') {
+    return { status: 400, message: 'Open the fortune box to claim this reward.' };
+  }
+  if (premiumOrder && project.kind === 'fortune' && !project.opened) {
+    return { status: 409, message: 'Open the fortune box first.' };
+  }
+  if (premiumOrder && !project.charged) {
+    return { status: 409, message: 'This premium is not unlocked yet.' };
+  }
+  if (premiumOrder && cents(user.walletBalance) < 0) {
+    return {
+      status: 400,
+      message: `Deposit to complete this project. Your wallet balance is AED ${(cents(user.walletBalance) / 100).toFixed(2)}.`,
+    };
+  }
 
   const now = new Date();
   const today = workDate(now);
@@ -191,21 +298,16 @@ export async function activateOrder({ userId, projectId }) {
   const openIds = await openGroupIds(user);
   if (groupKey) {
     const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
+    const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
     const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
     const done = new Set(doneOrders.map((row) => String(row.projectId)));
-    const next = offerSequence(siblings).find((item) => !done.has(String(item._id)));
-    if (!next || String(next._id) !== String(project._id)) {
+    const next = nextGroupProject(siblings, premiums, done);
+    if (!next || itemId(next) !== String(project._id)) {
       return { status: 409, message: 'Complete the current project before this one.' };
     }
   }
   if (groupKey && !openIds.includes(groupKey)) {
-    const deposit = Number(group && group.unlockDeposit) || 0;
-    return {
-      status: 403,
-      message: deposit > 0
-        ? `This group is locked. Deposit AED ${deposit.toFixed(2)} to unlock.`
-        : 'This group is locked.',
-    };
+    return { status: 403, message: 'This group is locked.' };
   }
   const trialOrder = Boolean(group && group.isTrial);
   if (trialOrder && cents(user.trialBalance) < priceCents) {
@@ -215,7 +317,13 @@ export async function activateOrder({ userId, projectId }) {
     };
   }
   let settlement = null;
-  if (!trialOrder) {
+  if (premiumOrder) {
+    settlement = {
+      walletCents: balanceCents,
+      fromWalletCents: 0,
+      fromHoldCents: 0,
+    };
+  } else if (!trialOrder) {
     settlement = settleGroupPayment({
       walletCents: balanceCents,
       holdCents: cents(user.holdBalance),
@@ -277,6 +385,16 @@ export async function activateOrder({ userId, projectId }) {
         status: 'completed',
         referenceId: String(order._id),
       });
+    }
+  } else if (premiumOrder) {
+    user.walletBalance = settlement.walletCents / 100;
+    const finished = group ? await trialGroupFinished(user._id, group._id) : false;
+    if (finished && cents(user.holdBalance) > 0) {
+      const released = cents(user.holdBalance) / 100;
+      user.walletBalance = (cents(user.walletBalance) + cents(user.holdBalance)) / 100;
+      user.holdBalance = 0;
+      user.holdGroupId = '';
+      settlement.released = released;
     }
   } else {
     user.walletBalance = settlement.walletCents / 100;
@@ -356,17 +474,19 @@ export async function activateOrder({ userId, projectId }) {
     status: 'completed',
   });
 
-  const creditCents = trialOrder ? commissionCents : priceCents + commissionCents;
-  await Transaction.create({
-    userId: String(user._id),
-    type: 'project_commission',
-    amount: creditCents / 100,
-    direction: 'credit',
-    wallet: trialOrder ? 'main' : 'hold',
-    description: group && group.name ? `${group.name} · ${project.name}` : project.name,
-    status: 'completed',
-    referenceId: String(order._id),
-  });
+  if (!premiumOrder) {
+    const creditCents = trialOrder ? commissionCents : priceCents + commissionCents;
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'project_commission',
+      amount: creditCents / 100,
+      direction: 'credit',
+      wallet: trialOrder ? 'main' : 'hold',
+      description: group && group.name ? `${group.name} · ${project.name}` : project.name,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+  }
 
   if (!trialOrder && settlement && settlement.released > 0) {
     const groupName = group && group.name ? group.name : 'Group';
@@ -393,4 +513,155 @@ export async function activateOrder({ userId, projectId }) {
   }
 
   return { status: 201, data: { order: viewOrder(order), user: memberView(user, await openGroupIds(user)) } };
+}
+
+export async function openFortuneBox({ userId, premiumId }) {
+  if (!mongoose.isValidObjectId(userId)) return { status: 401, message: 'Sign in required.' };
+  const user = await User.findById(userId);
+  if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
+  await ensureDailyReset(user);
+  if (user.accountStatus === 'pending') return { status: 403, message: 'Your account is pending admin approval.' };
+  if (user.accountStatus === 'blocked') return { status: 403, message: 'This account is blocked.' };
+  if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
+  if (!mongoose.isValidObjectId(premiumId)) return { status: 404, message: 'This fortune box is not available.' };
+
+  const row = await UserPremium.findOne({ _id: premiumId, userId: String(user._id) });
+  if (!row || row.kind !== 'fortune') return { status: 404, message: 'This fortune box is not available.' };
+
+  const now = new Date();
+  const today = workDate(now);
+  const earlier = await ordersForUser(user._id, { projectId: String(row._id) });
+  if (onWorkDate(earlier, today).length) {
+    return { status: 409, message: 'You have already opened this fortune box today.' };
+  }
+
+  const group = await ProjectGroup.findById(row.groupId);
+  const groupKey = group ? String(group._id) : String(row.groupId || '');
+  const openIds = await openGroupIds(user);
+  if (groupKey && !openIds.includes(groupKey)) {
+    return { status: 403, message: 'This group is locked.' };
+  }
+  if (groupKey) {
+    const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
+    const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
+    const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
+    const done = new Set(doneOrders.map((order) => String(order.projectId)));
+    const next = nextGroupProject(siblings, premiums, done);
+    if (!next || itemId(next) !== String(row._id)) {
+      return { status: 409, message: 'Complete the current project before this one.' };
+    }
+  }
+
+  if (row.reward !== 'cash') {
+    row.opened = true;
+    await row.save();
+    await takePremiumPrice(user, row, group);
+    return {
+      status: 200,
+      data: { fortune: viewPremium(row), user: memberView(user, openIds) },
+    };
+  }
+
+  const amountCents = cents(row.price);
+  if (amountCents <= 0) return { status: 400, message: 'This fortune box has no cash reward.' };
+
+  const order = await Order.create({
+    userId: String(user._id),
+    projectId: String(row._id),
+    projectName: 'Fortune box',
+    groupId: groupKey,
+    groupName: group ? group.name : '',
+    image: group && group.image && group.image.data
+      ? { data: group.image.data, contentType: group.image.contentType }
+      : undefined,
+    price: 0,
+    commissionRatio: 0,
+    commissionAmount: 0,
+    earnedCommission: 0,
+    remainingCommission: 0,
+    startDate: now,
+    endDate: now,
+    status: 'completed',
+    workDate: today,
+  });
+
+  user.walletBalance = (cents(user.walletBalance) + amountCents) / 100;
+  row.opened = true;
+  await row.save();
+
+  const trialOrder = Boolean(group && group.isTrial);
+  let released = 0;
+  if (trialOrder) {
+    const finished = await trialGroupFinished(user._id, group._id, today);
+    if (finished && cents(user.trialBalance) > 0) {
+      const cleared = cents(user.trialBalance) / 100;
+      user.trialBalance = 0;
+      await Transaction.create({
+        userId: String(user._id),
+        type: 'trial_reset',
+        amount: cleared,
+        direction: 'debit',
+        wallet: 'trial',
+        description: `${group.name} completed`,
+        status: 'completed',
+        referenceId: String(order._id),
+      });
+    }
+  } else if (group && cents(user.holdBalance) > 0) {
+    const ids = await expectedIds(user._id, group._id);
+    const done = onWorkDate(await ordersForUser(user._id, { projectId: { $in: ids } }), today);
+    const finished = ids.length > 0 && new Set(done.map((item) => String(item.projectId))).size >= ids.length;
+    if (finished) {
+      released = cents(user.holdBalance) / 100;
+      user.walletBalance = (cents(user.walletBalance) + cents(user.holdBalance)) / 100;
+      user.holdBalance = 0;
+      user.holdGroupId = '';
+    }
+  }
+  await user.save();
+
+  await Transaction.create({
+    userId: String(user._id),
+    type: 'fortune_reward',
+    amount: amountCents / 100,
+    direction: 'credit',
+    wallet: 'main',
+    description: group && group.name ? `${group.name} · Fortune box` : 'Fortune box',
+    status: 'completed',
+    referenceId: String(order._id),
+  });
+
+  if (released > 0) {
+    const groupName = group && group.name ? group.name : 'Group';
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'hold_release',
+      amount: released,
+      direction: 'debit',
+      wallet: 'hold',
+      description: `${groupName} completed`,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'hold_release',
+      amount: released,
+      direction: 'credit',
+      wallet: 'main',
+      description: `${groupName} completed`,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+  }
+
+  return {
+    status: 200,
+    data: {
+      fortune: viewPremium(row),
+      order: viewOrder(order),
+      user: memberView(user, await openGroupIds(user)),
+      amount: amountCents / 100,
+    },
+  };
 }

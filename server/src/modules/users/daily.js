@@ -1,5 +1,6 @@
 import { Transaction } from '../wallet/model.js';
 import { workDate } from '../../lib/workDate.js';
+import { UserPremium } from './premium-model.js';
 
 export async function ensureDailyReset(user) {
   if (!user || user.role !== 'user') return user;
@@ -43,5 +44,9 @@ export async function ensureDailyReset(user) {
   user.lockedGroupIds = [];
   user.progressDate = today;
   await user.save();
+  await UserPremium.updateMany(
+    { userId: String(user._id) },
+    { $set: { opened: false, charged: false } },
+  );
   return user;
 }

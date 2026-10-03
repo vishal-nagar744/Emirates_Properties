@@ -23,16 +23,10 @@ function readGroup(body, current) {
   const name = String((body && body.name) ?? (current && current.name) ?? '').trim();
   if (!name) return { status: 400, message: 'Enter a group name.' };
   const hasImageInput = Boolean(body) && Object.prototype.hasOwnProperty.call(body, 'image');
-  const rawDeposit = (body && body.unlockDeposit) ?? (current && current.unlockDeposit) ?? 0;
-  const unlockDeposit = Number(rawDeposit);
-  if (!Number.isFinite(unlockDeposit) || unlockDeposit < 0) {
-    return { status: 400, message: 'Enter an unlock deposit of zero or more.' };
-  }
   return {
     value: {
       name,
       description: String((body && body.description) ?? (current && current.description) ?? '').trim(),
-      unlockDeposit,
     },
     imageInput: hasImageInput ? body.image : undefined,
   };
