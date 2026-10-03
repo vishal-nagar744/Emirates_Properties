@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../../middleware/auth.js';
-import { createGroup, deleteGroup, getGroup, listGroups, updateGroup } from './service.js';
+import { createGroup, deleteGroup, getGroup, listGroups, readGroupImage, updateGroup } from './service.js';
 
 function send(res, result) {
   if (result.message) return res.status(result.status).json({ message: result.message });
@@ -21,6 +21,14 @@ export const router = Router();
 
 router.get('/', route(async (_req, res) => {
   send(res, await listGroups());
+}));
+
+router.get('/:id/image', route(async (req, res) => {
+  const image = await readGroupImage(req.params.id);
+  if (!image) return res.status(404).json({ message: 'Image not found.' });
+  res.set('Content-Type', image.contentType);
+  res.set('Cache-Control', 'public, max-age=86400');
+  return res.send(image.data);
 }));
 
 router.get('/:id', route(async (req, res) => {

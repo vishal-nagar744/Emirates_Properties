@@ -5,6 +5,8 @@ import {
   adjustMemberWallet,
   getMember,
   listMembers,
+  memberDailyHistory,
+  setMemberGroups,
   setMemberStatus,
   updateOwnProfile,
 } from './service.js';
@@ -39,6 +41,10 @@ router.get('/', requireAdmin, route(async (req, res) => {
   send(res, await listMembers({ status: req.query.status, q: req.query.q }));
 }));
 
+router.get('/:id/history', requireAdmin, route(async (req, res) => {
+  send(res, await memberDailyHistory(req.params.id));
+}));
+
 router.get('/:id/sessions', requireAdmin, route(async (req, res) => {
   const member = await getMember(req.params.id);
   if (member.message) return send(res, member);
@@ -62,6 +68,11 @@ router.get('/:id', requireAdmin, route(async (req, res) => {
 
 router.patch('/:id/status', requireAdmin, route(async (req, res) => {
   send(res, await setMemberStatus(req.params.id, (req.body || {}).accountStatus));
+}));
+
+router.patch('/:id/groups', requireAdmin, route(async (req, res) => {
+  const body = req.body || {};
+  send(res, await setMemberGroups(req.params.id, body.groupIds));
 }));
 
 router.post('/:id/adjustment', requireAdmin, route(async (req, res) => {

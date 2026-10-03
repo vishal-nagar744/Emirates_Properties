@@ -12,6 +12,29 @@ function money(value) {
   return Math.round(value * 100) / 100;
 }
 
+function priceOrder(a, b) {
+  return (Number(a.price) || 0) - (Number(b.price) || 0)
+    || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+}
+
+export function offerSequence(projects) {
+  const normal = projects.filter((project) => project.projectType !== 'premium').sort(priceOrder);
+  const premium = projects.filter((project) => project.projectType === 'premium').sort(priceOrder);
+  if (!premium.length) return normal;
+  if (!normal.length) return premium;
+  const stride = Math.floor(normal.length / premium.length);
+  const every = stride > 1 && stride * premium.length >= normal.length ? stride - 1 : Math.max(stride, 1);
+  const sequence = [];
+  let normalIndex = 0;
+  let premiumIndex = 0;
+  while (normalIndex < normal.length || premiumIndex < premium.length) {
+    const take = Math.min(every, normal.length - normalIndex);
+    for (let i = 0; i < take; i += 1) sequence.push(normal[normalIndex++]);
+    if (premiumIndex < premium.length) sequence.push(premium[premiumIndex++]);
+  }
+  return sequence;
+}
+
 async function groupNames(projects) {
   const ids = [...new Set(projects.map((project) => project.groupId).filter(Boolean))];
   const groups = await ProjectGroup.find({ _id: { $in: ids } });
@@ -36,6 +59,11 @@ async function readProject(body, current) {
   if (!Number.isFinite(commissionRatio) || commissionRatio < 0 || commissionRatio > 100) {
     return { status: 400, message: 'Commission ratio must be between 0 and 100.' };
   }
+  const hasType = Boolean(body) && Object.prototype.hasOwnProperty.call(body, 'projectType');
+  const projectType = String(hasType ? body.projectType : (current && current.projectType) || 'normal').trim().toLowerCase();
+  if (projectType !== 'normal' && projectType !== 'premium') {
+    return { status: 400, message: 'Choose normal or premium.' };
+  }
 
   return {
     value: {
@@ -44,6 +72,7 @@ async function readProject(body, current) {
       price: money(price),
       commissionRatio: money(commissionRatio),
       commissionAmount: money((price * commissionRatio) / 100),
+      projectType,
     },
   };
 }
@@ -59,8 +88,9 @@ export async function listProjects({ groupId }) {
     if (!mongoose.isValidObjectId(groupId)) return { status: 200, data: { projects: [] } };
     filter.groupId = groupId;
   }
-  const rows = await Project.find(filter).sort({ createdAt: -1 });
-  return { status: 200, data: { projects: presentList(rows, await groupNames(rows)) } };
+  const rows = await Project.find(filter).sort({ price: 1, createdAt: 1 });
+  const ordered = groupId ? offerSequence(rows) : rows;
+  return { status: 200, data: { projects: presentList(ordered, await groupNames(rows)) } };
 }
 
 export async function getProject(id) {

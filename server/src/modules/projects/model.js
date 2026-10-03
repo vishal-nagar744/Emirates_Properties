@@ -7,6 +7,7 @@ const projectSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     commissionRatio: { type: Number, required: true },
     commissionAmount: { type: Number, required: true },
+    projectType: { type: String, enum: ['normal', 'premium'], default: 'normal' },
   },
   { timestamps: true }
 );
@@ -22,6 +23,7 @@ export function viewProject(project, extra = {}) {
     price: project.price,
     commissionRatio: project.commissionRatio,
     commissionAmount: project.commissionAmount,
+    projectType: project.projectType === 'premium' ? 'premium' : 'normal',
     createdAt: project.createdAt ? new Date(project.createdAt).toISOString() : '',
   };
 }

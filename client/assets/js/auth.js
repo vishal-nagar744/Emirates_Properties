@@ -205,7 +205,7 @@ function initSignupForm() {
     }
 
     saveMemberSession(result.data);
-    toast('Account created.');
+    sessionStorage.setItem('ps_trial_bonus', '1');
     window.location.href = 'dashboard.html';
   });
 }

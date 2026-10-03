@@ -491,7 +491,12 @@ const Store = (() => {
       createdAt: session.createdAt || local.createdAt || '',
       walletBalance: session.walletBalance == null ? Number(local.walletBalance) || 0 : Number(session.walletBalance),
       trialBalance: session.trialBalance == null ? Number(local.trialBalance) || 0 : Number(session.trialBalance),
+      holdBalance: session.holdBalance == null ? Number(local.holdBalance) || 0 : Number(session.holdBalance),
+      holdGroupId: session.holdGroupId || '',
       pendingCashOut: session.pendingCashOut == null ? Number(local.pendingCashOut) || 0 : Number(session.pendingCashOut),
+      hasSecurityPassword: session.hasSecurityPassword === true,
+      hasWithdrawalPassword: session.hasWithdrawalPassword === true,
+      unlockedGroupIds: Array.isArray(session.unlockedGroupIds) ? session.unlockedGroupIds : null,
       role: session.role || 'user',
     };
   }

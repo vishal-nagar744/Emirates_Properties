@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { readToken } from '../auth/session.js';
 import { requireUser } from '../../middleware/auth.js';
-import { activateOrder, getOrder, listOrders } from './service.js';
+import { activateOrder, getOrder, listOrders, readOrderImage } from './service.js';
 
 function send(res, result) {
   if (result.message) return res.status(result.status).json({ message: result.message });
@@ -39,6 +39,14 @@ router.get('/', route(async (req, res) => {
 
 router.post('/', requireUser, route(async (req, res) => {
   send(res, await activateOrder({ userId: req.session.subjectId, projectId: (req.body || {}).projectId }));
+}));
+
+router.get('/:id/image', route(async (req, res) => {
+  const image = await readOrderImage(req.params.id);
+  if (!image) return res.status(404).json({ message: 'Image not found.' });
+  res.set('Content-Type', image.contentType);
+  res.set('Cache-Control', 'public, max-age=86400');
+  return res.send(image.data);
 }));
 
 router.get('/:id', route(async (req, res) => {

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { User } from '../users/model.js';
+import { Settings } from '../settings/model.js';
 import { Transaction, WithdrawalAccount, viewAccount } from './model.js';
 
 function viewTransaction(row) {
@@ -26,6 +27,8 @@ function snapshot(user) {
     referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
+    holdBalance: user.holdBalance || 0,
+    holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
     hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
@@ -73,6 +76,11 @@ export async function addAccount({ userId, body }) {
   const user = await member(userId);
   if (!user) return { status: 401, message: 'Sign in required.' };
   const kind = body.kind === 'bank' ? 'bank' : 'crypto';
+  const settings = await Settings.findOne({ key: 'platform' });
+  const bankOn = !settings || settings.bankPayoutEnabled !== false;
+  const cryptoOn = Boolean(settings && settings.cryptoPayoutEnabled === true);
+  if (kind === 'crypto' && !cryptoOn) return { status: 400, message: 'Crypto accounts are turned off.' };
+  if (kind === 'bank' && !bankOn) return { status: 400, message: 'Bank accounts are turned off.' };
   let account;
   if (kind === 'crypto') {
     const network = body.network === 'USDT BEP20' ? 'USDT BEP20' : 'USDT TRC20';

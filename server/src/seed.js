@@ -2,12 +2,17 @@ import { config } from './config.js';
 import { hashPassword } from './lib/password.js';
 import { Session } from './modules/auth/model.js';
 import { ProjectGroup } from './modules/groups/model.js';
+import { embedImageBytes } from './modules/images/service.js';
 import { Order } from './modules/orders/model.js';
+import { resetCompletedTrialBalances } from './modules/orders/service.js';
 import { Project } from './modules/projects/model.js';
 import { Settings } from './modules/settings/model.js';
 import { User } from './modules/users/model.js';
 
 export async function seed() {
+  const moved = await embedImageBytes();
+  if (moved) console.log(`Stored ${moved} uploaded image${moved === 1 ? '' : 's'} in the database.`);
+
   await User.collection.updateMany({ loginId: null }, { $unset: { loginId: '' } });
   const indexes = await User.collection.indexes();
   if (indexes.some((index) => index.name === 'loginId_1' && !index.partialFilterExpression)) {
@@ -53,7 +58,6 @@ export async function seed() {
       group = await ProjectGroup.create({
         name: 'Existing catalog',
         description: 'Projects moved from the previous catalog.',
-        image: '',
       });
     }
     for (const doc of legacy) {
@@ -90,18 +94,20 @@ export async function seed() {
     { $set: { trialBonusAmount: 0 } }
   );
 
+  const trialName = 'Junior (Trial)';
   const trial = await ProjectGroup.findOne({ isTrial: true }) || await ProjectGroup.findOne({ name: /^trial$/i });
   if (trial) {
-    if (!trial.isTrial) {
-      trial.isTrial = true;
-      await trial.save();
-    }
+    if (!trial.isTrial) trial.isTrial = true;
+    if (/^trial$/i.test(trial.name)) trial.name = trialName;
+    if (trial.isModified()) await trial.save();
   } else {
     await ProjectGroup.create({
-      name: 'Trial',
+      name: trialName,
       description: '',
-      image: '',
       isTrial: true,
     });
   }
+
+  const cleared = await resetCompletedTrialBalances();
+  if (cleared) console.log(`Reset trial balance for ${cleared} member${cleared === 1 ? '' : 's'} who finished the trial group.`);
 }

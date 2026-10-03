@@ -20,7 +20,13 @@ const userSchema = new mongoose.Schema(
     welcomeBonusReceived: { type: Boolean, default: false },
     walletBalance: { type: Number, default: 0 },
     trialBalance: { type: Number, default: 0 },
+    holdBalance: { type: Number, default: 0 },
+    holdGroupId: { type: String, default: '' },
     pendingCashOut: { type: Number, default: 0 },
+    lockedGroupIds: { type: [String], default: [] },
+    groupAccessSet: { type: Boolean, default: false },
+    unlockedGroupIds: { type: [String], default: [] },
+    progressDate: { type: String, default: '' },
   },
   { timestamps: true }
 );

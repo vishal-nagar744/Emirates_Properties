@@ -14,6 +14,9 @@ function snapshot(user) {
     accountStatus: user.accountStatus,
     referralCode: user.referralCode,
     walletBalance: user.walletBalance,
+    trialBalance: user.trialBalance || 0,
+    holdBalance: user.holdBalance || 0,
+    holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
     hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
@@ -51,6 +54,10 @@ export async function requestCashOut({ userId, amount, accountId, securityPasswo
   if (!mongoose.isValidObjectId(accountId)) return { status: 400, message: 'Select a bound account.' };
   const account = await WithdrawalAccount.findOne({ _id: accountId, userId: String(user._id) });
   if (!account) return { status: 400, message: 'Select a bound account.' };
+  const bankOn = !settings || settings.bankPayoutEnabled !== false;
+  const cryptoOn = Boolean(settings && settings.cryptoPayoutEnabled === true);
+  if (account.kind === 'bank' && !bankOn) return { status: 400, message: 'Bank cash out is turned off.' };
+  if (account.kind === 'crypto' && !cryptoOn) return { status: 400, message: 'Crypto cash out is turned off.' };
   const dest = destination(account);
   if (!dest) return { status: 400, message: 'That account is missing details.' };
 

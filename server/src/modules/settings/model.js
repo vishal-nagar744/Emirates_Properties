@@ -9,6 +9,8 @@ const settingsSchema = new mongoose.Schema(
     minCashOutAmount: { type: Number, required: true },
     supportTelegramUsername: { type: String, required: true },
     demoCashInUSDTAddress: { type: String, required: true },
+    bankPayoutEnabled: { type: Boolean, default: true },
+    cryptoPayoutEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

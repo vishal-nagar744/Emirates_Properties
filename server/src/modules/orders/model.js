@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { config } from '../../config.js';
+import { orderWorkDate } from '../../lib/workDate.js';
 
 const orderSchema = new mongoose.Schema(
   {
@@ -7,7 +9,10 @@ const orderSchema = new mongoose.Schema(
     projectName: { type: String, required: true },
     groupId: { type: String, default: '' },
     groupName: { type: String, default: '' },
-    image: { type: String, default: '' },
+    image: {
+      data: { type: Buffer },
+      contentType: { type: String, default: '' },
+    },
     price: { type: Number, default: 0 },
     commissionRatio: { type: Number, default: 0 },
     commissionAmount: { type: Number, default: 0 },
@@ -21,6 +26,7 @@ const orderSchema = new mongoose.Schema(
     earnedCommission: { type: Number, default: 0 },
     remainingCommission: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'completed', 'cancelled'], default: 'completed' },
+    workDate: { type: String, default: '', index: true },
   },
   { timestamps: true }
 );
@@ -36,12 +42,13 @@ export function viewOrder(order) {
     projectName: order.projectName,
     groupId: order.groupId || '',
     groupName: order.groupName || '',
-    image: order.image || '',
+    image: order.image && order.image.contentType ? `${config.publicApiUrl}/api/orders/${order._id}/image` : '',
     price: Number(order.price) || Number(order.activationAmount) || 0,
     commissionRatio: Number(order.commissionRatio) || 0,
     commissionAmount,
     earnedCommission: Number(order.earnedCommission) || 0,
     status: order.status,
+    workDate: orderWorkDate(order),
     createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : '',
   };
 }

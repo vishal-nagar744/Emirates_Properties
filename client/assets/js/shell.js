@@ -27,12 +27,13 @@ function copyText(text) {
   area.remove();
 }
 
-function openModal(innerHtml) {
+function openModal(innerHtml, variant) {
   const root = document.getElementById('modal-root');
   if (!root) return;
+  const kind = variant ? ` ${variant}` : '';
   root.innerHTML = `
     <div class="modal-back" data-close-modal>
-      <div class="modal card" role="dialog" aria-modal="true">${innerHtml}</div>
+      <div class="modal card${kind}" role="dialog" aria-modal="true">${innerHtml}</div>
     </div>`;
   const back = root.querySelector('.modal-back');
   let pointerOnBack = false;
@@ -46,6 +47,7 @@ function openModal(innerHtml) {
   root.querySelectorAll('[data-dismiss]').forEach((btn) => {
     btn.addEventListener('click', () => { root.innerHTML = ''; });
   });
+  if (typeof initPickers === 'function') initPickers(root);
 }
 
 function closeModal() {
@@ -81,12 +83,11 @@ function memberNav(active) {
     ['dashboard', 'dashboard.html', 'home', 'Dashboard'],
     ['projects', 'projects.html', 'grid', 'Projects'],
     ['orders', 'orders.html', 'clock', 'Orders'],
-    ['earnings', 'earnings.html', 'chart', 'Earnings'],
-    ['wallet', 'wallet.html', 'wallet', 'Wallet'],
-    ['profile', 'profile.html', 'user', 'Profile'],
+    ['profile', 'profile.html', 'user', 'Account'],
+    ['support', 'support.html', 'support', 'Support'],
   ];
   return items.map(([id, href, icon, label]) => (
-    `<a class="sidelink${id === active ? ' active' : ''}" href="${href}" title="${label}"><span class="sideicon">${navIcon(icon)}</span><span class="sidelabel">${label}</span></a>`
+    `<a class="sidelink${id === active ? ' active' : ''}${id === 'support' ? ' desktop-only' : ''}" href="${href}" title="${label}"><span class="sideicon">${navIcon(icon)}</span><span class="sidelabel">${label}</span></a>`
   )).join('');
 }
 
@@ -154,9 +155,9 @@ function crumbLabel(page) {
     projects: 'Projects',
     project: 'Projects',
     orders: 'Orders',
-    earnings: 'Earnings',
-    wallet: 'Wallet',
-    profile: 'Profile',
+    wallet: 'Account',
+    profile: 'Account',
+    support: 'Support',
     users: 'Users',
     cashouts: 'Cash out',
     transactions: 'Transactions',
@@ -242,8 +243,7 @@ function mountShell() {
         <a href="dashboard.html" class="${page === 'dashboard' ? 'active' : ''}">${navIcon('home')}<span>Home</span></a>
         <a href="projects.html" class="${page === 'projects' || page === 'project' ? 'active' : ''}">${navIcon('grid')}<span>Projects</span></a>
         <a href="orders.html" class="${page === 'orders' ? 'active' : ''}">${navIcon('clock')}<span>Orders</span></a>
-        <a href="wallet.html" class="${page === 'wallet' ? 'active' : ''}">${navIcon('wallet')}<span>Wallet</span></a>
-        <a href="profile.html" class="${page === 'profile' ? 'active' : ''}">${navIcon('user')}<span>Profile</span></a>
+        <a href="profile.html" class="${page === 'profile' || page === 'wallet' ? 'active' : ''}">${navIcon('user')}<span>Account</span></a>
       `}
     </nav>
   `;

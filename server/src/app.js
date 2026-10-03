@@ -5,6 +5,7 @@ import { adminAuth, memberAuth } from './modules/auth/routes.js';
 import { router as cashouts } from './modules/cashouts/routes.js';
 import { router as commissions } from './modules/commissions/routes.js';
 import { router as groups } from './modules/groups/routes.js';
+import { router as images } from './modules/images/routes.js';
 import { router as orders } from './modules/orders/routes.js';
 import { router as projects } from './modules/projects/routes.js';
 import { router as referrals } from './modules/referrals/routes.js';
@@ -29,7 +30,6 @@ export function createApp() {
     },
   }));
   app.use(express.json({ limit: '100kb' }));
-  app.use('/uploads', express.static(config.uploadDir));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
@@ -39,6 +39,7 @@ export function createApp() {
   app.use('/api/admin/auth', adminAuth);
   app.use('/api/users', users);
   app.use('/api/groups', groups);
+  app.use('/api/images', images);
   app.use('/api/projects', projects);
   app.use('/api/orders', orders);
   app.use('/api/commissions', commissions);

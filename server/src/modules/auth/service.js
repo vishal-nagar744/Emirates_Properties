@@ -5,7 +5,16 @@ import { Referral } from '../referrals/model.js';
 import { Settings } from '../settings/model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
+import { openGroupIds } from '../users/service.js';
+import { ensureDailyReset } from '../users/daily.js';
 import { issueToken, revokeToken, revokeUserSessions } from './session.js';
+
+async function presentUser(user) {
+  if (user && user.role === 'user') await ensureDailyReset(user);
+  const view = publicUser(user);
+  if (user.role === 'user') view.unlockedGroupIds = await openGroupIds(user);
+  return view;
+}
 
 function digits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -22,7 +31,10 @@ function publicUser(user) {
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
+    holdBalance: user.holdBalance || 0,
+    holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
+    unlockedGroupIds: [],
     hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
@@ -150,7 +162,7 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
     ttlMs: config.sessionTtlMs,
     context,
   });
-  return { status: 201, data: { message: 'Account created.', token, user: publicUser(user) } };
+  return { status: 201, data: { message: 'Account created.', token, user: await presentUser(user) } };
 }
 
 export async function loginMember({ mobile, password, remember, context }) {
@@ -167,7 +179,7 @@ export async function loginMember({ mobile, password, remember, context }) {
     ttlMs: remember ? config.rememberTtlMs : config.sessionTtlMs,
     context: { ...context, method: remember ? 'Remembered sign in' : 'Password sign in' },
   });
-  return { status: 200, data: { token, user: publicUser(user) } };
+  return { status: 200, data: { token, user: await presentUser(user) } };
 }
 
 export async function setWithdrawalPassword({
@@ -182,13 +194,7 @@ export async function setWithdrawalPassword({
   const securityNext = String(securityPassword || '');
   const withdrawNext = String(withdrawalPassword || '');
   if (!securityNext && !withdrawNext) {
-    return { status: 400, message: 'Enter a security password, a withdrawal password, or both.' };
-  }
-  if (!user.securityPasswordHash && !securityNext) {
-    return { status: 400, message: 'Enter a security password.' };
-  }
-  if (!user.withdrawalPasswordHash && !withdrawNext) {
-    return { status: 400, message: 'Enter a withdrawal password.' };
+    return { status: 400, message: 'Enter a password.' };
   }
   if (securityNext && withdrawNext && securityNext === withdrawNext) {
     return { status: 400, message: 'Security password and withdrawal password must be different.' };
@@ -220,7 +226,7 @@ export async function setWithdrawalPassword({
   if (securityNext) user.securityPasswordHash = hashPassword(securityNext);
   if (withdrawNext) user.withdrawalPasswordHash = hashPassword(withdrawNext);
   await user.save();
-  return { status: 200, data: { message: 'Cash out passwords saved.', user: publicUser(user) } };
+  return { status: 200, data: { message: 'Cash out passwords saved.', user: await presentUser(user) } };
 }
 
 export async function forgotPassword({ mobile, password }) {
@@ -248,7 +254,7 @@ export async function changePassword({ session, currentPassword, newPassword }) 
   }
   user.passwordHash = hashPassword(next);
   await user.save();
-  return { status: 200, data: { message: 'Password updated.', user: publicUser(user) } };
+  return { status: 200, data: { message: 'Password updated.', user: await presentUser(user) } };
 }
 
 export async function logout(token) {
@@ -260,7 +266,7 @@ export async function memberFromSession(session) {
   if (!session || session.role !== 'user') return null;
   const user = await findById(session.subjectId);
   if (!user || user.role !== 'user') return null;
-  return publicUser(user);
+  return presentUser(user);
 }
 
 export async function loginAdmin({ id, password, context }) {

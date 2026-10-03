@@ -5,13 +5,36 @@
    ============================================================ */
 
 /* ── Toast Notification ─────────────────────────────────────── */
-function toast(message, duration = 2400) {
+function toastKind(message) {
+  return /could not|failed|invalid|insufficient|error|too long|required|not match|wait|blocked|suspended|denied|unable/i.test(String(message || ''))
+    ? 'error'
+    : 'success';
+}
+
+function toastIcon(kind) {
+  if (kind === 'error') {
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/><path d="M12 16.2h.01"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.3 2.3 4.7-5"/></svg>';
+}
+
+function toast(message, options) {
   const el = document.querySelector('.toast');
   if (!el) return;
-  el.textContent = message;
-  el.style.display = 'block';
+  const text = String(message || '').trim();
+  if (!text) return;
+  const duration = typeof options === 'number' ? options : ((options && options.duration) || 3200);
+  const kind = (options && typeof options === 'object' && options.kind) || toastKind(text);
+  if (el.classList.contains('is-on') && el.dataset.msg === text) return;
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  el.dataset.msg = text;
+  el.className = `toast toast-${kind} is-on`;
+  el.innerHTML = `<span class="toast-ico">${toastIcon(kind)}</span><span class="toast-text">${safe}</span>`;
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.style.display = 'none'; }, duration);
+  el._timer = setTimeout(() => {
+    el.classList.remove('is-on');
+    el.dataset.msg = '';
+  }, duration);
 }
 
 /* ── Sidebar Toggle (member pages, mobile) ──────────────────── */
@@ -163,6 +186,90 @@ function initHeroExplore() {
   });
 }
 
+function mountPicker(select) {
+  if (!select || select.dataset.picker === '1') return;
+  select.dataset.picker = '1';
+  const picker = document.createElement('div');
+  picker.className = 'picker';
+  select.classList.add('picker-native');
+  select.parentNode.insertBefore(picker, select);
+  picker.appendChild(select);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'picker-btn';
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = '<span class="picker-label"></span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+  const menu = document.createElement('ul');
+  menu.className = 'picker-menu';
+  menu.setAttribute('role', 'listbox');
+  menu.hidden = true;
+  picker.appendChild(btn);
+  picker.appendChild(menu);
+
+  function paint() {
+    const current = select.options[select.selectedIndex];
+    btn.querySelector('.picker-label').textContent = current ? current.textContent : 'Select';
+    menu.replaceChildren();
+    [...select.options].forEach((opt) => {
+      const item = document.createElement('li');
+      item.setAttribute('role', 'option');
+      item.dataset.value = opt.value;
+      item.textContent = opt.textContent;
+      if (opt.value === select.value && !opt.disabled) item.setAttribute('aria-selected', 'true');
+      item.addEventListener('click', () => {
+        select.value = opt.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        closeMenu();
+        paint();
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  function place() {
+    const rect = btn.getBoundingClientRect();
+    const width = Math.max(rect.width, 148);
+    menu.style.width = `${width}px`;
+    menu.hidden = false;
+    const height = menu.offsetHeight;
+    const below = window.innerHeight - rect.bottom;
+    const openUp = below < height + 12 && rect.top > height + 12;
+    menu.style.top = `${openUp ? rect.top - height - 6 : rect.bottom + 6}px`;
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    menu.style.left = `${left}px`;
+  }
+
+  function closeMenu() {
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openMenu() {
+    document.querySelectorAll('.picker-menu').forEach((node) => { node.hidden = true; });
+    document.querySelectorAll('.picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+    place();
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  btn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (menu.hidden) openMenu();
+    else closeMenu();
+  });
+  select.addEventListener('change', paint);
+  new MutationObserver(paint).observe(select, { childList: true });
+  paint();
+}
+
+function initPickers(root) {
+  const scope = root && root.querySelectorAll ? root : document;
+  scope.querySelectorAll('select:not([data-picker])').forEach(mountPicker);
+}
+
 function initDemoForms() {
   document.addEventListener('submit', (e) => {
     const form = e.target.closest('form[data-demo]');
@@ -173,6 +280,17 @@ function initDemoForms() {
 }
 
 function initApp() {
+  initPickers();
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('.picker')) return;
+    document.querySelectorAll('.picker-menu').forEach((node) => { node.hidden = true; });
+    document.querySelectorAll('.picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.picker-menu').forEach((node) => { node.hidden = true; });
+    document.querySelectorAll('.picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+  });
   initHearts();
   initOverlay();
   initActiveNav();

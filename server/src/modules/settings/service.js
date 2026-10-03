@@ -8,6 +8,8 @@ function viewSettings(row) {
     minCashOutAmount: row.minCashOutAmount,
     supportTelegramUsername: row.supportTelegramUsername,
     demoCashInUSDTAddress: row.demoCashInUSDTAddress || '',
+    bankPayoutEnabled: row.bankPayoutEnabled !== false,
+    cryptoPayoutEnabled: row.cryptoPayoutEnabled === true,
   };
 }
 
@@ -24,6 +26,8 @@ export async function getSettings() {
           minCashOutAmount: 500,
           supportTelegramUsername: 'EmiratesPropertiesSupport',
           demoCashInUSDTAddress: '',
+          bankPayoutEnabled: true,
+          cryptoPayoutEnabled: false,
         },
       },
     };
@@ -38,6 +42,8 @@ export async function updateSettings(body) {
   const minCashOutAmount = Number(body.minCashOutAmount);
   const supportTelegramUsername = String(body.supportTelegramUsername || '').trim().replace(/^@/, '');
   const demoCashInUSDTAddress = String(body.demoCashInUSDTAddress || '').trim();
+  const bankPayoutEnabled = body.bankPayoutEnabled !== false && body.bankPayoutEnabled !== 'false';
+  const cryptoPayoutEnabled = body.cryptoPayoutEnabled === true || body.cryptoPayoutEnabled === 'true';
   if (!platformName) return { status: 400, message: 'Enter a platform name.' };
   if (!Number.isFinite(welcomeBonusAmount) || welcomeBonusAmount < 0) {
     return { status: 400, message: 'Welcome bonus must be 0 or more.' };
@@ -59,6 +65,8 @@ export async function updateSettings(body) {
       minCashOutAmount,
       supportTelegramUsername,
       demoCashInUSDTAddress,
+      bankPayoutEnabled,
+      cryptoPayoutEnabled,
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );

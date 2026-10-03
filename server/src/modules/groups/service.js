@@ -1,10 +1,12 @@
 import mongoose from 'mongoose';
+import { config } from '../../config.js';
+import { discardStagedImage, loadImageBytes } from '../images/service.js';
 import { Project } from '../projects/model.js';
-import { ProjectGroup, viewGroup } from './model.js';
+import { ProjectGroup, hasImage, viewGroup } from './model.js';
 
 async function findGroup(id) {
   if (!mongoose.isValidObjectId(id)) return null;
-  return ProjectGroup.findById(id);
+  return ProjectGroup.findById(id).select('-image.data');
 }
 
 async function withCounts(groups) {
@@ -17,41 +19,48 @@ async function withCounts(groups) {
   return groups.map((group) => viewGroup(group, { projectCount: counts.get(String(group._id)) || 0 }));
 }
 
-function imageRef(value) {
-  const image = String(value || '').trim();
-  if (!image) return '';
-  if (image.startsWith('data:') || image.startsWith('blob:')) {
-    return { error: 'Upload the photo. It is not kept in the browser.' };
-  }
-  if (image.startsWith('/uploads/')) return image;
-  try {
-    const url = new URL(image);
-    if ((url.protocol === 'http:' || url.protocol === 'https:') && url.pathname.startsWith('/uploads/')) return image;
-  } catch {
-    /* not a stored upload */
-  }
-  return { error: 'Upload the photo before saving.' };
-}
-
 function readGroup(body, current) {
   const name = String((body && body.name) ?? (current && current.name) ?? '').trim();
   if (!name) return { status: 400, message: 'Enter a group name.' };
-  const imageInput = String((body && body.image) ?? (current && current.image) ?? '').trim();
-  const image = imageRef(imageInput);
-  if (image && image.error && imageInput !== String((current && current.image) || '')) {
-    return { status: 400, message: image.error };
+  const hasImageInput = Boolean(body) && Object.prototype.hasOwnProperty.call(body, 'image');
+  const rawDeposit = (body && body.unlockDeposit) ?? (current && current.unlockDeposit) ?? 0;
+  const unlockDeposit = Number(rawDeposit);
+  if (!Number.isFinite(unlockDeposit) || unlockDeposit < 0) {
+    return { status: 400, message: 'Enter an unlock deposit of zero or more.' };
   }
   return {
     value: {
       name,
       description: String((body && body.description) ?? (current && current.description) ?? '').trim(),
-      image: image && image.error ? imageInput : image,
+      unlockDeposit,
     },
+    imageInput: hasImageInput ? body.image : undefined,
   };
 }
 
+function keepsCurrentImage(current, image) {
+  if (!hasImage(current)) return false;
+  const owned = `${config.publicApiUrl}/api/groups/${current._id}/image`;
+  return image === owned || image.endsWith(`/api/groups/${current._id}/image`);
+}
+
+async function takeImage(imageInput, current) {
+  if (imageInput === undefined) return { keep: true };
+  const image = String(imageInput || '').trim();
+  if (!image) return { data: null, contentType: '' };
+  if (keepsCurrentImage(current, image)) return { keep: true };
+  return loadImageBytes(image);
+}
+
+function writeImage(group, image) {
+  if (!image || image.keep) return;
+  group.image = image.data
+    ? { data: image.data, contentType: image.contentType }
+    : undefined;
+}
+
 export async function listGroups() {
-  const groups = await ProjectGroup.find().sort({ createdAt: -1 });
+  const groups = await ProjectGroup.find().select('-image.data').sort({ createdAt: 1 });
   return { status: 200, data: { groups: await withCounts(groups) } };
 }
 
@@ -62,10 +71,22 @@ export async function getGroup(id) {
   return { status: 200, data: { group: view } };
 }
 
+export async function readGroupImage(id) {
+  if (!mongoose.isValidObjectId(id)) return null;
+  const group = await ProjectGroup.findById(id).select('image.data image.contentType');
+  if (!group || !group.image || !group.image.contentType || !group.image.data || !group.image.data.length) return null;
+  return { data: group.image.data, contentType: group.image.contentType };
+}
+
 export async function createGroup(body) {
   const parsed = readGroup(body);
   if (parsed.message) return parsed;
-  const group = await ProjectGroup.create(parsed.value);
+  const image = await takeImage(parsed.imageInput, null);
+  if (image && image.error) return { status: 400, message: image.error };
+  const group = new ProjectGroup(parsed.value);
+  writeImage(group, image);
+  await group.save();
+  if (image && image.stagedId) await discardStagedImage(image.stagedId);
   return { status: 201, data: { group: viewGroup(group, { projectCount: 0 }) } };
 }
 
@@ -74,9 +95,17 @@ export async function updateGroup(id, body) {
   if (!group) return { status: 404, message: 'Group not found.' };
   const parsed = readGroup(body, group);
   if (parsed.message) return parsed;
-  Object.assign(group, parsed.value);
-  await group.save();
-  const [view] = await withCounts([group]);
+  const image = await takeImage(parsed.imageInput, group);
+  if (image && image.error) return { status: 400, message: image.error };
+  const update = { $set: parsed.value };
+  if (image && !image.keep) {
+    if (image.data) update.$set.image = { data: image.data, contentType: image.contentType };
+    else update.$unset = { image: '' };
+  }
+  await ProjectGroup.updateOne({ _id: group._id }, update);
+  if (image && image.stagedId) await discardStagedImage(image.stagedId);
+  const saved = await findGroup(id);
+  const [view] = await withCounts([saved]);
   return { status: 200, data: { group: view } };
 }
 

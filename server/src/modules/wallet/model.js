@@ -6,7 +6,7 @@ const transactionSchema = new mongoose.Schema(
     type: { type: String, required: true },
     amount: { type: Number, required: true },
     direction: { type: String, enum: ['credit', 'debit'], required: true },
-    wallet: { type: String, enum: ['main', 'trial'], default: 'main' },
+    wallet: { type: String, enum: ['main', 'trial', 'hold'], default: 'main' },
     description: { type: String, required: true },
     status: { type: String, required: true },
     referenceId: { type: String, default: null },

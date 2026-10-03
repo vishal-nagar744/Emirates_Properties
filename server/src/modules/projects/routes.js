@@ -1,24 +1,13 @@
-import { randomBytes } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import multer from 'multer';
-import { config } from '../../config.js';
 import { requireAdmin } from '../../middleware/auth.js';
 import { readToken } from '../auth/session.js';
+import { saveImage } from '../images/service.js';
 import { createProject, deleteProject, getProject, listProjects, setProjectStatus, updateProject } from './service.js';
 
-const uploadDir = config.uploadDir;
-fs.mkdirSync(uploadDir, { recursive: true });
-
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename(_req, file, callback) {
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      callback(null, `${Date.now()}-${randomBytes(6).toString('hex')}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter(_req, file, callback) {
     const ext = path.extname(file.originalname || '').toLowerCase();
@@ -81,7 +70,7 @@ router.post('/image', requireAdmin, route(async (req, res) => {
     return res.status(400).json({ message });
   }
   if (!req.file) return res.status(400).json({ message: 'Choose an image file.' });
-  return res.status(201).json({ image: `${config.publicApiUrl}/uploads/${req.file.filename}` });
+  return res.status(201).json({ image: await saveImage(req.file) });
 }));
 
 router.post('/', requireAdmin, route(async (req, res) => {

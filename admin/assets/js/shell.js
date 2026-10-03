@@ -46,6 +46,7 @@ function openModal(innerHtml) {
   root.querySelectorAll('[data-dismiss]').forEach((btn) => {
     btn.addEventListener('click', () => { root.innerHTML = ''; });
   });
+  if (typeof initPickers === 'function') initPickers(root);
 }
 
 function closeModal() {
@@ -80,9 +81,7 @@ function memberNav(active) {
     ['dashboard', 'dashboard.html', 'home', 'Dashboard'],
     ['projects', 'projects.html', 'grid', 'Projects'],
     ['orders', 'orders.html', 'clock', 'Orders'],
-    ['earnings', 'earnings.html', 'chart', 'Earnings'],
-    ['wallet', 'wallet.html', 'wallet', 'Wallet'],
-    ['profile', 'profile.html', 'user', 'Profile'],
+    ['profile', 'profile.html', 'user', 'Account'],
   ];
   return items.map(([id, href, icon, label]) => (
     `<a class="sidelink${id === active ? ' active' : ''}" href="${href}" title="${label}"><span class="sideicon">${navIcon(icon)}</span><span class="sidelabel">${label}</span></a>`
@@ -141,7 +140,6 @@ function crumbLabel(page) {
     projects: 'Projects',
     project: 'Projects',
     orders: 'Orders',
-    earnings: 'Earnings',
     wallet: 'Wallet',
     profile: 'Profile',
     users: 'Users',
