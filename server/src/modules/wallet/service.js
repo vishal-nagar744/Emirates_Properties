@@ -109,27 +109,10 @@ export async function removeAccount({ userId, id }) {
   return { status: 200, data: { ok: true } };
 }
 
-export async function cashIn({ userId, amount }) {
+export async function cashIn({ userId }) {
   const user = await member(userId);
   if (!user) return { status: 401, message: 'Sign in required.' };
-  if (user.accountStatus === 'pending') return { status: 403, message: 'Your account is pending admin approval.' };
-  if (user.accountStatus === 'blocked') return { status: 403, message: 'This account is blocked.' };
-  if (user.accountStatus === 'suspended') return { status: 403, message: 'This account is suspended.' };
-  const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0) return { status: 400, message: 'Enter an amount greater than 0.' };
-  if (value > 10000000) return { status: 400, message: 'Amount is too large.' };
-  user.walletBalance += value;
-  await user.save();
-  const tx = await Transaction.create({
-    userId: String(user._id),
-    type: 'demo_cash_in',
-    amount: value,
-    direction: 'credit',
-    description: 'USDT TRC20 cash in',
-    status: 'completed',
-    referenceId: null,
-  });
-  return { status: 201, data: { user: snapshot(user), transaction: viewTransaction(tx) } };
+  return { status: 400, message: 'Cash in is completed on Telegram.' };
 }
 
 export { snapshot, viewTransaction };

@@ -2806,11 +2806,116 @@ tr.is-selected td { background: #f3f7f4; }
 
 .about-page .split-copy {
   height: calc(100vh - var(--topbar-h));
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: clamp(16px, 2.2vh, 28px) clamp(24px, 3vw, 44px);
+}
+
+.deposit-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1.14fr);
+  min-height: 520px;
+  background: #f7f4ed;
+}
+
+.deposit-split figure {
+  margin: 0;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.deposit-split img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.deposit-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 36px clamp(20px, 4vw, 56px);
+}
+
+.deposit-copy h2 {
+  margin: 4px 0 8px;
+  color: var(--g);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.15;
+}
+
+.deposit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.deposit-list li {
+  margin: 0;
+  padding: 14px 0 14px 28px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+  position: relative;
+}
+
+.deposit-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.footer-bar {
+  padding: 18px 0;
+}
+
+.footer-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 28px;
+  min-height: 72px;
+}
+
+.footer-bar-row nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.footer-bar a {
+  display: inline;
+  margin: 0;
+  font-size: 13px;
+}
+
+.footer-bar-row > span {
+  color: #7a9186;
+  font-size: 12px;
+}
+
+.read-sheet .smallcaps { margin: 0 0 8px; }
+.read-sheet .muted { margin: 0 0 8px; }
+.read-block { padding: 14px 0; border-top: 1px solid var(--line); }
+.read-block h3 { margin: 0 0 6px; color: var(--g); font-size: 16px; }
+.read-block p { margin: 0 0 8px; color: var(--ink); font-size: 14px; line-height: 1.6; }
+.read-block p:last-child { margin-bottom: 0; }
+
+@media (max-width: 800px) {
+  .deposit-split { grid-template-columns: 1fr; }
+  .deposit-split figure { height: 220px; }
+  .deposit-copy { padding: 24px 16px 32px; }
+  .footer-bar-row { flex-wrap: wrap; min-height: 0; padding: 4px 0; }
+  .footer-bar-row nav { order: 3; width: 100%; }
 }
 
 .split-copy h1 { font-size: clamp(32px, 3.6vh, 42px); }

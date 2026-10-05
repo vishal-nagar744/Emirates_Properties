@@ -1171,24 +1171,23 @@ const Member = (() => {
         </div>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
-          <button class="btn primary" type="submit">Add balance</button>
+          <button class="btn primary" type="submit">Continue on Telegram</button>
         </div>
       </form>`);
-    document.getElementById('cashin-form').addEventListener('submit', async (e) => {
+    document.getElementById('cashin-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      try {
-        const data = await memberApi('/api/wallet/cash-in', {
-          method: 'POST',
-          body: { amount: document.getElementById('cashin-amount').value },
-        });
-        if (data.user) Store.applySession(data.user);
-        if (data.transaction) txCache = [data.transaction, ...txCache];
-        closeModal();
-        toast('Balance updated');
-        renderAccount();
-      } catch (err) {
-        toast(err.message);
+      const amount = Number(document.getElementById('cashin-amount').value);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        toast('Enter an amount greater than 0.');
+        return;
       }
+      const handle = String(platform.supportTelegramUsername || '').replace(/^@/, '');
+      if (!handle) {
+        toast('Telegram is not set yet.');
+        return;
+      }
+      const text = `I want to cash in AED ${amount}.`;
+      window.location.assign(`https://t.me/${encodeURIComponent(handle)}?text=${encodeURIComponent(text)}`);
     });
   }
 
@@ -1335,7 +1334,7 @@ const Member = (() => {
     if (!section && params.get('panel')) section = params.get('panel');
     if (!section && (params.get('tab') === 'bind' || params.get('bind'))) section = 'bind';
     if (!section && (params.get('type') || params.get('modal'))) section = 'records';
-    const known = ['records', 'bind', 'password', 'passwords', 'referral', 'support', 'sessions', 'edit'];
+    const known = ['records', 'bind', 'password', 'passwords', 'referral', 'support', 'sessions', 'edit', 'deposit', 'terms'];
     return known.includes(section) ? section : '';
   }
 
@@ -1355,6 +1354,8 @@ const Member = (() => {
       ['password', 'lock', 'Change password', 'section'],
       ['passwords', 'lock', 'Cash out passwords', 'section'],
       ['support', 'support', 'Support', 'page'],
+      ['deposit', 'card', 'About deposit', 'section'],
+      ['terms', 'list', 'Terms & conditions', 'section'],
       ['sessions', 'devices', 'Sessions', 'section'],
       ['logout', 'logout', 'Log out', 'logout'],
     ];
@@ -1369,6 +1370,31 @@ const Member = (() => {
     }).join('');
   }
 
+  function depositPanel() {
+    const points = [
+      'All deposits must be made only through the official payment details provided by the platform’s customer support team.',
+      'After completing the payment, users are required to share the transaction receipt with the support team for verification. Once the payment is successfully verified, the deposited amount will be credited to the user’s wallet/account.',
+      'For any assistance regarding payment details or deposit confirmation, users must contact the official customer support team only.',
+      'All transactions should be made carefully using verified details to ensure smooth processing and account safety.',
+    ];
+    return `<div class="read-sheet"><p class="smallcaps">Deposits</p><ol class="deposit-list">${points.map((line) => `<li>${esc(line)}</li>`).join('')}</ol></div>`;
+  }
+
+  function termsPanel() {
+    const sections = [
+      ['1. Acceptance of Terms', 'By accessing or using the Emirates Properties LLC website or engaging with our services, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.', 'If you do not agree with any part of these Terms and Conditions, please do not access or use our website or services.'],
+      ['2. Services', 'Emirates Properties LLC provides property leasing, subleasing, and full-service property management services to landlords and tenants across Dubai.', 'Services may include tenant placement and leasing, rent collection, property maintenance coordination, tenant and landlord support, financial reporting, and property marketing. The specific services depend on the scope agreed with each client.'],
+      ['3. Eligibility', 'You must be at least 18 years of age to access our website or engage our services.', 'By using our website or services, you confirm that you meet this age requirement and have the legal capacity to enter into agreements where applicable.'],
+      ['4. Acceptable Use of the Website', 'You agree to use the Emirates Properties LLC website only for lawful purposes and in accordance with these Terms and Conditions.', 'You must not provide false or misleading information, attempt unauthorized access, interfere with the website, or use it for any unlawful purpose.'],
+      ['5. Client Responsibilities', 'Clients are responsible for accurate and up-to-date property and personal information, and for complying with applicable UAE rental laws.', 'Clients must provide reasonable property access for inspections and maintenance, and any documents reasonably required for the services.'],
+      ['6. Fees and Payments', 'All applicable service fees will be clearly communicated in writing before the relevant services begin.', 'Fees may vary by scope, including leasing-only or full property management. Payments are due according to the agreed schedule or contract.'],
+      ['7. Property Listings and Authorization', 'By submitting a property, you confirm that you have the legal right or authorization to lease, sublease, or market it.', 'You authorize Emirates Properties LLC, subject to the agreed terms, to market, advertise, arrange viewings, and facilitate leasing. You are responsible for accurate and legally valid property information.'],
+      ['8. Limitation of Liability', 'To the extent permitted by law, Emirates Properties LLC is not liable for indirect, incidental, special, or consequential damages arising from the website or services.', 'This includes tenant disputes, acts or delays of third-party providers, and interruptions caused by circumstances beyond reasonable control.'],
+      ['9. Suspension and Termination', 'Access or services may be suspended or ended if these terms are breached, if required by law, or if continued access would create a legal, security, or operational risk.', 'A service arrangement may also end under the applicable contract. Amounts already due remain payable, and the parts of these terms that should continue after suspension remain in effect.'],
+    ];
+    return `<div class="read-sheet"><p class="smallcaps">Emirates Properties LLC</p><p class="muted">Effective June 24, 2025 · United Arab Emirates (Dubai)</p>${sections.map(([title, ...paras]) => `<article class="read-block"><h3>${esc(title)}</h3>${paras.map((line) => `<p>${esc(line)}</p>`).join('')}</article>`).join('')}</div>`;
+  }
+
   function accountDetail(pane, user) {
     const person = user || {};
     const titles = {
@@ -1378,6 +1404,8 @@ const Member = (() => {
       passwords: 'Cash out passwords',
       referral: 'Invite friends',
       support: 'Support',
+      deposit: 'About deposit',
+      terms: 'Terms & conditions',
       sessions: 'Sessions',
       edit: 'Edit profile',
     };
@@ -1465,7 +1493,9 @@ const Member = (() => {
             </article>`;
           }).join('')}</div>` : `<div class="invite-empty">${emptyState('share', 'No referrals yet', 'Share your code. Users who join with it show up here.')}</div>`}
         </div>`;
-    } else if (pane === 'sessions') body = sessionPanel(sessionsCache);
+    } else if (pane === 'deposit') body = depositPanel();
+    else if (pane === 'terms') body = termsPanel();
+    else if (pane === 'sessions') body = sessionPanel(sessionsCache);
     return `
       <div class="account-head">
         <button class="account-back icon-btn" type="button" data-action="account-home" aria-label="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6 9 12l6 6"/></svg></button>
