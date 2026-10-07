@@ -184,6 +184,7 @@ export async function loginMember({ mobile, password, remember, context }) {
 
 export async function setWithdrawalPassword({
   session,
+  loginPassword,
   currentSecurityPassword,
   securityPassword,
   currentWithdrawalPassword,
@@ -201,8 +202,15 @@ export async function setWithdrawalPassword({
   }
   if (securityNext) {
     if (securityNext.length < 6) return { status: 400, message: 'Security password must be at least 6 characters.' };
-    if (user.securityPasswordHash && !verifyPassword(currentSecurityPassword, user.securityPasswordHash)) {
-      return { status: 400, message: 'Current security password is incorrect.' };
+    if (user.securityPasswordHash) {
+      if (!currentSecurityPassword || !verifyPassword(currentSecurityPassword, user.securityPasswordHash)) {
+        return { status: 400, message: 'Current security password is incorrect.' };
+      }
+    } else {
+      const loginPass = loginPassword || currentSecurityPassword;
+      if (!loginPass || !verifyPassword(loginPass, user.passwordHash)) {
+        return { status: 400, message: 'Login password is incorrect.' };
+      }
     }
     if (user.securityPasswordHash && verifyPassword(securityNext, user.securityPasswordHash)) {
       return { status: 400, message: 'Choose a different security password.' };
@@ -213,8 +221,15 @@ export async function setWithdrawalPassword({
   }
   if (withdrawNext) {
     if (withdrawNext.length < 6) return { status: 400, message: 'Withdrawal password must be at least 6 characters.' };
-    if (user.withdrawalPasswordHash && !verifyPassword(currentWithdrawalPassword, user.withdrawalPasswordHash)) {
-      return { status: 400, message: 'Current withdrawal password is incorrect.' };
+    if (user.withdrawalPasswordHash) {
+      if (!currentWithdrawalPassword || !verifyPassword(currentWithdrawalPassword, user.withdrawalPasswordHash)) {
+        return { status: 400, message: 'Current withdrawal password is incorrect.' };
+      }
+    } else {
+      const loginPass = loginPassword || currentWithdrawalPassword;
+      if (!loginPass || !verifyPassword(loginPass, user.passwordHash)) {
+        return { status: 400, message: 'Login password is incorrect.' };
+      }
     }
     if (user.withdrawalPasswordHash && verifyPassword(withdrawNext, user.withdrawalPasswordHash)) {
       return { status: 400, message: 'Choose a different withdrawal password.' };

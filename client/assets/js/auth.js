@@ -66,10 +66,6 @@ function initInvitePrefill() {
   const ref = (params.get('ref') || '').trim().toUpperCase();
   if (!ref) return;
 
-  const field = document.getElementById('signup-invite-field');
-  const toggle = document.getElementById('show-invite');
-  if (field) field.hidden = false;
-  if (toggle) toggle.hidden = true;
   input.value = ref;
   if (hint) {
     hint.hidden = false;
@@ -134,24 +130,12 @@ function initLoginForm() {
   });
 }
 
-function initInviteToggle() {
-  const btn = document.getElementById('show-invite');
-  const field = document.getElementById('signup-invite-field');
-  if (!btn || !field) return;
-  btn.addEventListener('click', () => {
-    field.hidden = false;
-    btn.hidden = true;
-    document.getElementById('signup-invite')?.focus();
-  });
-}
-
 /* ── Signup ─────────────────────────────────────────────────── */
 function initSignupForm() {
   const form = document.getElementById('signup-form');
   if (!form) return;
 
   initInvitePrefill();
-  initInviteToggle();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

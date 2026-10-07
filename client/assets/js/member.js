@@ -1192,6 +1192,9 @@ const Member = (() => {
   }
 
   function openCashOut() {
+    const user = Store.user();
+    const hasSec = Boolean(user.hasSecurityPassword);
+    const hasWith = Boolean(user.hasWithdrawalPassword);
     const all = accountsCache;
     const flags = payoutFlags();
     const kinds = [flags.crypto ? 'crypto' : '', flags.bank ? 'bank' : ''].filter(Boolean);
@@ -1217,11 +1220,13 @@ const Member = (() => {
         </div>
         <div class="field">
           <label for="cashout-security">Security password</label>
-          <input id="cashout-security" type="password" autocomplete="off">
+          <input id="cashout-security" type="password" autocomplete="off"${hasSec ? '' : ' disabled placeholder="Not set"'}>
+          ${hasSec ? '' : `<p class="field-hint" style="color:#d9534f;font-size:12px;margin-top:4px;">Security password not set. <a href="profile.html?section=passwords&pass=security" style="color:var(--g);font-weight:600;text-decoration:underline;">Set security password</a></p>`}
         </div>
         <div class="field">
           <label for="cashout-password">Withdrawal password</label>
-          <input id="cashout-password" type="password" autocomplete="off">
+          <input id="cashout-password" type="password" autocomplete="off"${hasWith ? '' : ' disabled placeholder="Not set"'}>
+          ${hasWith ? '' : `<p class="field-hint" style="color:#d9534f;font-size:12px;margin-top:4px;">Withdrawal password not set. <a href="profile.html?section=passwords&pass=withdrawal" style="color:var(--g);font-weight:600;text-decoration:underline;">Set withdrawal password</a></p>`}
         </div>
         <p class="field-error" id="cashout-error" role="alert" hidden></p>
         <div class="modal-actions">
@@ -1264,6 +1269,11 @@ const Member = (() => {
       e.preventDefault();
       const err = document.getElementById('cashout-error');
       err.hidden = true;
+      if (!hasSec || !hasWith) {
+        err.hidden = false;
+        err.innerHTML = 'Please set your security and withdrawal passwords before requesting cash out.';
+        return;
+      }
       if (!kind || !select.value) {
         err.hidden = false;
         err.textContent = kind
@@ -1429,17 +1439,26 @@ const Member = (() => {
         </form>`;
     } else if (pane === 'passwords') {
       const pass = new URLSearchParams(location.search).get('pass') === 'withdrawal' ? 'withdrawal' : 'security';
+      const isSet = pass === 'security' ? Boolean(person.hasSecurityPassword) : Boolean(person.hasWithdrawalPassword);
+      const currentLabel = isSet
+        ? (pass === 'security' ? 'Current security password' : 'Current withdrawal password')
+        : 'Login password';
+      const buttonLabel = isSet ? 'Update password' : 'Set password';
+
       body = `
         <div class="tabbar password-tabs" role="tablist" aria-label="Cash out passwords">
           <button class="seg-btn${pass === 'security' ? ' active' : ''}" type="button" role="tab" aria-selected="${pass === 'security'}" data-action="password-tab" data-pass="security">Security password</button>
           <button class="seg-btn${pass === 'withdrawal' ? ' active' : ''}" type="button" role="tab" aria-selected="${pass === 'withdrawal'}" data-action="password-tab" data-pass="withdrawal">Withdrawal password</button>
         </div>
-        <form id="wp-form" class="fields" data-pass="${pass}">
-          <div class="field"><label for="wp-current">Current password</label><input id="wp-current" type="password" autocomplete="current-password"></div>
+        ${!isSet ? `<div class="password-notice" style="background:#fffbe6;border:1px solid #ffe58f;color:#7c5e10;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.4;margin-bottom:16px;">
+          <b>Notice:</b> Please set your ${pass === 'security' ? 'security' : 'withdrawal'} password first by entering your account <b>login password</b> below.
+        </div>` : ''}
+        <form id="wp-form" class="fields" data-pass="${pass}" data-isset="${isSet}">
+          <div class="field"><label for="wp-current">${esc(currentLabel)}</label><input id="wp-current" type="password" autocomplete="current-password"></div>
           <div class="field"><label for="wp-next">New password</label><input id="wp-next" type="password" autocomplete="new-password" minlength="6"></div>
           <div class="field"><label for="wp-confirm">Confirm new password</label><input id="wp-confirm" type="password" autocomplete="new-password"></div>
           <p class="field-error" id="wp-error" role="alert" hidden></p>
-          <button class="btn primary" type="submit" id="wp-save">Update password</button>
+          <button class="btn primary" type="submit" id="wp-save">${esc(buttonLabel)}</button>
         </form>`;
     } else if (pane === 'edit') {
       body = `
@@ -1646,24 +1665,35 @@ const Member = (() => {
         return;
       }
       const pass = form.dataset.pass === 'withdrawal' ? 'withdrawal' : 'security';
+      const isSet = form.dataset.isset === 'true';
       const current = document.getElementById('wp-current')?.value || '';
       save.disabled = true;
       save.textContent = 'Saving…';
       try {
+        let payloadBody = {};
+        if (pass === 'security') {
+          if (isSet) payloadBody = { currentSecurityPassword: current, securityPassword: next };
+          else payloadBody = { loginPassword: current, securityPassword: next };
+        } else {
+          if (isSet) payloadBody = { currentWithdrawalPassword: current, withdrawalPassword: next };
+          else payloadBody = { loginPassword: current, withdrawalPassword: next };
+        }
         const data = await memberApi('/api/auth/withdrawal-password', {
           method: 'POST',
-          body: pass === 'security'
-            ? { currentSecurityPassword: current, securityPassword: next }
-            : { currentWithdrawalPassword: current, withdrawalPassword: next },
+          body: payloadBody,
         });
         if (data.user) Store.applySession(data.user);
-        toast(pass === 'security' ? 'Security password updated' : 'Withdrawal password updated');
+        toast(
+          isSet
+            ? (pass === 'security' ? 'Security password updated' : 'Withdrawal password updated')
+            : (pass === 'security' ? 'Security password set' : 'Withdrawal password set')
+        );
         renderAccount();
       } catch (error) {
         err.hidden = false;
         err.textContent = error.message;
         save.disabled = false;
-        save.textContent = 'Update password';
+        save.textContent = isSet ? 'Update password' : 'Set password';
       }
     });
   }

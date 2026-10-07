@@ -855,14 +855,27 @@ const Store = (() => {
     return { ok: true };
   }
 
-  function setWithdrawalPassword(current, next) {
+  function setWithdrawalPassword(current, next, passType = 'withdrawal') {
     load();
-    if (db.user.withdrawalPassword && current !== db.user.withdrawalPassword) {
-      return { ok: false, error: 'Current withdrawal password is incorrect.' };
+    const isSecurity = passType === 'security';
+    const existing = isSecurity ? db.user.securityPassword : db.user.withdrawalPassword;
+    if (existing) {
+      if (current !== existing) {
+        return { ok: false, error: `Current ${isSecurity ? 'security' : 'withdrawal'} password is incorrect.` };
+      }
+    } else {
+      if (current !== db.user.password) {
+        return { ok: false, error: 'Login password is incorrect.' };
+      }
     }
     if (!next || String(next).length < 6) return { ok: false, error: 'Use at least 6 characters.' };
-    db.user.withdrawalPassword = String(next);
+    if (isSecurity) db.user.securityPassword = String(next);
+    else db.user.withdrawalPassword = String(next);
     save();
+    writeSessionMember({
+      hasSecurityPassword: Boolean(db.user.securityPassword),
+      hasWithdrawalPassword: Boolean(db.user.withdrawalPassword),
+    });
     return { ok: true };
   }
 

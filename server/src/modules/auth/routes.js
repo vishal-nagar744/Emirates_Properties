@@ -75,6 +75,7 @@ memberAuth.post('/withdrawal-password', requireUser, route(async (req, res) => {
   const body = req.body || {};
   send(res, await setWithdrawalPassword({
     session: req.session,
+    loginPassword: body.loginPassword,
     currentSecurityPassword: body.currentSecurityPassword,
     securityPassword: body.securityPassword,
     currentWithdrawalPassword: body.currentWithdrawalPassword,
