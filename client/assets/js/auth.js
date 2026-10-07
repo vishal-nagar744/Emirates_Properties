@@ -88,9 +88,20 @@ function initLoginForm() {
   if (!form) return;
 
   const resetNote = document.getElementById('login-reset');
-  if (resetNote && new URLSearchParams(location.search).get('reset') === '1') {
-    resetNote.hidden = false;
-    resetNote.textContent = 'Password updated. Log in with your new password.';
+  const params = new URLSearchParams(location.search);
+  if (resetNote) {
+    if (params.get('reset') === '1') {
+      resetNote.hidden = false;
+      resetNote.textContent = 'Password updated. Log in with your new password.';
+    } else if (params.get('registered') === '1' || params.get('signup') === '1') {
+      resetNote.hidden = false;
+      resetNote.textContent = 'Account created successfully! Log in with your mobile number and password.';
+    }
+  }
+
+  const mobileInput = document.getElementById('login-mobile');
+  if (mobileInput && params.get('mobile')) {
+    mobileInput.value = params.get('mobile');
   }
 
   form.addEventListener('submit', async (e) => {
@@ -170,7 +181,7 @@ function initSignupForm() {
     if (!ok) return;
 
     const btn = document.getElementById('signup-submit-btn');
-    setBusy(btn, true, 'Creating…');
+    setBusy(btn, true, 'Creating account…');
 
     const result = await postAuth('/api/auth/signup', {
       fullName,
@@ -188,9 +199,12 @@ function initSignupForm() {
       return;
     }
 
-    saveMemberSession(result.data);
     sessionStorage.setItem('ps_trial_bonus', '1');
-    window.location.href = 'dashboard.html';
+    toast('Account created successfully!');
+    setBusy(btn, true, 'Redirecting to login…');
+    setTimeout(() => {
+      window.location.href = `login.html?registered=1&mobile=${encodeURIComponent(mobile)}`;
+    }, 800);
   });
 }
 
