@@ -53,16 +53,16 @@
   <main class="split-page terms-page">
     <aside class="split-side">
       <div class="terms-panel card">
-        <p class="smallcaps">Emirates Properties LLC</p>
+        <p class="smallcaps" id="terms-company">Emirates Properties LLC</p>
         <h1 id="terms-title" class="serif">Terms &amp; Conditions</h1>
         <dl class="legal-meta">
-          <div><dt>Effective Date</dt><dd>June 24, 2025</dd></div>
-          <div><dt>Company Name</dt><dd>Emirates Properties LLC</dd></div>
-          <div><dt>Website</dt><dd>—————————————-</dd></div>
-          <div><dt>Jurisdiction</dt><dd>United Arab Emirates (Dubai)</dd></div>
+          <div><dt>Effective Date</dt><dd id="terms-date">June 24, 2025</dd></div>
+          <div><dt>Company Name</dt><dd id="terms-company-name">Emirates Properties LLC</dd></div>
+          <div><dt>Website</dt><dd id="terms-site">—————————————-</dd></div>
+          <div><dt>Jurisdiction</dt><dd id="terms-law">United Arab Emirates (Dubai)</dd></div>
         </dl>
         <p class="terms-nav-label">Sections</p>
-        <nav class="terms-nav" aria-label="On this page">
+        <nav class="terms-nav" id="terms-nav" aria-label="On this page">
           <a href="#term-1"><span>1</span>Acceptance of Terms</a>
           <a href="#term-2"><span>2</span>Services</a>
           <a href="#term-3"><span>3</span>Eligibility</a>
@@ -75,7 +75,7 @@
         </nav>
       </div>
     </aside>
-    <div class="split-copy legal-copy terms-grid">
+    <div class="split-copy legal-copy terms-grid" id="terms-grid">
       <article class="card box terms-item" id="term-1">
         <span class="terms-num" aria-hidden="true">1</span>
         <div>
@@ -193,7 +193,9 @@
     </div>
   </footer>
 
+  <script src="assets/js/env.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/public-content.js"></script>
 </body>
 
 </html>

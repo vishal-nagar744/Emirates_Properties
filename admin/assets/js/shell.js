@@ -95,7 +95,6 @@ function adminNav(active) {
     ['projects', 'projects.html', 'grid', 'Projects'],
     ['cashouts', 'cashouts.html', 'card', 'Cash out'],
     ['transactions', 'transactions.html', 'list', 'Transactions'],
-    ['referrals', 'referrals.html', 'share', 'Referrals'],
     ['settings', 'settings.html', 'gear', 'Settings'],
   ];
   return items.map(([id, href, icon, label]) => (
@@ -145,7 +144,6 @@ function crumbLabel(page) {
     users: 'Users',
     cashouts: 'Cash out',
     transactions: 'Transactions',
-    referrals: 'Referrals',
     settings: 'Settings',
   };
   return labels[page] || 'Dashboard';

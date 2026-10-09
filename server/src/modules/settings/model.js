@@ -8,9 +8,12 @@ const settingsSchema = new mongoose.Schema(
     trialBonusAmount: { type: Number, default: 0 },
     minCashOutAmount: { type: Number, required: true },
     supportTelegramUsername: { type: String, required: true },
-    demoCashInUSDTAddress: { type: String, required: true },
+    supportWhatsappNumber: { type: String, default: '' },
+    demoCashInUSDTAddress: { type: String, default: '' },
     bankPayoutEnabled: { type: Boolean, default: true },
     cryptoPayoutEnabled: { type: Boolean, default: false },
+    about: { type: mongoose.Schema.Types.Mixed, default: null },
+    terms: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

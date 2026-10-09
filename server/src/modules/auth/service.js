@@ -1,18 +1,22 @@
 import mongoose from 'mongoose';
 import { config } from '../../config.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
-import { Referral } from '../referrals/model.js';
 import { Settings } from '../settings/model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
-import { openGroupIds } from '../users/service.js';
+import { openGroupIds, openSetKeys } from '../users/service.js';
 import { ensureDailyReset } from '../users/daily.js';
 import { issueToken, revokeToken, revokeUserSessions } from './session.js';
 
 async function presentUser(user) {
   if (user && user.role === 'user') await ensureDailyReset(user);
   const view = publicUser(user);
-  if (user.role === 'user') view.unlockedGroupIds = await openGroupIds(user);
+  if (user.role === 'user') {
+    view.unlockedGroupIds = await openGroupIds(user);
+    view.unlockedSetKeys = openSetKeys(user);
+    view.setAccessSet = Boolean(user.setAccessSet);
+    view.unlockNotices = Array.isArray(user.unlockNotices) ? user.unlockNotices : [];
+  }
   return view;
 }
 
@@ -27,7 +31,6 @@ function publicUser(user) {
     mobile: user.mobile,
     loginId: user.loginId || '',
     role: user.role,
-    referralCode: user.referralCode,
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -35,7 +38,9 @@ function publicUser(user) {
     holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
     unlockedGroupIds: [],
-    hasSecurityPassword: Boolean(user.securityPasswordHash),
+    setAccessSet: Boolean(user.setAccessSet),
+    unlockedSetKeys: [],
+    unlockNotices: Array.isArray(user.unlockNotices) ? user.unlockNotices : [],
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
   };
@@ -77,22 +82,15 @@ async function platformSettings() {
   return settings;
 }
 
-export async function signup({ fullName, mobile, password, invitationCode, context }) {
+export async function signup({ fullName, mobile, password, context }) {
   const name = String(fullName || '').trim();
   const phone = String(mobile || '').trim();
   const pass = String(password || '');
-  const code = invitationCode ? String(invitationCode).trim().toUpperCase() : '';
 
   if (!name) return { status: 400, message: 'Enter your full name.' };
   if (digits(phone).length < 8) return { status: 400, message: 'Enter a valid mobile number.' };
   if (pass.length < 6) return { status: 400, message: 'Password must be at least 6 characters.' };
   if (await findByMobile(phone)) return { status: 409, message: 'This mobile number is already registered.' };
-
-  let referrer = null;
-  if (code) {
-    referrer = await User.findOne({ referralCode: code, role: 'user' });
-    if (!referrer) return { status: 400, message: 'Invitation code not recognised.' };
-  }
 
   const settings = await platformSettings();
   const bonus = Number(settings.welcomeBonusAmount) || 0;
@@ -104,11 +102,10 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
       mobile: phone,
       mobileDigits: digits(phone),
       passwordHash: hashPassword(pass),
-      securityPasswordHash: '',
       withdrawalPasswordHash: '',
       role: 'user',
       referralCode: await referralCodeFor(name),
-      referredBy: referrer ? String(referrer._id) : null,
+      referredBy: null,
       accountStatus: 'pending',
       welcomeBonusReceived: bonus > 0,
       walletBalance: bonus,
@@ -120,14 +117,6 @@ export async function signup({ fullName, mobile, password, invitationCode, conte
       return { status: 409, message: 'This mobile number is already registered.' };
     }
     throw err;
-  }
-
-  if (referrer) {
-    await Referral.create({
-      referrerUserId: String(referrer._id),
-      referredUserId: String(user._id),
-      referralCodeUsed: code,
-    });
   }
 
   if (bonus > 0) {
@@ -185,63 +174,30 @@ export async function loginMember({ mobile, password, remember, context }) {
 export async function setWithdrawalPassword({
   session,
   loginPassword,
-  currentSecurityPassword,
-  securityPassword,
   currentWithdrawalPassword,
   withdrawalPassword,
 }) {
   const user = await findById(session && session.subjectId);
   if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
-  const securityNext = String(securityPassword || '');
   const withdrawNext = String(withdrawalPassword || '');
-  if (!securityNext && !withdrawNext) {
-    return { status: 400, message: 'Enter a password.' };
-  }
-  if (securityNext && withdrawNext && securityNext === withdrawNext) {
-    return { status: 400, message: 'Security password and withdrawal password must be different.' };
-  }
-  if (securityNext) {
-    if (securityNext.length < 6) return { status: 400, message: 'Security password must be at least 6 characters.' };
-    if (user.securityPasswordHash) {
-      if (!currentSecurityPassword || !verifyPassword(currentSecurityPassword, user.securityPasswordHash)) {
-        return { status: 400, message: 'Current security password is incorrect.' };
-      }
-    } else {
-      const loginPass = loginPassword || currentSecurityPassword;
-      if (!loginPass || !verifyPassword(loginPass, user.passwordHash)) {
-        return { status: 400, message: 'Login password is incorrect.' };
-      }
+  if (!withdrawNext) return { status: 400, message: 'Enter a withdrawal password.' };
+  if (withdrawNext.length < 6) return { status: 400, message: 'Withdrawal password must be at least 6 characters.' };
+  if (user.withdrawalPasswordHash) {
+    if (!currentWithdrawalPassword || !verifyPassword(currentWithdrawalPassword, user.withdrawalPasswordHash)) {
+      return { status: 400, message: 'Current withdrawal password is incorrect.' };
     }
-    if (user.securityPasswordHash && verifyPassword(securityNext, user.securityPasswordHash)) {
-      return { status: 400, message: 'Choose a different security password.' };
-    }
-    if (!withdrawNext && user.withdrawalPasswordHash && verifyPassword(securityNext, user.withdrawalPasswordHash)) {
-      return { status: 400, message: 'Security password and withdrawal password must be different.' };
+  } else {
+    const loginPass = loginPassword || currentWithdrawalPassword;
+    if (!loginPass || !verifyPassword(loginPass, user.passwordHash)) {
+      return { status: 400, message: 'Login password is incorrect.' };
     }
   }
-  if (withdrawNext) {
-    if (withdrawNext.length < 6) return { status: 400, message: 'Withdrawal password must be at least 6 characters.' };
-    if (user.withdrawalPasswordHash) {
-      if (!currentWithdrawalPassword || !verifyPassword(currentWithdrawalPassword, user.withdrawalPasswordHash)) {
-        return { status: 400, message: 'Current withdrawal password is incorrect.' };
-      }
-    } else {
-      const loginPass = loginPassword || currentWithdrawalPassword;
-      if (!loginPass || !verifyPassword(loginPass, user.passwordHash)) {
-        return { status: 400, message: 'Login password is incorrect.' };
-      }
-    }
-    if (user.withdrawalPasswordHash && verifyPassword(withdrawNext, user.withdrawalPasswordHash)) {
-      return { status: 400, message: 'Choose a different withdrawal password.' };
-    }
-    if (!securityNext && user.securityPasswordHash && verifyPassword(withdrawNext, user.securityPasswordHash)) {
-      return { status: 400, message: 'Security password and withdrawal password must be different.' };
-    }
+  if (user.withdrawalPasswordHash && verifyPassword(withdrawNext, user.withdrawalPasswordHash)) {
+    return { status: 400, message: 'Choose a different withdrawal password.' };
   }
-  if (securityNext) user.securityPasswordHash = hashPassword(securityNext);
-  if (withdrawNext) user.withdrawalPasswordHash = hashPassword(withdrawNext);
+  user.withdrawalPasswordHash = hashPassword(withdrawNext);
   await user.save();
-  return { status: 200, data: { message: 'Cash out passwords saved.', user: await presentUser(user) } };
+  return { status: 200, data: { message: 'Withdrawal password saved.', user: await presentUser(user) } };
 }
 
 export async function forgotPassword({ mobile, password }) {

@@ -43,15 +43,24 @@ export function setSequence(projects, premiums = []) {
 }
 
 export function nextGroupProject(projects, premiums, doneIds) {
+  return nextAccessibleProject(projects, premiums, doneIds).item;
+}
+
+export function nextAccessibleProject(projects, premiums, doneIds, isSetOpen) {
   for (const setNumber of [1, 2, 3]) {
     const sequence = setSequence(
       projects.filter((project) => setNumberOf(project) === setNumber),
       premiums.filter((premium) => setNumberOf(premium) === setNumber),
     );
+    if (!sequence.length) continue;
     const next = sequence.find((item) => !doneIds.has(itemId(item)));
-    if (next) return next;
+    if (!next) continue;
+    if (typeof isSetOpen === 'function' && !isSetOpen(setNumber)) {
+      return { item: null, lockedSet: setNumber };
+    }
+    return { item: next, lockedSet: null };
   }
-  return null;
+  return { item: null, lockedSet: null };
 }
 
 async function groupNames(projects) {

@@ -119,11 +119,11 @@ const Admin = (() => {
       <section class="card box" style="margin-top:16px">
         <div class="boxhead"><h3>Recent members</h3></div>
         <div class="tablewrap"><table class="data-table">
-          <thead><tr><th>Name</th><th>Mobile</th><th>Code</th><th>Balance</th><th>Joined</th><th>Status</th></tr></thead>
+          <thead><tr><th>Name</th><th>Mobile</th><th>Balance</th><th>Joined</th><th>Status</th></tr></thead>
           <tbody>${users.length ? users.slice(0, 8).map((u) => `<tr>
-            <td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td><td>${esc(u.referralCode)}</td>
+            <td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td>
             <td>${Store.money(u.walletBalance)}</td><td>${esc(String(u.createdAt || '').slice(0, 10))}</td><td>${badge(u.accountStatus)}</td>
-          </tr>`).join('') : `<tr><td colspan="6">${emptyState('users', 'No members yet', 'Accounts appear here after someone signs up.')}</td></tr>`}</tbody>
+          </tr>`).join('') : `<tr><td colspan="5">${emptyState('users', 'No members yet', 'Accounts appear here after someone signs up.')}</td></tr>`}</tbody>
         </table></div>
       </section>`;
   }
@@ -133,7 +133,7 @@ const Admin = (() => {
     const q = qRaw.toLowerCase();
     let users = directory;
     if (userStatus !== 'all') users = users.filter((u) => u.accountStatus === userStatus);
-    if (q) users = users.filter((u) => `${u.fullName} ${u.mobile} ${u.referralCode}`.toLowerCase().includes(q));
+    if (q) users = users.filter((u) => `${u.fullName} ${u.mobile}`.toLowerCase().includes(q));
     const caret = document.activeElement && document.activeElement.id === 'user-q'
       ? document.activeElement.selectionStart
       : null;
@@ -143,7 +143,7 @@ const Admin = (() => {
       <div class="catalog-bar">
         <label class="search-bar page-search">
           ${searchIcon()}
-          <input id="user-q" type="search" placeholder="Search name, mobile, or code" aria-label="Search users" value="${esc(qRaw)}">
+          <input id="user-q" type="search" placeholder="Search name or mobile" aria-label="Search users" value="${esc(qRaw)}">
         </label>
         <div class="catalog-filters" role="group" aria-label="Filter users">
           ${filters.map(([id, label]) => `<button class="chip${userStatus === id ? ' active' : ''}" type="button" data-action="user-filter" data-status="${id}" aria-pressed="${userStatus === id}">${label}</button>`).join('')}
@@ -151,17 +151,17 @@ const Admin = (() => {
       </div>
       <section class="card box">
         <div class="tablewrap"><table class="data-table">
-          <thead><tr><th>Name</th><th>Mobile</th><th>Code</th><th>Balance</th><th>Pending</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Mobile</th><th>Balance</th><th>Pending</th><th>Status</th><th></th></tr></thead>
           <tbody>
             ${users.length ? users.map((u) => `<tr class="order-row" tabindex="0" data-action="user" data-id="${esc(u.id)}">
-              <td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td><td>${esc(u.referralCode)}</td>
+              <td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td>
               <td>${Store.money(u.walletBalance)}</td><td>${Store.money(u.pendingCashOut)}</td>
               <td>${badge(u.accountStatus)}</td>
               <td class="row-actions">
                 <button class="icon-btn" type="button" data-action="user-history" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="Daily history"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l2.5 1.5"/></svg></button>
                 <button class="btn light" type="button" data-action="user" data-id="${esc(u.id)}">Manage</button>
               </td>
-            </tr>`).join('') : `<tr><td colspan="7">${emptyState('users', directory.length ? 'No users match' : 'No members yet', directory.length ? 'Try a different name, mobile, or status.' : 'Accounts appear here after someone signs up.')}</td></tr>`}
+            </tr>`).join('') : `<tr><td colspan="6">${emptyState('users', directory.length ? 'No users match' : 'No members yet', directory.length ? 'Try a different name, mobile, or status.' : 'Accounts appear here after someone signs up.')}</td></tr>`}
           </tbody>
         </table></div>
       </section>`;
@@ -188,8 +188,26 @@ const Admin = (() => {
     return `${names.length} groups locked`;
   }
 
-  function bindGroupPicker(userId) {
-    const picker = document.querySelector('.group-picker');
+  function setIsOpen(user, groupId, setNumber) {
+    if (!user.setAccessSet) return Number(setNumber) === 1;
+    const keys = Array.isArray(user.unlockedSetKeys) ? user.unlockedSetKeys : [];
+    return keys.includes(`${groupId}:${setNumber}`);
+  }
+
+  function setLockLabel(user) {
+    let locked = 0;
+    groups.forEach((group) => {
+      [1, 2, 3].forEach((setNumber) => {
+        if (!setIsOpen(user, group.id, setNumber)) locked += 1;
+      });
+    });
+    if (!locked) return 'None locked';
+    if (locked === 1) return '1 set locked';
+    return `${locked} sets locked`;
+  }
+
+  function bindLockPicker(rootSelector, onChange) {
+    const picker = document.querySelector(rootSelector);
     if (!picker) return;
     const btn = picker.querySelector('.picker-btn');
     const menu = picker.querySelector('.group-menu');
@@ -215,7 +233,19 @@ const Admin = (() => {
         btn.setAttribute('aria-expanded', 'false');
       }
     });
-    menu.addEventListener('change', async () => {
+    menu.addEventListener('change', () => onChange(menu, label));
+    if (!bindLockPicker.bound) {
+      bindLockPicker.bound = true;
+      document.addEventListener('click', (event) => {
+        if (event.target.closest('.group-picker, .set-picker')) return;
+        document.querySelectorAll('.group-menu').forEach((node) => { node.hidden = true; });
+        document.querySelectorAll('.group-picker .picker-btn, .set-picker .picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+      });
+    }
+  }
+
+  function bindGroupPicker(userId) {
+    bindLockPicker('.group-picker', async (menu, label) => {
       const lockedIds = new Set([...menu.querySelectorAll('input:checked')].map((input) => input.value));
       const groupIds = groups.filter((group) => !lockedIds.has(group.id)).map((group) => group.id);
       const previous = directory.find((row) => row.id === userId);
@@ -238,14 +268,38 @@ const Admin = (() => {
         toast(err.message);
       }
     });
-    if (!bindGroupPicker.bound) {
-      bindGroupPicker.bound = true;
-      document.addEventListener('click', (event) => {
-        if (event.target.closest('.group-picker')) return;
-        document.querySelectorAll('.group-menu').forEach((node) => { node.hidden = true; });
-        document.querySelectorAll('.group-picker .picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+  }
+
+  function bindSetPicker(userId) {
+    bindLockPicker('.set-picker', async (menu, label) => {
+      const lockedKeys = new Set([...menu.querySelectorAll('input:checked')].map((input) => input.value));
+      const setKeys = [];
+      groups.forEach((group) => {
+        [1, 2, 3].forEach((setNumber) => {
+          const key = `${group.id}:${setNumber}`;
+          if (!lockedKeys.has(key)) setKeys.push(key);
+        });
       });
-    }
+      const previous = directory.find((row) => row.id === userId);
+      label.textContent = setLockLabel({ setAccessSet: true, unlockedSetKeys: setKeys });
+      try {
+        const data = await adminApi(`/api/users/${encodeURIComponent(userId)}/sets`, {
+          method: 'PATCH',
+          body: { setKeys },
+        });
+        if (data.user) directory = directory.map((row) => (row.id === data.user.id ? data.user : row));
+        toast('Sets updated');
+      } catch (err) {
+        if (previous) {
+          menu.querySelectorAll('input').forEach((input) => {
+            const [groupId, rawSet] = String(input.value).split(':');
+            input.checked = !setIsOpen(previous, groupId, Number(rawSet));
+          });
+          label.textContent = setLockLabel(previous);
+        }
+        toast(err.message);
+      }
+    });
   }
 
   function historyClock(iso) {
@@ -502,13 +556,12 @@ const Admin = (() => {
   function openUser(id) {
     const u = directory.find((x) => x.id === id);
     if (!u) return;
-    const byName = u.referredByName || '';
     openModal(`
       <div class="modal-title">
         <h3>${esc(u.fullName)}</h3>
         <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
       </div>
-      <p class="muted">${esc(u.mobile)} · ${esc(u.referralCode)}</p>
+      <p class="muted">${esc(u.mobile)}</p>
       <div class="set-tabs manage-tabs" role="tablist" aria-label="Manage">
         <button class="set-tab active" type="button" data-manage-tab="account" aria-selected="true">Account</button>
         <button class="set-tab" type="button" data-manage-tab="premium" aria-selected="false">Premium</button>
@@ -519,8 +572,6 @@ const Admin = (() => {
         <div class="stack-row"><span>Hold balance</span><b>${Store.money(u.holdBalance)}</b></div>
         <div class="stack-row"><span>Trial balance</span><b>${Store.money(u.trialBalance)}</b></div>
         <div class="stack-row"><span>Pending cash out</span><b>${Store.money(u.pendingCashOut)}</b></div>
-        <div class="stack-row"><span>Referred by</span><b>${byName ? esc(byName) : '—'}</b></div>
-        <div class="stack-row"><span>Referrals</span><b>${u.referralCount || 0}</b></div>
       </dl>
       <div class="field status-field">
         <label for="user-status">Account status</label>
@@ -544,6 +595,22 @@ const Admin = (() => {
                 const open = Array.isArray(u.unlockedGroupIds) && u.unlockedGroupIds.includes(group.id);
                 return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}"${open ? '' : ' checked'}><span>${esc(group.name)}</span></label>`;
               }).join('')}
+            </div>
+          </div>` : '<p class="muted">No groups yet.</p>'}
+      </div>
+      <div class="field group-locks">
+        <span class="field-label" id="set-lock-label">Locked sets</span>
+        ${groups.length ? `
+          <div class="set-picker group-picker">
+            <button class="picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="set-lock-label">
+              <span class="picker-label">${esc(setLockLabel(u))}</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="group-menu" role="group" aria-label="Locked sets" hidden>
+              ${groups.map((group) => [1, 2, 3].map((setNumber) => {
+                const open = setIsOpen(u, group.id, setNumber);
+                return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}:${setNumber}"${open ? '' : ' checked'}><span>${esc(group.name)} · Set ${setNumber}</span></label>`;
+              }).join('')).join('')}
             </div>
           </div>` : '<p class="muted">No groups yet.</p>'}
       </div>
@@ -603,6 +670,7 @@ const Admin = (() => {
         <div id="premium-list"></div>
       </div>`);
     bindGroupPicker(id);
+    bindSetPicker(id);
     bindManageTabs(id);
     document.getElementById('adjust-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1070,14 +1138,20 @@ const Admin = (() => {
       trialBonusAmount: 0,
       minCashOutAmount: 500,
       supportTelegramUsername: '',
+      supportWhatsappNumber: '',
       demoCashInUSDTAddress: '',
       bankPayoutEnabled: true,
       cryptoPayoutEnabled: false,
+      about: {},
+      terms: {},
     };
+    const about = s.about || {};
+    const terms = s.terms || {};
+    const termSections = Array.isArray(terms.sections) && terms.sections.length ? terms.sections : [{ title: '', paragraphs: [''] }];
     pageEl().innerHTML = `
       <div class="page-head"><h2 class="serif">Settings</h2></div>
       ${loadNote ? `<div class="empty-wrap">${emptyState('gear', 'Could not load settings', loadNote)}</div>` : `
-      <form id="settings-form" class="card box fields">
+      <form id="settings-form" class="card box fields settings-wide">
         <div class="field"><label for="set-name">Platform name</label><input id="set-name" value="${esc(s.platformName)}"></div>
         <div class="form-2">
           <div class="field"><label for="set-bonus">Welcome bonus (AED)</label><input id="set-bonus" type="number" min="0" step="0.01" value="${s.welcomeBonusAmount}"></div>
@@ -1086,6 +1160,7 @@ const Admin = (() => {
         </div>
         <div class="form-2">
           <div class="field"><label for="set-tg">Telegram username</label><input id="set-tg" value="${esc(s.supportTelegramUsername)}"></div>
+          <div class="field"><label for="set-wa">WhatsApp number</label><input id="set-wa" value="${esc(s.supportWhatsappNumber || '')}" placeholder="9715XXXXXXXX" inputmode="tel"></div>
           <div class="field"><label for="set-addr">Cash-in address</label><input id="set-addr" value="${esc(s.demoCashInUSDTAddress)}"></div>
         </div>
         <fieldset class="payout-kinds">
@@ -1093,14 +1168,50 @@ const Admin = (() => {
           <label class="check-line"><input id="set-bank" type="checkbox"${s.bankPayoutEnabled !== false ? ' checked' : ''}> Bank account</label>
           <label class="check-line"><input id="set-crypto" type="checkbox"${s.cryptoPayoutEnabled === true ? ' checked' : ''}> Crypto</label>
         </fieldset>
+
+        <h3 class="settings-block">About page</h3>
+        <div class="field"><label for="about-tagline">Tagline</label><input id="about-tagline" value="${esc(about.tagline || '')}"></div>
+        <div class="field"><label for="about-lead">Lead</label><textarea id="about-lead" rows="3">${esc(about.lead || '')}</textarea></div>
+        <div class="field"><label for="about-points">About points (blank line between points)</label><textarea id="about-points" rows="8">${esc((about.points || []).join('\n\n'))}</textarea></div>
+        <div class="field"><label for="about-close">Closing line</label><input id="about-close" value="${esc(about.close || '')}"></div>
+        <div class="field"><label for="deposit-points">About deposit (one point per line)</label><textarea id="deposit-points" rows="6">${esc((about.depositPoints || []).join('\n'))}</textarea></div>
+
+        <h3 class="settings-block">Terms &amp; conditions</h3>
+        <div class="form-2">
+          <div class="field"><label for="terms-date">Effective date</label><input id="terms-date" value="${esc(terms.effectiveDate || '')}"></div>
+          <div class="field"><label for="terms-company">Company</label><input id="terms-company" value="${esc(terms.company || '')}"></div>
+          <div class="field"><label for="terms-site">Website</label><input id="terms-site" value="${esc(terms.website || '')}"></div>
+          <div class="field"><label for="terms-law">Jurisdiction</label><input id="terms-law" value="${esc(terms.jurisdiction || '')}"></div>
+        </div>
+        <div id="terms-sections">${termSections.map((section, index) => `
+          <div class="term-edit" data-term-index="${index}">
+            <div class="field"><label>Section ${index + 1} title</label><input class="term-title" value="${esc(section.title || '')}"></div>
+            <div class="field"><label>Section ${index + 1} body</label><textarea class="term-body" rows="5">${esc((section.paragraphs || []).join('\n\n'))}</textarea></div>
+          </div>`).join('')}
+        </div>
+        <button class="btn light" type="button" id="add-term-section">Add section</button>
+
         <div class="settings-actions">
           <button class="btn primary" type="submit">Save settings</button>
         </div>
       </form>`}`;
     const form = document.getElementById('settings-form');
     if (!form) return;
+    document.getElementById('add-term-section')?.addEventListener('click', () => {
+      const wrap = document.getElementById('terms-sections');
+      const index = wrap.querySelectorAll('.term-edit').length;
+      const node = document.createElement('div');
+      node.className = 'term-edit';
+      node.dataset.termIndex = String(index);
+      node.innerHTML = `
+        <div class="field"><label>Section ${index + 1} title</label><input class="term-title" value=""></div>
+        <div class="field"><label>Section ${index + 1} body</label><textarea class="term-body" rows="5"></textarea></div>`;
+      wrap.appendChild(node);
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const termTitles = [...form.querySelectorAll('.term-title')].map((input) => input.value.trim());
+      const termBodies = [...form.querySelectorAll('.term-body')].map((input) => input.value);
       try {
         const data = await adminApi('/api/settings', {
           method: 'PATCH',
@@ -1110,13 +1221,32 @@ const Admin = (() => {
             trialBonusAmount: document.getElementById('set-trial').value,
             minCashOutAmount: document.getElementById('set-min').value,
             supportTelegramUsername: document.getElementById('set-tg').value.trim(),
+            supportWhatsappNumber: document.getElementById('set-wa').value.trim(),
             demoCashInUSDTAddress: document.getElementById('set-addr').value.trim(),
             bankPayoutEnabled: document.getElementById('set-bank').checked,
             cryptoPayoutEnabled: document.getElementById('set-crypto').checked,
+            about: {
+              tagline: document.getElementById('about-tagline').value.trim(),
+              lead: document.getElementById('about-lead').value.trim(),
+              close: document.getElementById('about-close').value.trim(),
+              points: document.getElementById('about-points').value.split(/\n\s*\n/).map((line) => line.trim()).filter(Boolean),
+              depositPoints: document.getElementById('deposit-points').value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+            },
+            terms: {
+              effectiveDate: document.getElementById('terms-date').value.trim(),
+              company: document.getElementById('terms-company').value.trim(),
+              website: document.getElementById('terms-site').value.trim(),
+              jurisdiction: document.getElementById('terms-law').value.trim(),
+              sections: termTitles.map((title, index) => ({
+                title,
+                paragraphs: termBodies[index].split(/\n\s*\n/).map((line) => line.trim()).filter(Boolean),
+              })).filter((section) => section.title),
+            },
           },
         });
         platform = data.settings;
         toast('Settings saved');
+        renderSettings();
       } catch (err) {
         toast(err.message);
       }

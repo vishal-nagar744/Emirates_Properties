@@ -42,7 +42,6 @@ memberAuth.post('/signup', route(async (req, res) => {
     fullName: body.fullName,
     mobile: body.mobile,
     password: body.password,
-    invitationCode: body.invitationCode,
     context: clientContext(req, 'Sign up'),
   }));
 }));
@@ -76,8 +75,6 @@ memberAuth.post('/withdrawal-password', requireUser, route(async (req, res) => {
   send(res, await setWithdrawalPassword({
     session: req.session,
     loginPassword: body.loginPassword,
-    currentSecurityPassword: body.currentSecurityPassword,
-    securityPassword: body.securityPassword,
     currentWithdrawalPassword: body.currentWithdrawalPassword,
     withdrawalPassword: body.withdrawalPassword,
   }));

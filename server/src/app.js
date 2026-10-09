@@ -29,7 +29,7 @@ export function createApp() {
       return callback(null, false);
     },
   }));
-  app.use(express.json({ limit: '100kb' }));
+  app.use(express.json({ limit: '500kb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });

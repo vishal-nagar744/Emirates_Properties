@@ -77,6 +77,7 @@ export async function seed() {
     }
   }
 
+  const { defaultAbout, defaultTerms } = await import('./modules/settings/contentDefaults.js');
   await Settings.updateOne(
     { key: 'platform' },
     {
@@ -87,7 +88,10 @@ export async function seed() {
         trialBonusAmount: 0,
         minCashOutAmount: 500,
         supportTelegramUsername: 'EmiratesPropertiesSupport',
+        supportWhatsappNumber: '',
         demoCashInUSDTAddress: '',
+        about: defaultAbout,
+        terms: defaultTerms,
       },
     },
     { upsert: true }
@@ -97,6 +101,13 @@ export async function seed() {
     { key: 'platform', trialBonusAmount: { $exists: false } },
     { $set: { trialBonusAmount: 0 } }
   );
+  const platform = await Settings.findOne({ key: 'platform' });
+  if (platform && !platform.about) {
+    platform.about = defaultAbout;
+    platform.terms = defaultTerms;
+    if (!platform.supportWhatsappNumber) platform.supportWhatsappNumber = '';
+    await platform.save();
+  }
 
   const trialName = 'Junior (Trial)';
   const trial = await ProjectGroup.findOne({ isTrial: true }) || await ProjectGroup.findOne({ name: /^trial$/i });

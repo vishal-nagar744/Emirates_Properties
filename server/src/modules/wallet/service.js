@@ -24,13 +24,11 @@ function snapshot(user) {
     fullName: user.fullName,
     mobile: user.mobile,
     accountStatus: user.accountStatus,
-    referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
     holdBalance: user.holdBalance || 0,
     holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
-    hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
   };
 }

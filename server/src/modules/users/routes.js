@@ -3,10 +3,12 @@ import { requireAdmin, requireUser } from '../../middleware/auth.js';
 import { listSessions, revokeOwnedSession } from '../auth/session.js';
 import {
   adjustMemberWallet,
+  clearUnlockNotices,
   getMember,
   listMembers,
   memberDailyHistory,
   setMemberGroups,
+  setMemberSets,
   setMemberStatus,
   updateOwnProfile,
 } from './service.js';
@@ -49,6 +51,10 @@ router.post('/me/premiums/:id/unlock', requireUser, route(async (req, res) => {
 router.patch('/me', requireUser, route(async (req, res) => {
   const body = req.body || {};
   send(res, await updateOwnProfile(req.session, { fullName: body.fullName, mobile: body.mobile }));
+}));
+
+router.delete('/me/notices', requireUser, route(async (req, res) => {
+  send(res, await clearUnlockNotices(req.session));
 }));
 
 router.get('/', requireAdmin, route(async (req, res) => {
@@ -103,6 +109,11 @@ router.patch('/:id/status', requireAdmin, route(async (req, res) => {
 router.patch('/:id/groups', requireAdmin, route(async (req, res) => {
   const body = req.body || {};
   send(res, await setMemberGroups(req.params.id, body.groupIds));
+}));
+
+router.patch('/:id/sets', requireAdmin, route(async (req, res) => {
+  const body = req.body || {};
+  send(res, await setMemberSets(req.params.id, body.setKeys));
 }));
 
 router.post('/:id/adjustment', requireAdmin, route(async (req, res) => {

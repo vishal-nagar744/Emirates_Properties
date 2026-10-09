@@ -56,23 +56,6 @@ function initPasswordToggles() {
   });
 }
 
-/* ── Prefill invitation code from ?ref= ─────────────────────── */
-function initInvitePrefill() {
-  const input = document.getElementById('signup-invite');
-  const hint = document.getElementById('signup-invite-hint');
-  if (!input) return;
-
-  const params = new URLSearchParams(window.location.search);
-  const ref = (params.get('ref') || '').trim().toUpperCase();
-  if (!ref) return;
-
-  input.value = ref;
-  if (hint) {
-    hint.hidden = false;
-    hint.textContent = `Invitation code pre-filled from link (${ref}).`;
-  }
-}
-
 /* ── Login ──────────────────────────────────────────────────── */
 function saveMemberSession(data) {
   localStorage.setItem('ps_token', data.token);
@@ -146,11 +129,9 @@ function initSignupForm() {
   const form = document.getElementById('signup-form');
   if (!form) return;
 
-  initInvitePrefill();
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    ['signup-name', 'signup-mobile', 'signup-password', 'signup-confirm', 'signup-invite'].forEach((id) => {
+    ['signup-name', 'signup-mobile', 'signup-password', 'signup-confirm'].forEach((id) => {
       setFieldError(`${id}-error`, '');
     });
 
@@ -158,8 +139,6 @@ function initSignupForm() {
     const mobile = document.getElementById('signup-mobile').value.trim();
     const password = document.getElementById('signup-password').value;
     const confirm = document.getElementById('signup-confirm').value;
-    const invitationRaw = document.getElementById('signup-invite').value.trim();
-    const invitationCode = invitationRaw ? invitationRaw.toUpperCase() : null;
     let ok = true;
 
     if (!fullName) {
@@ -187,12 +166,10 @@ function initSignupForm() {
       fullName,
       mobile,
       password,
-      invitationCode,
     });
     if (!result.ok) {
       const message = result.data.message || 'Could not create the account.';
-      if (/invitation/i.test(message)) setFieldError('signup-invite-error', message);
-      else if (/password/i.test(message)) setFieldError('signup-password-error', message);
+      if (/password/i.test(message)) setFieldError('signup-password-error', message);
       else if (/name/i.test(message)) setFieldError('signup-name-error', message);
       else setFieldError('signup-mobile-error', message);
       setBusy(btn, false, 'Create account');

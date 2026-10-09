@@ -12,13 +12,11 @@ function snapshot(user) {
     fullName: user.fullName,
     mobile: user.mobile,
     accountStatus: user.accountStatus,
-    referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
     holdBalance: user.holdBalance || 0,
     holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
-    hasSecurityPassword: Boolean(user.securityPasswordHash),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
   };
 }
@@ -28,7 +26,7 @@ function destination(account) {
   return [account.bankName, account.iban || account.accountNumber].filter(Boolean).join(' · ');
 }
 
-export async function requestCashOut({ userId, amount, accountId, securityPassword, withdrawalPassword }) {
+export async function requestCashOut({ userId, amount, accountId, withdrawalPassword }) {
   if (!mongoose.isValidObjectId(userId)) return { status: 401, message: 'Sign in required.' };
   const user = await User.findById(userId);
   if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
@@ -42,11 +40,8 @@ export async function requestCashOut({ userId, amount, accountId, securityPasswo
   const minimum = settings ? settings.minCashOutAmount : 500;
   if (value < minimum) return { status: 400, message: `Minimum cash out is AED ${minimum}.` };
   if (value > user.walletBalance) return { status: 400, message: 'Amount is higher than your available balance.' };
-  if (!user.securityPasswordHash || !user.withdrawalPasswordHash) {
-    return { status: 400, message: 'Set a security password and a withdrawal password first.' };
-  }
-  if (!verifyPassword(securityPassword, user.securityPasswordHash)) {
-    return { status: 400, message: 'Invalid security password.' };
+  if (!user.withdrawalPasswordHash) {
+    return { status: 400, message: 'Set a withdrawal password first.' };
   }
   if (!verifyPassword(withdrawalPassword, user.withdrawalPasswordHash)) {
     return { status: 400, message: 'Invalid withdrawal password.' };

@@ -9,7 +9,6 @@ const Member = (() => {
   let groupsCache = [];
   let ordersCache = [];
   let commissionsCache = [];
-  let referralsCache = [];
   let txCache = [];
   let accountsCache = [];
   let sessionsCache = [];
@@ -413,9 +412,11 @@ const Member = (() => {
 
   function nextOffer() {
     const boards = setBoards();
+    const groupId = (groupsCache.find((group) => group.id === (new URLSearchParams(location.search).get('group') || '')) || {}).id || '';
     for (const board of boards) {
       const blocked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
       if (blocked) return null;
+      if (setLocked(groupId, board.setNumber)) return null;
       const next = board.projects.find((project) => !boughtIds().has(project.id));
       if (next) return next;
     }
@@ -574,6 +575,40 @@ const Member = (() => {
     return !(group && group.isTrial);
   }
 
+  function setLocked(groupId, setNumber) {
+    const n = Number(setNumber) === 2 || Number(setNumber) === 3 ? Number(setNumber) : 1;
+    const user = Store.user();
+    if (!user.setAccessSet) return n !== 1;
+    const keys = Array.isArray(user.unlockedSetKeys) ? user.unlockedSetKeys : [];
+    return !keys.includes(`${groupId}:${n}`);
+  }
+
+  function showUnlockNotices() {
+    const user = Store.user();
+    const notices = Array.isArray(user.unlockNotices) ? user.unlockNotices : [];
+    if (!notices.length || showUnlockNotices.busy) return;
+    showUnlockNotices.busy = true;
+    const notice = notices[0];
+    const title = notice.kind === 'set'
+      ? `Set ${notice.setNumber || ''} unlocked`
+      : 'Group unlocked';
+    const detail = notice.kind === 'set'
+      ? `${notice.groupName || 'A group'} · Set ${notice.setNumber || ''} is now open for you.`
+      : `${notice.groupName || 'A group'} is now open for you.`;
+    openModal(`
+      <div class="celebrate celebrate-order">
+        <div class="celebrate-hero">
+          <p class="celebrate-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 11V8a4 4 0 0 1 8 0v3"/><rect x="5" y="11" width="14" height="9" rx="2"/><path d="m9.5 15.2 1.8 1.8 3.4-3.6"/></svg></p>
+          <p class="smallcaps">Unlocked</p>
+          <h3 class="serif">${esc(title)}</h3>
+        </div>
+        <div class="celebrate-body">
+          <p class="muted">${esc(detail)}</p>
+          <button class="btn primary btn-full" type="button" data-dismiss data-action="clear-unlock-notices">Continue</button>
+        </div>
+      </div>`, 'celebrate-modal');
+  }
+
   function spendBalance(group) {
     const user = Store.user();
     if (group && group.isTrial) return { label: 'Trial balance', amount: Number(user.trialBalance) || 0, kind: 'trial' };
@@ -608,20 +643,42 @@ const Member = (() => {
     const list = boards.flatMap((board) => board.projects);
     if (!list.length) return emptyState('grid', 'No projects in this group', 'Projects added to this group will appear here.');
     const ordered = boughtIds();
+    const groupId = group && group.id ? String(group.id) : '';
+    const sequenceLocked = (board) => boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
     const active = boards.find((board) => {
-      const locked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
-      return !locked && !board.empty && !board.complete;
+      if (board.empty || board.complete || sequenceLocked(board)) return false;
+      return !setLocked(groupId, board.setNumber);
+    });
+    const waiting = boards.find((board) => {
+      if (board.empty || board.complete || sequenceLocked(board)) return false;
+      return setLocked(groupId, board.setNumber);
     });
     const next = active ? active.projects.find((project) => !ordered.has(project.id)) : null;
     const done = list.filter((project) => ordered.has(project.id)).length;
     const title = group ? group.name : 'Projects';
     const media = `<div class="offer-media">${group && group.image ? `<img src="${esc(group.image)}" alt="">` : ''}</div>`;
     const sets = `<div class="tabbar offer-sets" role="list" aria-label="Sets">${boards.map((board) => {
-      const locked = boards.some((earlier) => earlier.setNumber < board.setNumber && !earlier.empty && !earlier.complete);
+      const adminLocked = setLocked(groupId, board.setNumber);
+      const locked = sequenceLocked(board) || adminLocked;
       const on = active && board.setNumber === active.setNumber;
       const mark = board.empty ? '—' : locked ? 'Locked' : board.complete ? 'Done' : `${board.finished}/${board.projects.length}`;
       return `<span class="seg-btn${on ? ' active' : ''}" role="listitem">Set ${board.setNumber}<small>${mark}</small></span>`;
     }).join('')}</div>`;
+    if (!next && waiting) {
+      const handle = String(platform.supportTelegramUsername || '').replace(/^@/, '');
+      const support = handle ? `https://t.me/${encodeURIComponent(handle)}` : 'support.html';
+      return `
+        <section class="card offer-card offer-done">
+          ${media}
+          <div class="offer-body">
+            <h2 class="serif">${esc(title)}</h2>
+            ${sets}
+            <p>This set is finished. Contact support to unlock Set ${waiting.setNumber}.</p>
+            <p class="offer-count">${done}/${list.length}</p>
+            <a class="btn primary btn-full" href="${esc(support)}" ${handle ? 'target="_blank" rel="noopener"' : ''}>Contact support</a>
+          </div>
+        </section>`;
+    }
     if (!next) {
       return `
         <section class="card offer-card offer-done">
@@ -1193,7 +1250,6 @@ const Member = (() => {
 
   function openCashOut() {
     const user = Store.user();
-    const hasSec = Boolean(user.hasSecurityPassword);
     const hasWith = Boolean(user.hasWithdrawalPassword);
     const all = accountsCache;
     const flags = payoutFlags();
@@ -1217,11 +1273,6 @@ const Member = (() => {
         <div class="field">
           <label for="cashout-amount">Amount (AED)</label>
           <input id="cashout-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="500">
-        </div>
-        <div class="field">
-          <label for="cashout-security">Security password</label>
-          <input id="cashout-security" type="password" autocomplete="off"${hasSec ? '' : ' disabled placeholder="Not set"'}>
-          ${hasSec ? '' : `<p class="field-hint" style="color:#d9534f;font-size:12px;margin-top:4px;">Security password not set. <a href="profile.html?section=passwords&pass=security" style="color:var(--g);font-weight:600;text-decoration:underline;">Set security password</a></p>`}
         </div>
         <div class="field">
           <label for="cashout-password">Withdrawal password</label>
@@ -1269,9 +1320,9 @@ const Member = (() => {
       e.preventDefault();
       const err = document.getElementById('cashout-error');
       err.hidden = true;
-      if (!hasSec || !hasWith) {
+      if (!hasWith) {
         err.hidden = false;
-        err.innerHTML = 'Please set your security and withdrawal passwords before requesting cash out.';
+        err.innerHTML = 'Please set your withdrawal password before requesting cash out.';
         return;
       }
       if (!kind || !select.value) {
@@ -1287,7 +1338,6 @@ const Member = (() => {
           body: {
             amount: document.getElementById('cashout-amount').value,
             accountId: select.value,
-            securityPassword: document.getElementById('cashout-security').value,
             withdrawalPassword: document.getElementById('cashout-password').value,
           },
         });
@@ -1344,7 +1394,7 @@ const Member = (() => {
     if (!section && params.get('panel')) section = params.get('panel');
     if (!section && (params.get('tab') === 'bind' || params.get('bind'))) section = 'bind';
     if (!section && (params.get('type') || params.get('modal'))) section = 'records';
-    const known = ['records', 'bind', 'password', 'passwords', 'referral', 'support', 'sessions', 'edit', 'deposit', 'terms'];
+    const known = ['records', 'bind', 'password', 'passwords', 'support', 'sessions', 'edit', 'deposit', 'terms'];
     return known.includes(section) ? section : '';
   }
 
@@ -1360,9 +1410,8 @@ const Member = (() => {
       ['cash-in', 'plus', 'Cash in', 'open-cash-in'],
       ['cash-out', 'card', 'Cash out', 'open-cash-out'],
       ['bind', 'wallet', 'Bind wallet', 'section'],
-      ['referral', 'share', 'Invite friends', 'section'],
       ['password', 'lock', 'Change password', 'section'],
-      ['passwords', 'lock', 'Cash out passwords', 'section'],
+      ['passwords', 'lock', 'Withdrawal password', 'section'],
       ['support', 'support', 'Support', 'page'],
       ['deposit', 'card', 'About deposit', 'section'],
       ['terms', 'list', 'Terms & conditions', 'section'],
@@ -1381,28 +1430,28 @@ const Member = (() => {
   }
 
   function depositPanel() {
-    const points = [
-      'All deposits must be made only through the official payment details provided by the platform’s customer support team.',
-      'After completing the payment, users are required to share the transaction receipt with the support team for verification. Once the payment is successfully verified, the deposited amount will be credited to the user’s wallet/account.',
-      'For any assistance regarding payment details or deposit confirmation, users must contact the official customer support team only.',
-      'All transactions should be made carefully using verified details to ensure smooth processing and account safety.',
-    ];
+    const about = platform.about || {};
+    const points = Array.isArray(about.depositPoints) && about.depositPoints.length
+      ? about.depositPoints
+      : [
+        'All deposits must be made only through the official payment details provided by the platform’s customer support team.',
+        'After completing the payment, users are required to share the transaction receipt with the support team for verification. Once the payment is successfully verified, the deposited amount will be credited to the user’s wallet/account.',
+        'For any assistance regarding payment details or deposit confirmation, users must contact the official customer support team only.',
+        'All transactions should be made carefully using verified details to ensure smooth processing and account safety.',
+      ];
     return `<div class="read-sheet"><p class="smallcaps">Deposits</p><ol class="deposit-list">${points.map((line) => `<li>${esc(line)}</li>`).join('')}</ol></div>`;
   }
 
   function termsPanel() {
-    const sections = [
-      ['1. Acceptance of Terms', 'By accessing or using the Emirates Properties LLC website or engaging with our services, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.', 'If you do not agree with any part of these Terms and Conditions, please do not access or use our website or services.'],
-      ['2. Services', 'Emirates Properties LLC provides property leasing, subleasing, and full-service property management services to landlords and tenants across Dubai.', 'Services may include tenant placement and leasing, rent collection, property maintenance coordination, tenant and landlord support, financial reporting, and property marketing. The specific services depend on the scope agreed with each client.'],
-      ['3. Eligibility', 'You must be at least 18 years of age to access our website or engage our services.', 'By using our website or services, you confirm that you meet this age requirement and have the legal capacity to enter into agreements where applicable.'],
-      ['4. Acceptable Use of the Website', 'You agree to use the Emirates Properties LLC website only for lawful purposes and in accordance with these Terms and Conditions.', 'You must not provide false or misleading information, attempt unauthorized access, interfere with the website, or use it for any unlawful purpose.'],
-      ['5. Client Responsibilities', 'Clients are responsible for accurate and up-to-date property and personal information, and for complying with applicable UAE rental laws.', 'Clients must provide reasonable property access for inspections and maintenance, and any documents reasonably required for the services.'],
-      ['6. Fees and Payments', 'All applicable service fees will be clearly communicated in writing before the relevant services begin.', 'Fees may vary by scope, including leasing-only or full property management. Payments are due according to the agreed schedule or contract.'],
-      ['7. Property Listings and Authorization', 'By submitting a property, you confirm that you have the legal right or authorization to lease, sublease, or market it.', 'You authorize Emirates Properties LLC, subject to the agreed terms, to market, advertise, arrange viewings, and facilitate leasing. You are responsible for accurate and legally valid property information.'],
-      ['8. Limitation of Liability', 'To the extent permitted by law, Emirates Properties LLC is not liable for indirect, incidental, special, or consequential damages arising from the website or services.', 'This includes tenant disputes, acts or delays of third-party providers, and interruptions caused by circumstances beyond reasonable control.'],
-      ['9. Suspension and Termination', 'Access or services may be suspended or ended if these terms are breached, if required by law, or if continued access would create a legal, security, or operational risk.', 'A service arrangement may also end under the applicable contract. Amounts already due remain payable, and the parts of these terms that should continue after suspension remain in effect.'],
-    ];
-    return `<div class="read-sheet"><p class="smallcaps">Emirates Properties LLC</p><p class="muted">Effective June 24, 2025 · United Arab Emirates (Dubai)</p>${sections.map(([title, ...paras]) => `<article class="read-block"><h3>${esc(title)}</h3>${paras.map((line) => `<p>${esc(line)}</p>`).join('')}</article>`).join('')}</div>`;
+    const terms = platform.terms || {};
+    const sections = Array.isArray(terms.sections) && terms.sections.length
+      ? terms.sections
+      : [];
+    const meta = `${terms.effectiveDate || 'June 24, 2025'} · ${terms.jurisdiction || 'United Arab Emirates (Dubai)'}`;
+    if (!sections.length) {
+      return `<div class="read-sheet"><p class="muted">Terms will appear here once published.</p></div>`;
+    }
+    return `<div class="read-sheet"><p class="smallcaps">${esc(terms.company || 'Emirates Properties LLC')}</p><p class="muted">Effective ${esc(meta)}</p>${sections.map((section) => `<article class="read-block"><h3>${esc(section.title)}</h3>${(section.paragraphs || []).map((line) => `<p>${esc(line)}</p>`).join('')}</article>`).join('')}</div>`;
   }
 
   function accountDetail(pane, user) {
@@ -1411,18 +1460,13 @@ const Member = (() => {
       records: 'Records',
       bind: 'Bind wallet',
       password: 'Change password',
-      passwords: 'Cash out passwords',
-      referral: 'Invite friends',
+      passwords: 'Withdrawal password',
       support: 'Support',
       deposit: 'About deposit',
       terms: 'Terms & conditions',
       sessions: 'Sessions',
       edit: 'Edit profile',
     };
-    const refs = referralsCache;
-    const today = Store.dayKey(0);
-    const month = Store.dayKey(29);
-    const link = `${location.origin}${location.pathname.replace(/profile\.html$/, 'signup.html')}?ref=${person.referralCode || ''}`;
     const support = `https://t.me/${platform.supportTelegramUsername}`;
     const filter = new URLSearchParams(location.search).get('type') || 'all';
     let body = '';
@@ -1438,25 +1482,18 @@ const Member = (() => {
           <button class="btn primary" type="submit">Update password</button>
         </form>`;
     } else if (pane === 'passwords') {
-      const pass = new URLSearchParams(location.search).get('pass') === 'withdrawal' ? 'withdrawal' : 'security';
-      const isSet = pass === 'security' ? Boolean(person.hasSecurityPassword) : Boolean(person.hasWithdrawalPassword);
-      const currentLabel = isSet
-        ? (pass === 'security' ? 'Current security password' : 'Current withdrawal password')
-        : 'Login password';
+      const isSet = Boolean(person.hasWithdrawalPassword);
+      const currentLabel = isSet ? 'Current withdrawal password' : 'Login password';
       const buttonLabel = isSet ? 'Update password' : 'Set password';
-
       body = `
-        <div class="tabbar password-tabs" role="tablist" aria-label="Cash out passwords">
-          <button class="seg-btn${pass === 'security' ? ' active' : ''}" type="button" role="tab" aria-selected="${pass === 'security'}" data-action="password-tab" data-pass="security">Security password</button>
-          <button class="seg-btn${pass === 'withdrawal' ? ' active' : ''}" type="button" role="tab" aria-selected="${pass === 'withdrawal'}" data-action="password-tab" data-pass="withdrawal">Withdrawal password</button>
-        </div>
+        <p class="muted">Used when you request a cash out.</p>
         ${!isSet ? `<div class="password-notice" style="background:#fffbe6;border:1px solid #ffe58f;color:#7c5e10;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.4;margin-bottom:16px;">
-          <b>Notice:</b> Please set your ${pass === 'security' ? 'security' : 'withdrawal'} password first by entering your account <b>login password</b> below.
+          <b>Notice:</b> Please set your withdrawal password first by entering your account <b>login password</b> below.
         </div>` : ''}
-        <form id="wp-form" class="fields" data-pass="${pass}" data-isset="${isSet}">
+        <form id="wp-form" class="fields" data-pass="withdrawal" data-isset="${isSet}">
           <div class="field"><label for="wp-current">${esc(currentLabel)}</label><input id="wp-current" type="password" autocomplete="current-password"></div>
-          <div class="field"><label for="wp-next">New password</label><input id="wp-next" type="password" autocomplete="new-password" minlength="6"></div>
-          <div class="field"><label for="wp-confirm">Confirm new password</label><input id="wp-confirm" type="password" autocomplete="new-password"></div>
+          <div class="field"><label for="wp-next">New withdrawal password</label><input id="wp-next" type="password" autocomplete="new-password" minlength="6"></div>
+          <div class="field"><label for="wp-confirm">Confirm password</label><input id="wp-confirm" type="password" autocomplete="new-password"></div>
           <p class="field-error" id="wp-error" role="alert" hidden></p>
           <button class="btn primary" type="submit" id="wp-save">${esc(buttonLabel)}</button>
         </form>`;
@@ -1472,45 +1509,6 @@ const Member = (() => {
         <div>
           <p class="muted">Message the Emirates Properties team on Telegram.</p>
           <a class="btn primary" href="${support}" target="_blank" rel="noopener">Open Telegram</a>
-        </div>`;
-    } else if (pane === 'referral') {
-      const invite = new URLSearchParams(location.search).get('invite') === 'today' || new URLSearchParams(location.search).get('invite') === 'month'
-        ? new URLSearchParams(location.search).get('invite')
-        : 'all';
-      const shownRefs = invite === 'today'
-        ? refs.filter((item) => item.date === today)
-        : invite === 'month'
-          ? refs.filter((item) => item.date >= month)
-          : refs;
-      const stat = (id, label, count) => `
-        <button class="invite-stat${invite === id ? ' active' : ''}" type="button" data-action="invite-filter" data-filter="${id}" aria-pressed="${invite === id ? 'true' : 'false'}">
-          <b>${count}</b><span>${label}</span>
-        </button>`;
-      body = `
-        <div class="invite">
-          <div class="invite-share">
-            <div class="invite-code-wrap">
-              <span>Your code</span>
-              <button class="invite-code" type="button" data-action="copy" data-value="${esc(person.referralCode || '')}">${esc(person.referralCode || '—')}</button>
-            </div>
-            <div class="invite-actions">
-              <button class="btn invite-copy" type="button" data-action="copy" data-value="${esc(person.referralCode || '')}">Copy code</button>
-              <button class="btn invite-link" type="button" data-action="copy" data-value="${esc(link)}">Copy link</button>
-            </div>
-          </div>
-          <div class="invite-stats">
-            ${stat('all', 'Total', refs.length)}
-            ${stat('today', 'Today', refs.filter((item) => item.date === today).length)}
-            ${stat('month', 'This month', refs.filter((item) => item.date >= month).length)}
-          </div>
-          ${shownRefs.length ? `<div class="invite-people">${shownRefs.map((item) => {
-            const initial = String(item.name || 'U').trim().charAt(0).toUpperCase() || 'U';
-            return `<article class="invite-person">
-              <span class="invite-avatar" aria-hidden="true">${esc(initial)}</span>
-              <div class="invite-who"><b>${esc(item.name)}</b><small>${esc(item.mobile)}</small></div>
-              <div class="invite-side"><time>${esc(item.date)}</time>${badge(item.status)}</div>
-            </article>`;
-          }).join('')}</div>` : `<div class="invite-empty">${emptyState('share', 'No referrals yet', 'Share your code. Users who join with it show up here.')}</div>`}
         </div>`;
     } else if (pane === 'deposit') body = depositPanel();
     else if (pane === 'terms') body = termsPanel();
@@ -1552,7 +1550,6 @@ const Member = (() => {
               </div>
               <p class="account-userid">User ID · ${esc(String(user.id || ''))}</p>
               <p>Mobile · ${esc(user.mobile)}</p>
-              <p>Referral code · <b>${esc(user.referralCode || '')}</b> <button class="account-copy" type="button" data-action="copy" data-value="${esc(user.referralCode || '')}">Copy</button></p>
             </div>
           </div>
           <div class="account-stats">
@@ -1664,30 +1661,20 @@ const Member = (() => {
         err.textContent = 'Passwords do not match.';
         return;
       }
-      const pass = form.dataset.pass === 'withdrawal' ? 'withdrawal' : 'security';
       const isSet = form.dataset.isset === 'true';
       const current = document.getElementById('wp-current')?.value || '';
       save.disabled = true;
       save.textContent = 'Saving…';
       try {
-        let payloadBody = {};
-        if (pass === 'security') {
-          if (isSet) payloadBody = { currentSecurityPassword: current, securityPassword: next };
-          else payloadBody = { loginPassword: current, securityPassword: next };
-        } else {
-          if (isSet) payloadBody = { currentWithdrawalPassword: current, withdrawalPassword: next };
-          else payloadBody = { loginPassword: current, withdrawalPassword: next };
-        }
+        const payloadBody = isSet
+          ? { currentWithdrawalPassword: current, withdrawalPassword: next }
+          : { loginPassword: current, withdrawalPassword: next };
         const data = await memberApi('/api/auth/withdrawal-password', {
           method: 'POST',
           body: payloadBody,
         });
         if (data.user) Store.applySession(data.user);
-        toast(
-          isSet
-            ? (pass === 'security' ? 'Security password updated' : 'Withdrawal password updated')
-            : (pass === 'security' ? 'Security password set' : 'Withdrawal password set')
-        );
+        toast(isSet ? 'Withdrawal password updated' : 'Withdrawal password set');
         renderAccount();
       } catch (error) {
         err.hidden = false;
@@ -1736,9 +1723,134 @@ const Member = (() => {
     if (!(sessionStorage.getItem('ps_trial_bonus') === '1' && page === 'dashboard')) maybePendingNotice();
   }
 
-  function maybeTrialBonus() {
-    if (sessionStorage.getItem('ps_trial_bonus') !== '1') return;
+  function bonusDayKey() {
+    return `ps_signin_bonus_${Store.dayKey(0)}`;
+  }
+
+  function bonusDismissedToday() {
+    try { return localStorage.getItem(bonusDayKey()) === '1'; } catch { return false; }
+  }
+
+  function markBonusDismissed() {
+    try { localStorage.setItem(bonusDayKey(), '1'); } catch { /* ignore */ }
+  }
+
+  function bonusRewards() {
+    return [
+      { day: 1, amount: 21 },
+      { day: 2, amount: 42 },
+      { day: 3, amount: 84 },
+      { day: 4, amount: 168 },
+    ];
+  }
+
+  function bonusTickerText() {
+    const days = bonusRewards().map((row) => `Day ${row.day}: ${row.amount} AED`).join(' · ');
+    return `7 Days Sign In Bonus · ${days} · Get rewarded daily · Tap for details`;
+  }
+
+  function mountBonusTicker() {
+    if (document.body.dataset.app !== 'member') return;
+    document.getElementById('bonus-chip')?.remove();
+    let bar = document.getElementById('bonus-ticker');
+    if (document.body.dataset.page !== 'dashboard' || !bonusDismissedToday()) {
+      bar?.remove();
+      return;
+    }
+    const line = bonusTickerText();
+    if (bar) {
+      bar.querySelectorAll('.bonus-ticker-text').forEach((node) => { node.textContent = line; });
+      return;
+    }
+    bar = document.createElement('button');
+    bar.id = 'bonus-ticker';
+    bar.type = 'button';
+    bar.className = 'bonus-ticker';
+    bar.setAttribute('aria-label', 'Open daily sign-in bonus details');
+    bar.innerHTML = `
+      <span class="bonus-ticker-track" aria-hidden="true">
+        <span class="bonus-ticker-text">${esc(line)}</span>
+        <span class="bonus-ticker-text">${esc(line)}</span>
+      </span>
+      <span class="bonus-ticker-sr">Open 7 days sign in bonus details</span>`;
+    bar.addEventListener('click', () => openSignInBonus({ force: true }));
+    const dashbar = document.querySelector('.main > .dashbar');
+    if (dashbar) dashbar.after(bar);
+    else document.querySelector('.main')?.prepend(bar);
+  }
+
+  function openSignInBonus(opts = {}) {
+    const force = opts.force === true;
+    const root = document.getElementById('modal-root');
+    if (!force && root && root.innerHTML.trim()) return;
+    const days = bonusRewards();
+    openModal(`
+      <div class="bonus-banner">
+        <button class="bonus-banner-x" type="button" data-dismiss aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div class="bonus-banner-hero">
+          <p class="celebrate-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 8v13M4 12h16"/><path d="M20 8H4v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 8c-2.2-3.5-6-2.2-6 0 2.5.4 4.5 2 6 4 1.5-2 3.5-3.6 6-4 0-2.2-3.8-3.5-6 0z"/></svg></p>
+          <p class="smallcaps">Emirates Properties</p>
+          <h3 class="serif">7 Days Sign In Bonus</h3>
+          <p class="bonus-banner-sub">Get rewarded daily · Your trust, our priority</p>
+        </div>
+        <div class="bonus-banner-body">
+          <div class="bonus-banner-days">
+            ${days.map((row) => `
+              <article class="bonus-day">
+                <p class="bonus-day-label">Day ${row.day}</p>
+                <p class="bonus-day-amount">${row.amount}<small>AED</small></p>
+                <p class="bonus-day-cta">Sign in &amp; get ${row.amount} AED</p>
+              </article>`).join('')}
+          </div>
+          <p class="bonus-banner-line">Daily sign in · Bigger rewards</p>
+          <ul class="bonus-banner-perks">
+            <li>Safe &amp; secure</li>
+            <li>Great opportunities</li>
+            <li>Trusted partner</li>
+            <li>Premium properties</li>
+          </ul>
+          <button class="btn primary btn-full" type="button" data-dismiss>Got it</button>
+        </div>
+      </div>`, 'bonus-modal');
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return;
+    const finish = () => {
+      markBonusDismissed();
+      mountBonusTicker();
+      modalRoot.removeEventListener('click', watch);
+    };
+    const watch = (event) => {
+      const dismiss = event.target.closest('[data-dismiss]');
+      const backdrop = event.target.classList && event.target.classList.contains('modal-back');
+      if (!dismiss && !backdrop) return;
+      finish();
+    };
+    modalRoot.addEventListener('click', watch);
+  }
+
+  function maybeSignInBonus() {
+    mountBonusTicker();
     if (document.body.dataset.page !== 'dashboard') return;
+    if (bonusDismissedToday()) return;
+    if (sessionStorage.getItem('ps_trial_bonus') === '1') return;
+    const notices = Store.user().unlockNotices || [];
+    if (notices.length) return;
+    const root = document.getElementById('modal-root');
+    if (root && root.innerHTML.trim()) return;
+    openSignInBonus();
+  }
+
+  function maybeTrialBonus() {
+    if (sessionStorage.getItem('ps_trial_bonus') !== '1') {
+      maybeSignInBonus();
+      return;
+    }
+    if (document.body.dataset.page !== 'dashboard') {
+      maybeSignInBonus();
+      return;
+    }
     sessionStorage.removeItem('ps_trial_bonus');
     const amount = Store.money(Number(Store.user().trialBalance) || 0);
     openModal(`
@@ -1750,13 +1862,17 @@ const Member = (() => {
         <button class="btn primary btn-full" type="button" data-dismiss>Claim</button>
       </div>`, 'celebrate-modal');
     const root = document.getElementById('modal-root');
-    if (!root) return;
+    if (!root) {
+      maybeSignInBonus();
+      return;
+    }
     const watch = (event) => {
       const claimed = event.target.closest('[data-dismiss]');
       const backdrop = event.target.classList && event.target.classList.contains('modal-back');
       if (!claimed && !backdrop) return;
       root.removeEventListener('click', watch);
       maybePendingNotice();
+      maybeSignInBonus();
     };
     root.addEventListener('click', watch);
   }
@@ -1775,8 +1891,7 @@ const Member = (() => {
           <p class="celebrate-name">${esc(name)}</p>
           <p class="muted">Your order is confirmed.</p>
           <div class="celebrate-actions">
-            <button class="btn light" type="button" data-dismiss>Cancel</button>
-            <button class="btn primary" type="button" data-action="view-submitted-order" data-id="${esc(order.id)}">View order</button>
+            <button class="btn primary btn-full" type="button" data-dismiss>Next task</button>
           </div>
         </div>
       </div>`, 'celebrate-modal');
@@ -1868,7 +1983,7 @@ const Member = (() => {
         catalog = [];
       }
     }
-    if (page === 'dashboard' || page === 'orders' || page === 'wallet' || page === 'profile' || page === 'support') {
+    if (page === 'dashboard' || page === 'orders' || page === 'wallet' || page === 'profile' || page === 'support' || page === 'projects') {
       try {
         platform = (await memberApi('/api/settings')).settings || platform;
       } catch {
@@ -1885,16 +2000,14 @@ const Member = (() => {
         if (page === 'wallet' || page === 'profile') {
           jobs.push(
             memberApi('/api/wallet/accounts'),
-            memberApi('/api/referrals'),
             memberApi('/api/auth/sessions'),
           );
         }
-        const [ordersRes, commissionsRes, txRes, accountsRes, referralRes, sessionRes] = await Promise.all(jobs);
+        const [ordersRes, commissionsRes, txRes, accountsRes, sessionRes] = await Promise.all(jobs);
         ordersCache = ordersRes.orders || [];
         commissionsCache = commissionsRes.commissions || [];
         txCache = txRes.transactions || [];
         if (accountsRes) accountsCache = accountsRes.accounts || [];
-        if (referralRes) referralsCache = referralRes.referrals || [];
         if (sessionRes) sessionsCache = sessionRes.sessions || [];
       } catch (err) {
         ordersCache = [];
@@ -1905,6 +2018,7 @@ const Member = (() => {
     }
     paintPage();
     maybeTrialBonus();
+    showUnlockNotices();
     startStatusWatch();
   }
 
@@ -1964,20 +2078,15 @@ const Member = (() => {
       history.pushState({}, '', 'profile.html');
       renderAccount();
     }
-    if (action === 'view-submitted-order') {
-      revealOffer();
-      window.location.href = `orders.html?id=${encodeURIComponent(el.dataset.id || '')}`;
-    }
-    if (action === 'invite-filter') {
-      const filter = el.dataset.filter === 'today' || el.dataset.filter === 'month' ? el.dataset.filter : 'all';
-      const query = filter === 'all' ? 'section=referral' : `section=referral&invite=${filter}`;
-      history.pushState({}, '', `profile.html?${query}`);
-      renderAccount();
-    }
-    if (action === 'password-tab') {
-      const pass = el.dataset.pass === 'withdrawal' ? 'withdrawal' : 'security';
-      history.pushState({}, '', `profile.html?section=passwords&pass=${pass}`);
-      renderAccount();
+    if (action === 'clear-unlock-notices') {
+      memberApi('/api/users/me/notices', { method: 'DELETE' })
+        .then((data) => {
+          if (data.user) Store.applySession(data.user);
+          showUnlockNotices.busy = false;
+          if (document.body.dataset.page === 'projects') renderProjects();
+          maybeSignInBonus();
+        })
+        .catch(() => { showUnlockNotices.busy = false; });
     }
     if (action === 'bind-address') {
       const flags = payoutFlags();

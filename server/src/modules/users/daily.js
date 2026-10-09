@@ -42,6 +42,8 @@ export async function ensureDailyReset(user) {
   user.groupAccessSet = false;
   user.unlockedGroupIds = [];
   user.lockedGroupIds = [];
+  user.setAccessSet = false;
+  user.unlockedSetKeys = [];
   user.progressDate = today;
   await user.save();
   await UserPremium.updateMany(

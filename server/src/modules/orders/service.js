@@ -3,11 +3,11 @@ import { Commission } from '../commissions/model.js';
 import { ProjectGroup, hasImage } from '../groups/model.js';
 import { groupImageUrl } from '../images/service.js';
 import { Project } from '../projects/model.js';
-import { itemId, nextGroupProject } from '../projects/service.js';
+import { itemId, nextAccessibleProject } from '../projects/service.js';
 import { UserPremium, viewPremium } from '../users/premium-model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
-import { openGroupIds } from '../users/service.js';
+import { isSetOpen, openGroupIds, openSetKeys } from '../users/service.js';
 import { ensureDailyReset } from '../users/daily.js';
 import { orderWorkDate, workDate } from '../../lib/workDate.js';
 import { Order, viewOrder } from './model.js';
@@ -37,16 +37,21 @@ function memberView(user, openIds = []) {
     fullName: user.fullName,
     mobile: user.mobile,
     accountStatus: user.accountStatus,
-    referralCode: user.referralCode,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
     holdBalance: user.holdBalance || 0,
     holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut || 0,
     unlockedGroupIds: openIds,
-    hasSecurityPassword: Boolean(user.securityPasswordHash),
+    setAccessSet: Boolean(user.setAccessSet),
+    unlockedSetKeys: openSetKeys(user),
+    unlockNotices: Array.isArray(user.unlockNotices) ? user.unlockNotices : [],
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
   };
+}
+
+function accessNext(user, groupKey, siblings, premiums, done) {
+  return nextAccessibleProject(siblings, premiums, done, (setNumber) => isSetOpen(user, groupKey, setNumber));
 }
 
 async function findOrder(id) {
@@ -222,8 +227,11 @@ async function premiumReady(user, row) {
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
     const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
     const done = new Set(doneOrders.map((order) => String(order.projectId)));
-    const next = nextGroupProject(siblings, premiums, done);
-    if (!next || itemId(next) !== String(row._id)) {
+    const access = accessNext(user, groupKey, siblings, premiums, done);
+    if (access.lockedSet) {
+      return { status: 403, message: `Set ${access.lockedSet} is locked. Contact support to unlock it.` };
+    }
+    if (!access.item || itemId(access.item) !== String(row._id)) {
       return { status: 409, message: 'Complete the current project before this one.' };
     }
   }
@@ -301,8 +309,11 @@ export async function activateOrder({ userId, projectId }) {
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
     const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
     const done = new Set(doneOrders.map((row) => String(row.projectId)));
-    const next = nextGroupProject(siblings, premiums, done);
-    if (!next || itemId(next) !== String(project._id)) {
+    const access = accessNext(user, groupKey, siblings, premiums, done);
+    if (access.lockedSet) {
+      return { status: 403, message: `Set ${access.lockedSet} is locked. Contact support to unlock it.` };
+    }
+    if (!access.item || itemId(access.item) !== String(project._id)) {
       return { status: 409, message: 'Complete the current project before this one.' };
     }
   }
@@ -546,8 +557,11 @@ export async function openFortuneBox({ userId, premiumId }) {
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
     const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
     const done = new Set(doneOrders.map((order) => String(order.projectId)));
-    const next = nextGroupProject(siblings, premiums, done);
-    if (!next || itemId(next) !== String(row._id)) {
+    const access = accessNext(user, groupKey, siblings, premiums, done);
+    if (access.lockedSet) {
+      return { status: 403, message: `Set ${access.lockedSet} is locked. Contact support to unlock it.` };
+    }
+    if (!access.item || itemId(access.item) !== String(row._id)) {
       return { status: 409, message: 'Complete the current project before this one.' };
     }
   }

@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema(
     mobileDigits: { type: String, required: true, unique: true },
     loginId: { type: String },
     passwordHash: { type: String, required: true },
-    securityPasswordHash: { type: String, default: '' },
     withdrawalPasswordHash: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin'], default: 'user', required: true },
     referralCode: { type: String, required: true, unique: true },
@@ -26,6 +25,9 @@ const userSchema = new mongoose.Schema(
     lockedGroupIds: { type: [String], default: [] },
     groupAccessSet: { type: Boolean, default: false },
     unlockedGroupIds: { type: [String], default: [] },
+    setAccessSet: { type: Boolean, default: false },
+    unlockedSetKeys: { type: [String], default: [] },
+    unlockNotices: { type: [mongoose.Schema.Types.Mixed], default: [] },
     progressDate: { type: String, default: '' },
   },
   { timestamps: true }

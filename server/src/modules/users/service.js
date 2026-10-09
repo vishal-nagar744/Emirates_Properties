@@ -14,6 +14,41 @@ function digits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+export function setKey(groupId, setNumber) {
+  const n = Number(setNumber) === 2 || Number(setNumber) === 3 ? Number(setNumber) : 1;
+  return `${String(groupId)}:${n}`;
+}
+
+export function isSetOpen(user, groupId, setNumber) {
+  const n = Number(setNumber) === 2 || Number(setNumber) === 3 ? Number(setNumber) : 1;
+  if (!user || !groupId) return n === 1;
+  if (!user.setAccessSet) return n === 1;
+  return (user.unlockedSetKeys || []).map(String).includes(setKey(groupId, n));
+}
+
+export function openSetKeys(user) {
+  if (!user) return [];
+  if (user.setAccessSet) return (user.unlockedSetKeys || []).map(String);
+  return [];
+}
+
+function noticeList(user) {
+  return Array.isArray(user.unlockNotices) ? user.unlockNotices.slice() : [];
+}
+
+function pushUnlockNotice(user, notice) {
+  const list = noticeList(user);
+  list.push({
+    id: new mongoose.Types.ObjectId().toString(),
+    kind: notice.kind,
+    groupId: notice.groupId || '',
+    groupName: notice.groupName || '',
+    setNumber: notice.setNumber || null,
+    createdAt: new Date().toISOString(),
+  });
+  user.unlockNotices = list.slice(-20);
+}
+
 function viewUser(user, extra = {}) {
   return {
     id: String(user._id),
@@ -21,8 +56,6 @@ function viewUser(user, extra = {}) {
     mobile: user.mobile,
     loginId: user.loginId || '',
     role: user.role,
-    referralCode: user.referralCode,
-    referredBy: user.referredBy || null,
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -30,6 +63,10 @@ function viewUser(user, extra = {}) {
     holdGroupId: user.holdGroupId || '',
     pendingCashOut: user.pendingCashOut,
     unlockedGroupIds: [],
+    setAccessSet: Boolean(user.setAccessSet),
+    unlockedSetKeys: openSetKeys(user),
+    unlockNotices: noticeList(user),
+    hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
     ...extra,
   };
@@ -53,19 +90,9 @@ export async function openGroupIds(user) {
 }
 
 async function decorate(users) {
-  const ids = users.map((user) => String(user._id));
-  const referrers = await User.find({ _id: { $in: users.map((user) => user.referredBy).filter(Boolean) } });
-  const referrerName = new Map(referrers.map((user) => [String(user._id), user.fullName]));
-  const referred = await User.find({ role: 'user', referredBy: { $in: ids } });
-  const counts = new Map();
-  referred.forEach((user) => {
-    counts.set(user.referredBy, (counts.get(user.referredBy) || 0) + 1);
-  });
   const views = [];
   for (const user of users) {
     views.push(viewUser(user, {
-      referredByName: user.referredBy ? (referrerName.get(user.referredBy) || '') : '',
-      referralCount: counts.get(String(user._id)) || 0,
       unlockedGroupIds: await openGroupIds(user),
     }));
   }
@@ -78,7 +105,7 @@ export async function listMembers({ status, q }) {
   let rows = await User.find(filter).sort({ createdAt: -1 });
   const query = String(q || '').trim().toLowerCase();
   if (query) {
-    rows = rows.filter((user) => `${user.fullName} ${user.mobile} ${user.referralCode}`.toLowerCase().includes(query));
+    rows = rows.filter((user) => `${user.fullName} ${user.mobile}`.toLowerCase().includes(query));
   }
   for (const user of rows) await ensureDailyReset(user);
   return { status: 200, data: { users: await decorate(rows) } };
@@ -140,11 +167,72 @@ export async function setMemberGroups(id, groupIds) {
   if (ids.some((groupId) => !mongoose.isValidObjectId(groupId))) {
     return { status: 400, message: 'Choose a valid group.' };
   }
-  const found = ids.length ? await ProjectGroup.find({ _id: { $in: ids } }).select('_id') : [];
+  const found = ids.length ? await ProjectGroup.find({ _id: { $in: ids } }).select('_id name') : [];
   if (found.length !== ids.length) return { status: 400, message: 'Choose a valid group.' };
+  const previous = new Set(await openGroupIds(user));
+  const nextIds = found.map((group) => String(group._id));
+  const names = new Map(found.map((group) => [String(group._id), group.name]));
   user.groupAccessSet = true;
-  user.unlockedGroupIds = found.map((group) => String(group._id));
+  user.unlockedGroupIds = nextIds;
   user.lockedGroupIds = [];
+  nextIds.forEach((groupId) => {
+    if (!previous.has(groupId)) {
+      pushUnlockNotice(user, { kind: 'group', groupId, groupName: names.get(groupId) || 'Group' });
+    }
+  });
+  await user.save();
+  const [view] = await decorate([user]);
+  return { status: 200, data: { user: view } };
+}
+
+export async function setMemberSets(id, setKeys) {
+  const user = await findMember(id);
+  if (!user) return { status: 404, message: 'User not found.' };
+  await ensureDailyReset(user);
+  if (!Array.isArray(setKeys)) return { status: 400, message: 'Choose the open sets.' };
+  const keys = [...new Set(setKeys.map(String))];
+  const parsed = [];
+  for (const key of keys) {
+    const [groupId, rawSet] = String(key).split(':');
+    const setNumber = Number(rawSet) === 2 || Number(rawSet) === 3 ? Number(rawSet) : Number(rawSet) === 1 ? 1 : 0;
+    if (!mongoose.isValidObjectId(groupId) || !setNumber) {
+      return { status: 400, message: 'Choose a valid set.' };
+    }
+    parsed.push({ groupId, setNumber, key: setKey(groupId, setNumber) });
+  }
+  const groupIds = [...new Set(parsed.map((row) => row.groupId))];
+  const found = groupIds.length ? await ProjectGroup.find({ _id: { $in: groupIds } }).select('_id name') : [];
+  if (found.length !== groupIds.length) return { status: 400, message: 'Choose a valid set.' };
+  const names = new Map(found.map((group) => [String(group._id), group.name]));
+  const previous = new Set();
+  for (const group of found) {
+    for (const setNumber of [1, 2, 3]) {
+      if (isSetOpen(user, String(group._id), setNumber)) previous.add(setKey(group._id, setNumber));
+    }
+  }
+  const nextKeys = parsed.map((row) => row.key);
+  user.setAccessSet = true;
+  user.unlockedSetKeys = nextKeys;
+  nextKeys.forEach((key) => {
+    if (previous.has(key)) return;
+    const [groupId, rawSet] = key.split(':');
+    pushUnlockNotice(user, {
+      kind: 'set',
+      groupId,
+      groupName: names.get(groupId) || 'Group',
+      setNumber: Number(rawSet) || 1,
+    });
+  });
+  await user.save();
+  const [view] = await decorate([user]);
+  return { status: 200, data: { user: view } };
+}
+
+export async function clearUnlockNotices(session) {
+  if (!session || session.role !== 'user') return { status: 401, message: 'Sign in required.' };
+  const user = await findMember(session.subjectId);
+  if (!user) return { status: 401, message: 'Sign in required.' };
+  user.unlockNotices = [];
   await user.save();
   const [view] = await decorate([user]);
   return { status: 200, data: { user: view } };
@@ -240,5 +328,6 @@ export async function updateOwnProfile(session, { fullName, mobile }) {
     if (err && err.code === 11000) return { status: 409, message: 'This mobile number is already registered.' };
     throw err;
   }
-  return { status: 200, data: { user: viewUser(user) } };
+  const [view] = await decorate([user]);
+  return { status: 200, data: { user: view } };
 }

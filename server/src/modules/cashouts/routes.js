@@ -33,7 +33,6 @@ router.post('/', requireUser, route(async (req, res) => {
     userId: req.session.subjectId,
     amount: body.amount,
     accountId: body.accountId,
-    securityPassword: body.securityPassword,
     withdrawalPassword: body.withdrawalPassword,
   }));
 }));
