@@ -1,14 +1,20 @@
 import mongoose from 'mongoose';
+import { hashPassword } from '../../lib/password.js';
+import { Session } from '../auth/model.js';
 import { revokeUserSessions } from '../auth/session.js';
+import { Cashout } from '../cashouts/model.js';
+import { Commission } from '../commissions/model.js';
 import { ProjectGroup } from '../groups/model.js';
 import { User } from './model.js';
-import { Transaction } from '../wallet/model.js';
+import { Transaction, WithdrawalAccount } from '../wallet/model.js';
 import { Order } from '../orders/model.js';
 import { Project } from '../projects/model.js';
 import { nextGroupProject } from '../projects/service.js';
+import { Referral } from '../referrals/model.js';
 import { UserPremium } from './premium-model.js';
 import { orderWorkDate } from '../../lib/workDate.js';
 import { ensureDailyReset } from './daily.js';
+import { nextMemberNo } from './memberNo.js';
 
 function digits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -52,6 +58,7 @@ function pushUnlockNotice(user, notice) {
 function viewUser(user, extra = {}) {
   return {
     id: String(user._id),
+    memberNo: user.memberNo || null,
     fullName: user.fullName,
     mobile: user.mobile,
     loginId: user.loginId || '',
@@ -105,7 +112,7 @@ export async function listMembers({ status, q }) {
   let rows = await User.find(filter).sort({ createdAt: -1 });
   const query = String(q || '').trim().toLowerCase();
   if (query) {
-    rows = rows.filter((user) => `${user.fullName} ${user.mobile}`.toLowerCase().includes(query));
+    rows = rows.filter((user) => `${user.fullName} ${user.mobile} ${user.memberNo || ''}`.toLowerCase().includes(query));
   }
   for (const user of rows) await ensureDailyReset(user);
   return { status: 200, data: { users: await decorate(rows) } };
@@ -132,6 +139,57 @@ export async function setMemberStatus(id, accountStatus) {
   }
   const [view] = await decorate([user]);
   return { status: 200, data: { user: view } };
+}
+
+export async function setMemberPasswords(id, { loginPassword, withdrawalPassword }) {
+  const user = await findMember(id);
+  if (!user) return { status: 404, message: 'User not found.' };
+  const loginNext = String(loginPassword || '');
+  const withdrawNext = String(withdrawalPassword || '');
+  if (!loginNext && !withdrawNext) {
+    return { status: 400, message: 'Enter a login password or a withdrawal password.' };
+  }
+  if (loginNext && loginNext.length < 6) {
+    return { status: 400, message: 'Login password must be at least 6 characters.' };
+  }
+  if (withdrawNext && withdrawNext.length < 6) {
+    return { status: 400, message: 'Withdrawal password must be at least 6 characters.' };
+  }
+  if (loginNext) user.passwordHash = hashPassword(loginNext);
+  if (withdrawNext) user.withdrawalPasswordHash = hashPassword(withdrawNext);
+  await user.save();
+  if (loginNext) await revokeUserSessions(String(user._id));
+  const [view] = await decorate([user]);
+  const parts = [];
+  if (loginNext) parts.push('login password');
+  if (withdrawNext) parts.push('withdrawal password');
+  return {
+    status: 200,
+    data: {
+      message: `${parts.join(' and ')} updated.`,
+      user: view,
+    },
+  };
+}
+
+export async function deleteMember(id) {
+  const user = await findMember(id);
+  if (!user) return { status: 404, message: 'User not found.' };
+  const userId = String(user._id);
+  await Promise.all([
+    Session.deleteMany({ subjectId: userId }),
+    Transaction.deleteMany({ userId }),
+    WithdrawalAccount.deleteMany({ userId }),
+    Cashout.deleteMany({ userId }),
+    Order.deleteMany({ userId }),
+    Commission.deleteMany({ userId }),
+    UserPremium.deleteMany({ userId }),
+    Referral.deleteMany({
+      $or: [{ referrerUserId: userId }, { referredUserId: userId }],
+    }),
+  ]);
+  await User.deleteOne({ _id: user._id, role: 'user' });
+  return { status: 200, data: { ok: true, id: userId } };
 }
 
 export async function adjustMemberWallet(id, { amount, reason }) {

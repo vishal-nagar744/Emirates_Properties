@@ -5,6 +5,7 @@ import { Settings } from '../settings/model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { openGroupIds, openSetKeys } from '../users/service.js';
+import { nextMemberNo } from '../users/memberNo.js';
 import { ensureDailyReset } from '../users/daily.js';
 import { issueToken, revokeToken, revokeUserSessions } from './session.js';
 
@@ -27,6 +28,7 @@ function digits(value) {
 function publicUser(user) {
   return {
     id: String(user._id),
+    memberNo: user.memberNo || null,
     fullName: user.fullName,
     mobile: user.mobile,
     loginId: user.loginId || '',
@@ -101,6 +103,7 @@ export async function signup({ fullName, mobile, password, context }) {
       fullName: name,
       mobile: phone,
       mobileDigits: digits(phone),
+      memberNo: await nextMemberNo(),
       passwordHash: hashPassword(pass),
       withdrawalPasswordHash: '',
       role: 'user',

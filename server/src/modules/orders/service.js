@@ -34,6 +34,7 @@ export function settleGroupPayment({ walletCents, holdCents, holdGroupId, groupI
 function memberView(user, openIds = []) {
   return {
     id: String(user._id),
+    memberNo: user.memberNo || null,
     fullName: user.fullName,
     mobile: user.mobile,
     accountStatus: user.accountStatus,

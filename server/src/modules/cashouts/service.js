@@ -94,6 +94,16 @@ export async function requestCashOut({ userId, amount, accountId, withdrawalPass
   } } };
 }
 
+async function withMemberNos(rows) {
+  const ids = [...new Set(rows.map((row) => row.userId))].filter((id) => mongoose.isValidObjectId(id));
+  const users = ids.length ? await User.find({ _id: { $in: ids } }).select('memberNo') : [];
+  const byId = new Map(users.map((user) => [String(user._id), user.memberNo != null ? user.memberNo : null]));
+  return rows.map((row) => ({
+    ...viewCashout(row),
+    memberNo: byId.get(row.userId) ?? null,
+  }));
+}
+
 export async function listMine(userId) {
   const rows = await Cashout.find({ userId: String(userId) }).sort({ requestedAt: -1 });
   return { status: 200, data: { cashouts: rows.map(viewCashout) } };
@@ -103,7 +113,7 @@ export async function listAll({ status }) {
   const filter = {};
   if (status && status !== 'all') filter.status = status;
   const rows = await Cashout.find(filter).sort({ requestedAt: -1 });
-  return { status: 200, data: { cashouts: rows.map(viewCashout) } };
+  return { status: 200, data: { cashouts: await withMemberNos(rows) } };
 }
 
 export async function setCashoutStatus({ id, status, rejectionReason }) {
@@ -147,5 +157,6 @@ export async function setCashoutStatus({ id, status, rejectionReason }) {
   await req.save();
   if (user) await user.save();
   if (tx) await tx.save();
-  return { status: 200, data: { cashout: viewCashout(req) } };
+  const [cashout] = await withMemberNos([req]);
+  return { status: 200, data: { cashout } };
 }

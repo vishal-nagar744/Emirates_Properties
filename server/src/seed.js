@@ -8,6 +8,7 @@ import { resetCompletedTrialBalances } from './modules/orders/service.js';
 import { Project } from './modules/projects/model.js';
 import { Settings } from './modules/settings/model.js';
 import { User } from './modules/users/model.js';
+import { ensureMemberNos } from './modules/users/memberNo.js';
 
 export async function seed() {
   const moved = await embedImageBytes();
@@ -24,6 +25,8 @@ export async function seed() {
   await Project.updateMany({ projectType: 'premium' }, { $set: { projectType: 'normal', setNumber: 1 } });
   await Project.collection.updateMany({ setNumber: { $exists: false } }, { $set: { setNumber: 1 } });
   await User.syncIndexes();
+  const assigned = await ensureMemberNos();
+  if (assigned) console.log(`Assigned member IDs to ${assigned} user${assigned === 1 ? '' : 's'}.`);
   const sessionIndexes = await Session.collection.indexes();
   const ttl = sessionIndexes.find((index) => index.expireAfterSeconds != null);
   if (ttl) await Session.collection.dropIndex(ttl.name);

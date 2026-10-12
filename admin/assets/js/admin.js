@@ -143,7 +143,7 @@ const Admin = (() => {
       <div class="catalog-bar">
         <label class="search-bar page-search">
           ${searchIcon()}
-          <input id="user-q" type="search" placeholder="Search name or mobile" aria-label="Search users" value="${esc(qRaw)}">
+          <input id="user-q" type="search" placeholder="Search name, mobile, or ID" aria-label="Search users" value="${esc(qRaw)}">
         </label>
         <div class="catalog-filters" role="group" aria-label="Filter users">
           ${filters.map(([id, label]) => `<button class="chip${userStatus === id ? ' active' : ''}" type="button" data-action="user-filter" data-status="${id}" aria-pressed="${userStatus === id}">${label}</button>`).join('')}
@@ -151,17 +151,17 @@ const Admin = (() => {
       </div>
       <section class="card box">
         <div class="tablewrap"><table class="data-table">
-          <thead><tr><th>Name</th><th>Mobile</th><th>Balance</th><th>Pending</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>Name</th><th>Mobile</th><th>Balance</th><th>Pending</th><th>Status</th><th></th></tr></thead>
           <tbody>
             ${users.length ? users.map((u) => `<tr class="order-row" tabindex="0" data-action="user" data-id="${esc(u.id)}">
-              <td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td>
+              <td>${esc(u.memberNo || '—')}</td><td>${esc(u.fullName)}</td><td>${esc(u.mobile)}</td>
               <td>${Store.money(u.walletBalance)}</td><td>${Store.money(u.pendingCashOut)}</td>
               <td>${badge(u.accountStatus)}</td>
               <td class="row-actions">
                 <button class="icon-btn" type="button" data-action="user-history" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="Daily history"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l2.5 1.5"/></svg></button>
                 <button class="btn light" type="button" data-action="user" data-id="${esc(u.id)}">Manage</button>
               </td>
-            </tr>`).join('') : `<tr><td colspan="6">${emptyState('users', directory.length ? 'No users match' : 'No members yet', directory.length ? 'Try a different name, mobile, or status.' : 'Accounts appear here after someone signs up.')}</td></tr>`}
+            </tr>`).join('') : `<tr><td colspan="7">${emptyState('users', directory.length ? 'No users match' : 'No members yet', directory.length ? 'Try a different name, mobile, ID, or status.' : 'Accounts appear here after someone signs up.')}</td></tr>`}
           </tbody>
         </table></div>
       </section>`;
@@ -559,15 +559,19 @@ const Admin = (() => {
     openModal(`
       <div class="modal-title">
         <h3>${esc(u.fullName)}</h3>
-        <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+        <div class="row-actions">
+          <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+          <button class="icon-btn" type="button" data-action="delete-user" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="Delete user"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
+        </div>
       </div>
-      <p class="muted">${esc(u.mobile)}</p>
+      <p class="muted">${esc(u.mobile)}${u.memberNo ? ` · ID ${esc(u.memberNo)}` : ''}</p>
       <div class="set-tabs manage-tabs" role="tablist" aria-label="Manage">
         <button class="set-tab active" type="button" data-manage-tab="account" aria-selected="true">Account</button>
         <button class="set-tab" type="button" data-manage-tab="premium" aria-selected="false">Premium</button>
       </div>
       <div id="manage-account">
       <dl class="stack-stats">
+        <div class="stack-row"><span>User ID</span><b>${esc(u.memberNo || '—')}</b></div>
         <div class="stack-row"><span>Balance</span><b>${Store.money(u.walletBalance)}</b></div>
         <div class="stack-row"><span>Hold balance</span><b>${Store.money(u.holdBalance)}</b></div>
         <div class="stack-row"><span>Trial balance</span><b>${Store.money(u.trialBalance)}</b></div>
@@ -614,6 +618,16 @@ const Admin = (() => {
             </div>
           </div>` : '<p class="muted">No groups yet.</p>'}
       </div>
+      <form id="password-form" class="fields" style="margin-top:14px">
+        <p class="muted" style="margin:0 0 8px">Leave a field blank to keep the current password.</p>
+        <div class="form-2">
+          <div class="field"><label for="admin-login-pass">New login password</label><input id="admin-login-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
+          <div class="field"><label for="admin-withdraw-pass">New withdrawal password</label><input id="admin-withdraw-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn primary" type="submit">Update passwords</button>
+        </div>
+      </form>
       <form id="adjust-form" class="fields" style="margin-top:14px">
         <div class="form-2">
           <div class="field"><label for="adj-amount">Adjust amount (+ / −)</label><input id="adj-amount" type="number" step="1"></div>
@@ -672,6 +686,27 @@ const Admin = (() => {
     bindGroupPicker(id);
     bindSetPicker(id);
     bindManageTabs(id);
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loginPassword = document.getElementById('admin-login-pass').value;
+      const withdrawalPassword = document.getElementById('admin-withdraw-pass').value;
+      if (!loginPassword && !withdrawalPassword) {
+        toast('Enter a login password or a withdrawal password.');
+        return;
+      }
+      try {
+        const data = await adminApi(`/api/users/${encodeURIComponent(id)}/passwords`, {
+          method: 'PATCH',
+          body: { loginPassword, withdrawalPassword },
+        });
+        if (data.user) directory = directory.map((row) => (row.id === data.user.id ? data.user : row));
+        document.getElementById('admin-login-pass').value = '';
+        document.getElementById('admin-withdraw-pass').value = '';
+        toast(data.message || 'Passwords updated');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
     document.getElementById('adjust-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const accountStatus = document.getElementById('user-status').value;
@@ -1052,14 +1087,15 @@ const Admin = (() => {
         </div>
       </div>
       <section class="card box"><div class="tablewrap"><table class="data-table">
-        <thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Destination</th><th>When</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>User</th><th>Member ID</th><th>Amount</th><th>Method</th><th>Destination</th><th>When</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${list.length ? list.map((c) => `<tr>
             <td>${esc(c.userName)}<div class="muted">${esc(c.mobile)}</div></td>
+            <td>${esc(c.memberNo || '—')}</td>
             <td>${Store.money(c.amount)}</td><td>${esc(c.method)}</td><td>${esc(c.destination)}</td>
             <td>${esc(String(c.requestedAt || '').slice(0, 16).replace('T', ' '))}</td><td>${badge(c.status)}</td>
             <td>${c.status === 'pending' || c.status === 'processing' ? `<div class="row-actions"><button class="btn light" type="button" data-action="approve" data-id="${esc(c.id)}">Approve</button><button class="btn light" type="button" data-action="reject" data-id="${esc(c.id)}">Reject</button></div>` : esc(c.rejectionReason || '—')}</td>
-          </tr>`).join('') : `<tr><td colspan="7"><div class="empty-wrap">${emptyState('card', loadNote || 'No cash outs in this view', loadNote ? 'Refresh the page and try again.' : 'Requests show here when a member asks to cash out.')}</div></td></tr>`}
+          </tr>`).join('') : `<tr><td colspan="8"><div class="empty-wrap">${emptyState('card', loadNote || 'No cash outs in this view', loadNote ? 'Refresh the page and try again.' : 'Requests show here when a member asks to cash out.')}</div></td></tr>`}
         </tbody>
       </table></div></section>`;
   }
@@ -1085,16 +1121,17 @@ const Admin = (() => {
         <h2 class="serif">Transactions</h2>
       </div>
       <section class="card box"><div class="tablewrap"><table class="data-table">
-        <thead><tr><th>User</th><th>Type</th><th>Activity</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
+        <thead><tr><th>User</th><th>Member ID</th><th>Type</th><th>Activity</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
         <tbody>
           ${txRows.length ? txRows.map((row) => `<tr>
             <td>${esc(row.userName)}<div class="muted">${esc(row.mobile)}</div></td>
+            <td>${esc(row.memberNo || '—')}</td>
             <td>${esc(txType(row.type))}</td>
             <td>${esc(row.description)}</td>
             <td>${row.direction === 'debit' ? '−' : '+'}${Store.money(row.amount)}</td>
             <td>${badge(row.status)}</td>
             <td>${esc(String(row.createdAt || '').slice(0, 16).replace('T', ' '))}</td>
-          </tr>`).join('') : `<tr><td colspan="6"><div class="empty-wrap">${emptyState('list', loadNote || 'No transactions yet', loadNote ? 'Refresh the page and try again.' : 'Wallet credits, activations, and cash outs show here.')}</div></td></tr>`}
+          </tr>`).join('') : `<tr><td colspan="7"><div class="empty-wrap">${emptyState('list', loadNote || 'No transactions yet', loadNote ? 'Refresh the page and try again.' : 'Wallet credits, activations, and cash outs show here.')}</div></td></tr>`}
         </tbody>
       </table></div></section>`;
   }
@@ -1323,6 +1360,25 @@ const Admin = (() => {
     if (action === 'user') openUser(el.dataset.id);
     if (action === 'user-history') openUserHistory(el.dataset.id, el.dataset.name);
     if (action === 'user-sessions') openSessions(el.dataset.id, el.dataset.name);
+    if (action === 'delete-user') {
+      openModal(`
+        <h3>Delete user</h3>
+        <p class="muted">Delete ${esc(el.dataset.name || 'this member')} and all related data (sessions, orders, transactions, cash outs, premiums, referrals)? This cannot be undone.</p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn danger" type="button" data-action="confirm-delete-user" data-id="${esc(el.dataset.id)}">Delete permanently</button>
+        </div>`);
+    }
+    if (action === 'confirm-delete-user') {
+      adminApi(`/api/users/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
+        .then(() => {
+          directory = directory.filter((row) => row.id !== el.dataset.id);
+          closeModal();
+          toast('User deleted');
+          renderUsers();
+        })
+        .catch((err) => toast(err.message));
+    }
     if (action === 'revoke-user-session') {
       adminApi(`/api/users/${encodeURIComponent(el.dataset.user)}/sessions/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
         .then(() => {

@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema(
     fullName: { type: String, required: true },
     mobile: { type: String, required: true },
     mobileDigits: { type: String, required: true, unique: true },
+    memberNo: { type: Number },
     loginId: { type: String },
     passwordHash: { type: String, required: true },
     withdrawalPasswordHash: { type: String, default: '' },
@@ -36,6 +37,11 @@ const userSchema = new mongoose.Schema(
 userSchema.index(
   { loginId: 1 },
   { unique: true, partialFilterExpression: { loginId: { $type: 'string' } } }
+);
+
+userSchema.index(
+  { memberNo: 1 },
+  { unique: true, partialFilterExpression: { memberNo: { $type: 'number' } } }
 );
 
 export const User = mongoose.model('User', userSchema);

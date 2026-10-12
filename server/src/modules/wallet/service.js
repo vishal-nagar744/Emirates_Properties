@@ -59,6 +59,7 @@ export async function listAllTransactions() {
           ...viewTransaction(row),
           userName: owner ? owner.fullName : 'Member',
           mobile: owner ? owner.mobile : '',
+          memberNo: owner && owner.memberNo != null ? owner.memberNo : null,
         };
       }),
     },

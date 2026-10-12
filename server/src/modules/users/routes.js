@@ -4,10 +4,12 @@ import { listSessions, revokeOwnedSession } from '../auth/session.js';
 import {
   adjustMemberWallet,
   clearUnlockNotices,
+  deleteMember,
   getMember,
   listMembers,
   memberDailyHistory,
   setMemberGroups,
+  setMemberPasswords,
   setMemberSets,
   setMemberStatus,
   updateOwnProfile,
@@ -104,6 +106,18 @@ router.get('/:id', requireAdmin, route(async (req, res) => {
 
 router.patch('/:id/status', requireAdmin, route(async (req, res) => {
   send(res, await setMemberStatus(req.params.id, (req.body || {}).accountStatus));
+}));
+
+router.patch('/:id/passwords', requireAdmin, route(async (req, res) => {
+  const body = req.body || {};
+  send(res, await setMemberPasswords(req.params.id, {
+    loginPassword: body.loginPassword,
+    withdrawalPassword: body.withdrawalPassword,
+  }));
+}));
+
+router.delete('/:id', requireAdmin, route(async (req, res) => {
+  send(res, await deleteMember(req.params.id));
 }));
 
 router.patch('/:id/groups', requireAdmin, route(async (req, res) => {

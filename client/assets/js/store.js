@@ -484,6 +484,7 @@ const Store = (() => {
     return {
       ...local,
       id: session.id,
+      memberNo: session.memberNo || local.memberNo || null,
       fullName: session.fullName || local.fullName,
       mobile: session.mobile || local.mobile,
       accountStatus: session.accountStatus || 'active',

@@ -1548,7 +1548,7 @@ const Member = (() => {
                 <div class="account-name">${esc(user.fullName)} ${badge(user.accountStatus)}</div>
                 <button class="icon-btn profile-edit" type="button" data-action="account-section" data-section="edit" aria-label="Edit profile"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="m13.5 6.5 3 3"/></svg></button>
               </div>
-              <p class="account-userid">User ID · ${esc(String(user.id || ''))}</p>
+              <p class="account-userid">User ID · ${esc(String(user.memberNo || user.id || ''))}</p>
               <p>Mobile · ${esc(user.mobile)}</p>
             </div>
           </div>
