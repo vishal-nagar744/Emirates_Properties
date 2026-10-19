@@ -194,13 +194,11 @@ export async function deleteMember(id) {
 
 export async function adjustMemberWallet(id, { amount, reason }) {
   const value = Number(amount);
-  const note = String(reason || '').trim();
+  const note = String(reason || '').trim() || 'Admin adjustment';
   if (!Number.isFinite(value) || value === 0) return { status: 400, message: 'Enter an amount other than zero.' };
-  if (!note) return { status: 400, message: 'Enter a reason.' };
   const user = await findMember(id);
   if (!user) return { status: 404, message: 'User not found.' };
-  const next = user.walletBalance + value;
-  if (next < 0) return { status: 400, message: 'Balance cannot go below zero.' };
+  const next = Math.round(((Number(user.walletBalance) || 0) + value) * 100) / 100;
   user.walletBalance = next;
   await user.save();
   await Transaction.create({

@@ -630,8 +630,8 @@ const Admin = (() => {
       </form>
       <form id="adjust-form" class="fields" style="margin-top:14px">
         <div class="form-2">
-          <div class="field"><label for="adj-amount">Adjust amount (+ / −)</label><input id="adj-amount" type="number" step="1"></div>
-          <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason"></div>
+          <div class="field"><label for="adj-amount">Adjust amount (+ / −)</label><input id="adj-amount" type="number" step="any"></div>
+          <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason (optional)"></div>
         </div>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Close</button>

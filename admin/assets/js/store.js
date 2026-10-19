@@ -834,17 +834,18 @@ const Store = (() => {
   function adjustWallet(userId, amount, reason) {
     load();
     const value = Number(amount);
-    if (!value || !reason) return { ok: false, error: 'Amount and reason are required.' };
+    if (!value) return { ok: false, error: 'Enter an amount other than zero.' };
+    const note = String(reason || '').trim() || 'Adjustment';
     const row = db.users.find((u) => u.id === userId);
     if (!row) return { ok: false, error: 'User not found.' };
-    row.walletBalance += value;
+    row.walletBalance = Math.round(((Number(row.walletBalance) || 0) + value) * 100) / 100;
     if (db.user.id === userId) {
-      db.user.walletBalance += value;
+      db.user.walletBalance = row.walletBalance;
       addTx({
         type: 'adjustment',
         amount: Math.abs(value),
         direction: value >= 0 ? 'credit' : 'debit',
-        description: `Admin adjustment · ${reason}`,
+        description: `Admin adjustment · ${note}`,
         referenceId: 'admin',
       });
     }
