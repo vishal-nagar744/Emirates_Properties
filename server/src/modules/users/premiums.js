@@ -37,8 +37,8 @@ function readPremium(body, current) {
   if (setNumber !== 1 && setNumber !== 2 && setNumber !== 3) {
     return { status: 400, message: 'Choose set 1, 2, or 3.' };
   }
-  if (!Number.isInteger(position) || position < 1) {
-    return { status: 400, message: 'Position must be 1 or more.' };
+  if (!Number.isInteger(position) || position < 1 || position > 20) {
+    return { status: 400, message: 'Position must be between 1 and 20.' };
   }
   if (!name) return { status: 400, message: 'Enter a project name.' };
   if (!Number.isFinite(price) || price < 0 || (cash && price <= 0)) {

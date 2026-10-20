@@ -515,11 +515,17 @@ const Admin = (() => {
         err.textContent = 'Choose a group.';
         return;
       }
+      const pos = Number(document.getElementById('prem-position').value);
+      if (!Number.isInteger(pos) || pos < 1 || pos > 20) {
+        err.hidden = false;
+        err.textContent = 'Position must be between 1 and 20.';
+        return;
+      }
       const cash = mode === 'fortune' && reward === 'cash';
       const payload = {
         groupId,
         setNumber,
-        position: Number(document.getElementById('prem-position').value),
+        position: pos,
         name: cash ? 'Cash reward' : document.getElementById('prem-name').value.trim(),
         price: document.getElementById('prem-price').value,
         commissionRatio: cash ? 0 : document.getElementById('prem-ratio').value,
@@ -668,7 +674,7 @@ const Admin = (() => {
             </div>
           </div>
           <div class="form-2">
-            <div class="field"><label for="prem-position">Position</label><input id="prem-position" type="number" min="1" step="1" value="1"></div>
+            <div class="field"><label for="prem-position">Position (1–20)</label><input id="prem-position" type="number" min="1" max="20" step="1" value="1"></div>
             <div class="field" id="prem-name-wrap"><label for="prem-name">Name</label><input id="prem-name"></div>
           </div>
           <div class="form-2">

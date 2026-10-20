@@ -378,18 +378,28 @@ const Member = (() => {
     return value === 2 || value === 3 ? value : 1;
   }
 
-  function setSequence(projects, premiums) {
+  const SET_LIMIT = 20;
+
+  function setSequence(projects, premiums, limit = SET_LIMIT) {
     const priceOrder = (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0)
       || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
     const list = projects.filter((project) => project.projectType !== 'premium').slice().sort(priceOrder);
-    const inserts = (premiums || []).slice().sort((a, b) => (
+    const capped = limit > 0 ? list.slice(0, limit) : list;
+    const sortedPremiums = (premiums || []).slice().sort((a, b) => (
       (Number(a.position) || 0) - (Number(b.position) || 0)
     ));
-    inserts.forEach((premium) => {
-      const at = Math.max(0, (Number(premium.position) || (list.length + 1)) - 1);
-      list.splice(Math.min(at, list.length), 0, premium);
+    sortedPremiums.forEach((premium) => {
+      const pos = Number(premium.position);
+      if (!Number.isFinite(pos) || pos < 1) return;
+      const at = pos - 1;
+      if (limit > 0 && at >= limit) return;
+      if (at < capped.length) {
+        capped[at] = premium;
+      } else if (limit <= 0 || capped.length < limit) {
+        capped.push(premium);
+      }
     });
-    return list;
+    return capped;
   }
 
   function setBoards() {

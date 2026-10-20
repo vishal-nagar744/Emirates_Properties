@@ -9,7 +9,7 @@ import { User } from './model.js';
 import { Transaction, WithdrawalAccount } from '../wallet/model.js';
 import { Order } from '../orders/model.js';
 import { Project } from '../projects/model.js';
-import { nextGroupProject } from '../projects/service.js';
+import { nextGroupProject, setSequence, setNumberOf } from '../projects/service.js';
 import { Referral } from '../referrals/model.js';
 import { UserPremium } from './premium-model.js';
 import { orderWorkDate } from '../../lib/workDate.js';
@@ -335,7 +335,13 @@ export async function memberDailyHistory(id) {
         const premiums = premiumRows.filter((row) => String(row.groupId) === groupId);
         const done = new Set(rows.map((order) => String(order.projectId)));
         const next = nextGroupProject(projects, premiums, done);
-        const total = projects.length + premiums.length;
+        const total = [1, 2, 3].reduce((sum, setNumber) => {
+          const setProjects = setSequence(
+            projects.filter((project) => setNumberOf(project) === setNumber),
+            premiums.filter((premium) => setNumberOf(premium) === setNumber),
+          );
+          return sum + setProjects.length;
+        }, 0);
         const commission = rows.reduce((sum, order) => sum + (Number(order.commissionAmount) || Number(order.earnedCommission) || 0), 0);
         const spent = rows.reduce((sum, order) => sum + (Number(order.price) || 0), 0);
         return {
