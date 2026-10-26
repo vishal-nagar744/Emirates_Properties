@@ -38,7 +38,7 @@ const Member = (() => {
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body) headers['Content-Type'] = 'application/json';
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     let res;
     try {
       res = await fetch(`${API_BASE}${path}`, {
@@ -48,7 +48,7 @@ const Member = (() => {
         signal: controller.signal,
       });
     } catch (err) {
-      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond.');
+      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond. It may still be waking up from a cold start.');
       throw new Error('Could not reach the server.');
     } finally {
       clearTimeout(timer);
@@ -1937,18 +1937,24 @@ const Member = (() => {
   function startStatusWatch() {
     if (startStatusWatch.started) return;
     startStatusWatch.started = true;
+    let isPulling = false;
     const pull = async () => {
-      if (document.hidden) return;
-      const before = String((Store.user() && Store.user().accountStatus) || '');
-      const user = await refreshMember();
-      if (!user) return;
-      if (String(user.accountStatus || '') !== before) paintPage();
+      if (document.hidden || isPulling) return;
+      isPulling = true;
+      try {
+        const before = String((Store.user() && Store.user().accountStatus) || '');
+        const user = await refreshMember();
+        if (!user) return;
+        if (String(user.accountStatus || '') !== before) paintPage();
+      } finally {
+        isPulling = false;
+      }
     };
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) pull();
     });
     window.addEventListener('focus', pull);
-    window.setInterval(pull, 8000);
+    window.setInterval(pull, 25000);
   }
 
   async function render() {

@@ -34,7 +34,7 @@ const Admin = (() => {
     const headers = { Accept: 'application/json', Authorization: `Bearer ${adminToken()}` };
     if (body) headers['Content-Type'] = 'application/json';
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     let res;
     try {
       res = await fetch(`${API_BASE}${path}`, {
@@ -44,7 +44,7 @@ const Admin = (() => {
         signal: controller.signal,
       });
     } catch (err) {
-      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond.');
+      if (err && err.name === 'AbortError') throw new Error('The server took too long to respond. It may still be waking up from a cold start.');
       throw new Error('Could not reach the server.');
     } finally {
       clearTimeout(timer);
@@ -59,7 +59,7 @@ const Admin = (() => {
     const body = new FormData();
     body.append('image', file);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), 90000);
     let res;
     try {
       res = await fetch(`${API_BASE}/api/projects/image`, {
@@ -69,7 +69,7 @@ const Admin = (() => {
         signal: controller.signal,
       });
     } catch (err) {
-      if (err && err.name === 'AbortError') throw new Error('The upload took too long.');
+      if (err && err.name === 'AbortError') throw new Error('The upload took too long. The server may still be waking up.');
       throw new Error('Could not reach the server.');
     } finally {
       clearTimeout(timer);

@@ -268,6 +268,7 @@ function mountShell() {
         fetch(`${window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000'}/api/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
         }).catch(() => {});
       }
       window.location.href = 'login.html';
