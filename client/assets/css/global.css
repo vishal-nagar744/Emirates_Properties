@@ -1,20 +1,20 @@
 /* ============================================================
-   PRIMESPACE — GLOBAL DESIGN SYSTEM
-   Emirates Properties | PrimeSpace Platform
+   GLOBAL DESIGN SYSTEM
+   Alfardan Properties
    ============================================================ */
 
 /* ── 1. Design Tokens ─────────────────────────────────────── */
 :root {
-  --g:      #123f32;
-  --g2:     #0b3026;
-  --sage:   #dfece4;
-  --pale:   #f2f7f4;
-  --cream:  #fbfaf7;
-  --ink:    #17231f;
-  --muted:  #74817b;
-  --line:   #e2eae5;
-  --gold:   #b69b68;
-  --shadow: 0 18px 50px rgba(18, 63, 50, 0.09);
+  --g:      #1c1916;
+  --g2:     #11100e;
+  --sage:   #f1e8e7;
+  --pale:   #f8f4f3;
+  --cream:  #fbf9f8;
+  --ink:    #1a1a1a;
+  --muted:  #6c757d;
+  --line:   #e5d4d3;
+  --gold:   #c89328;
+  --shadow: 0 18px 50px rgba(28, 25, 22, 0.10);
   --radius-sm:  6px;
   --radius-md:  8px;
   --radius-lg:  10px;
@@ -379,10 +379,10 @@ p {
   inset: 0;
   background: linear-gradient(
     105deg,
-    #f2f7f4 0%,
-    rgba(242, 247, 244, 0.96) 38%,
-    rgba(242, 247, 244, 0.55) 62%,
-    rgba(242, 247, 244, 0.12) 100%
+    #f8f4f3 0%,
+    rgba(248, 244, 243, 0.96) 38%,
+    rgba(248, 244, 243, 0.55) 62%,
+    rgba(248, 244, 243, 0.12) 100%
   );
 }
 
@@ -1810,7 +1810,7 @@ a.kpi:focus-visible {
 
 .bar-chart .bar {
   flex: 1;
-  background: linear-gradient(#6f9b84, #123f32);
+  background: linear-gradient(#c89328, #1c1916);
   border-radius: 7px 7px 0 0;
   transition: opacity 0.2s;
 }
@@ -1821,7 +1821,7 @@ a.kpi:focus-visible {
 
 /* ── 33. Wallet card ──────────────────────────────────────── */
 .wallet-card {
-  background: linear-gradient(135deg, #123f32, #1b5946);
+  background: linear-gradient(135deg, #1c1916, #3d2e16);
   color: #fff;
   padding: 24px 28px;
   display: flex;
@@ -3691,7 +3691,7 @@ a.chip {
   margin-top: 8px;
 }
 
-.status-ok { background: #e7f3ec; color: #123f32; }
+.status-ok { background: #f1e8e7; color: #1c1916; }
 .status-pending { background: #f6edd4; color: #6a5424; }
 .status-warn { background: #f8f1e3; color: #8a6a2f; }
 .status-bad { background: #f8e8e4; color: #8a3b2e; }
@@ -3752,7 +3752,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     font-size: 10px;
     line-height: 1.2;
     font-weight: 700;
-    color: #74817b;
+    color: #6c757d;
     padding: 4px 2px;
     text-decoration: none;
     cursor: pointer;
@@ -3901,7 +3901,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   padding: 26px 22px 22px;
   background:
     radial-gradient(circle at 88% 0%, rgba(182, 155, 104, 0.42), transparent 46%),
-    linear-gradient(165deg, #1c5c49, #123f32);
+    linear-gradient(165deg, #1c5c49, #1c1916);
   color: #fff;
 }
 
@@ -3994,7 +3994,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   display: grid;
   place-items: center;
   background: #fff;
-  color: #123f32;
+  color: #1c1916;
   cursor: pointer;
 }
 
@@ -4254,7 +4254,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   gap: 16px;
   padding: 18px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #123f32 0%, #1a5c46 100%);
+  background: linear-gradient(145deg, #1c1916 0%, #1a5c46 100%);
   color: #fff;
 }
 
@@ -4980,7 +4980,7 @@ a.support-topic:hover .support-topic-ico { background: #fff; }
   text-align: center;
   background:
     radial-gradient(circle at 88% 0%, rgba(182, 155, 104, 0.42), transparent 46%),
-    linear-gradient(165deg, #1c5c49, #123f32);
+    linear-gradient(165deg, #1c5c49, #1c1916);
   color: #fff;
 }
 
@@ -5105,7 +5105,7 @@ a.support-topic:hover .support-topic-ico { background: #fff; }
   border-bottom: 1px solid rgba(18, 63, 50, 0.1);
   background:
     radial-gradient(circle at 12% 50%, rgba(182, 155, 104, 0.22), transparent 42%),
-    linear-gradient(90deg, #123f32, #1a5c46 55%, #123f32);
+    linear-gradient(90deg, #1c1916, #1a5c46 55%, #1c1916);
   color: #fff;
   cursor: pointer;
   overflow: hidden;
@@ -5209,7 +5209,7 @@ a.support-topic:hover .support-topic-ico { background: #fff; }
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
-  background: #123f32;
+  background: #1c1916;
   color: #fff;
 }
 

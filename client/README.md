@@ -1,6 +1,6 @@
-# PrimeSpace Frontend — Refactored Structure
+# Alfardan Properties Frontend — Refactored Structure
 
-A clean, scalable, production-ready HTML + CSS + Vanilla JS frontend for the Emirates Properties / PrimeSpace platform.
+A clean, scalable, production-ready HTML + CSS + Vanilla JS frontend for the Alfardan Properties platform.
 
 ---
 
@@ -165,4 +165,4 @@ When the backend is ready:
 
 ---
 
-*PrimeSpace · Emirates Properties · © 2026*
+*Alfardan Properties · © 2026*

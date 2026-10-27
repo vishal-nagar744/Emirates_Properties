@@ -86,11 +86,11 @@ export async function seed() {
     {
       $setOnInsert: {
         key: 'platform',
-        platformName: 'Emirates Properties',
+        platformName: 'Alfardan Properties',
         welcomeBonusAmount: 100,
         trialBonusAmount: 0,
         minCashOutAmount: 500,
-        supportTelegramUsername: 'EmiratesPropertiesSupport',
+        supportTelegramUsername: 'AlfardanPropertiesSupport',
         supportWhatsappNumber: '',
         demoCashInUSDTAddress: '',
         about: defaultAbout,
@@ -103,6 +103,17 @@ export async function seed() {
   await Settings.updateOne(
     { key: 'platform', trialBonusAmount: { $exists: false } },
     { $set: { trialBonusAmount: 0 } }
+  );
+  await Settings.updateOne(
+    { key: 'platform', platformName: 'Emirates Properties' },
+    {
+      $set: {
+        platformName: 'Alfardan Properties',
+        supportTelegramUsername: 'AlfardanPropertiesSupport',
+        about: defaultAbout,
+        terms: defaultTerms,
+      },
+    }
   );
   const platform = await Settings.findOne({ key: 'platform' });
   if (platform && !platform.about) {

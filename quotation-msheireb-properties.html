@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quotation — Msheireb Properties Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1c1712;
+      --muted: #6b6258;
+      --line: #e6ddd2;
+      --paper: #f7f3ec;
+      --card: #fffdf9;
+      --sand: #c9a36a;
+      --sand-deep: #9a7340;
+      --maroon: #6b2d2a;
+      --ok: #2f6b4f;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #eee6d8 0%, #f4efe6 40%, #ebe4d8 100%);
+      line-height: 1.55;
+    }
+    .wrap {
+      max-width: 920px;
+      margin: 32px auto 64px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: 0 24px 70px rgba(40, 28, 16, 0.12);
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 28px;
+      background: #1c1712;
+      color: #f4efe6;
+      font-size: 13px;
+    }
+    .topbar button, .topbar a {
+      appearance: none;
+      border: 1px solid rgba(201, 163, 106, 0.45);
+      background: transparent;
+      color: #f4efe6;
+      padding: 7px 12px;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .hero {
+      padding: 42px 48px 28px;
+      background:
+        linear-gradient(135deg, rgba(107, 45, 42, 0.08), transparent 42%),
+        linear-gradient(180deg, #fffaf3, #f7f1e6);
+      border-bottom: 1px solid var(--line);
+    }
+    .kicker {
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--sand-deep);
+      margin: 0 0 10px;
+    }
+    h1, h2, h3 { font-family: "Cormorant Garamond", Georgia, serif; margin: 0; }
+    h1 { font-size: 42px; line-height: 1.12; font-weight: 600; }
+    h2 { font-size: 26px; margin-bottom: 10px; }
+    h3 { font-size: 18px; margin-bottom: 6px; }
+    .lede { color: var(--muted); font-size: 16px; max-width: 640px; margin: 12px 0 0; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      margin-top: 28px;
+    }
+    .meta div, .block, .scope, .pay, .term {
+      background: var(--card);
+    }
+    .meta p { margin: 0; }
+    .meta span { display: block; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+    .meta strong { font-size: 15px; }
+    .body { padding: 36px 48px 48px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card {
+      border: 1px solid var(--line);
+      padding: 18px 18px 16px;
+      background: #fffaf4;
+    }
+    .price-band {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 18px;
+      margin: 8px 0 28px;
+    }
+    .total {
+      background: #1c1712;
+      color: #f7f3ec;
+      padding: 24px;
+    }
+    .total .kicker { color: var(--sand); }
+    .total h2 { font-size: 48px; color: #fff; }
+    .total p { margin: 8px 0 0; color: #d8cbb8; }
+    .pay-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+    .pay-table th, .pay-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .pay-table th { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .pay-table td:last-child, .pay-table th:last-child { text-align: right; white-space: nowrap; }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    li { margin: 5px 0; }
+    .muted { color: var(--muted); }
+    .section { margin: 34px 0; }
+    .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--maroon);
+      background: #f3e6dc;
+      padding: 3px 8px;
+      margin-bottom: 8px;
+    }
+    .note {
+      background: #f3eee4;
+      border-left: 3px solid var(--sand);
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    .sign {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 18px;
+    }
+    .line { border-top: 1px solid var(--ink); margin-top: 48px; padding-top: 8px; font-size: 13px; color: var(--muted); }
+    footer {
+      padding: 16px 48px 28px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12.5px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    @media (max-width: 760px) {
+      .wrap { margin: 0; }
+      .hero, .body, footer { padding-left: 20px; padding-right: 20px; }
+      .meta, .grid-2, .price-band, .scope-grid, .sign { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      .topbar { display: none; }
+      .wrap { margin: 0; box-shadow: none; border: 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span>Quotation MP-2026-001 · Confidential</span>
+      <span>
+        <button type="button" onclick="window.print()">Print / Save PDF</button>
+      </span>
+    </div>
+
+    <header class="hero">
+      <p class="kicker">Project quotation</p>
+      <h1>Msheireb Properties<br>member rewards platform</h1>
+      <p class="lede">A complete member rewards platform for Msheireb Properties: public website, member app, wallet, commissions, cash-out workflow, and admin control panel — delivered as a ready-to-run product under your brand.</p>
+      <div class="meta">
+        <div>
+          <span>Prepared for</span>
+          <strong>Msheireb Properties</strong>
+          <p class="muted">Custom platform build</p>
+        </div>
+        <div>
+          <span>Quote date</span>
+          <strong>27 October 2026</strong>
+          <p class="muted">Valid for 21 days</p>
+        </div>
+        <div>
+          <span>Reference</span>
+          <strong>MP-2026-001</strong>
+          <p class="muted">Fixed project fee</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="body">
+      <section class="price-band">
+        <div class="total">
+          <p class="kicker">Investment</p>
+          <h2>USD 350</h2>
+          <p>Fixed price for the full platform build, branding, setup, and handover. No hourly billing on the agreed scope.</p>
+        </div>
+        <div class="card">
+          <p class="kicker">Payment plan</p>
+          <h3>30% · 30% · 40%</h3>
+          <ul>
+            <li><strong>USD 105</strong> on booking — work starts</li>
+            <li><strong>USD 105</strong> at first working demo</li>
+            <li><strong>USD 140</strong> on final delivery &amp; source handover</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">01 · Overview</p>
+        <h2>What you receive</h2>
+        <p>Msheireb Properties will receive a dedicated production platform. Branding, copy, logo placement, colours, and contact channels will be yours. Data, users, and admin access belong only to this project.</p>
+        <div class="grid-2" style="margin-top:16px">
+          <div class="card">
+            <h3>Member platform</h3>
+            <p class="muted">Public landing, signup/login, dashboard, project groups, orders, commissions, wallet, cash-out, profile, and support.</p>
+          </div>
+          <div class="card">
+            <h3>Admin control panel</h3>
+            <p class="muted">Users, balances, passwords, project catalog, cash-out approvals, transactions, and platform settings.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">02 · Scope of work</p>
+        <h2>Included in this quotation</h2>
+        <div class="scope-grid">
+          <article class="card">
+            <span class="tag">Public site</span>
+            <h3>Landing, About &amp; Terms</h3>
+            <ul>
+              <li>Msheireb Properties branding, logo, and colour system</li>
+              <li>Hero, how it works, featured projects, FAQ, footer</li>
+              <li>Welcome bonus banner</li>
+              <li>About and Terms pages, editable from admin</li>
+              <li>Telegram / WhatsApp support and “List your property” links</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">Accounts</span>
+            <h3>Registration &amp; login</h3>
+            <ul>
+              <li>Signup with name, mobile, and password</li>
+              <li>Login, session handling, forgot password</li>
+              <li>Short 5–6 digit member IDs</li>
+              <li>Welcome bonus on approved accounts</li>
+              <li>Account statuses: active, pending, blocked, suspended</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">Rewards</span>
+            <h3>Projects, sets &amp; orders</h3>
+            <ul>
+              <li>Project groups with Set 1 / 2 / 3</li>
+              <li>Admin lock/unlock of groups and sets per user</li>
+              <li>Order flow with commission credited to wallet</li>
+              <li>Trial wallet, hold balance, daily reset logic</li>
+              <li>Premium projects and fortune-box items per member</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">Money</span>
+            <h3>Wallet &amp; cash-out</h3>
+            <ul>
+              <li>Main wallet ledger and transaction history</li>
+              <li>Cash-in via Telegram</li>
+              <li>Cash-out requests with withdrawal password</li>
+              <li>Bank and/or crypto payout accounts</li>
+              <li>Admin approve / reject with refund on rejection</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">Admin</span>
+            <h3>Operations panel</h3>
+            <ul>
+              <li>User directory, search, status, wallet adjustment</li>
+              <li>Change login and withdrawal passwords</li>
+              <li>Delete a member and all related records</li>
+              <li>Cash-out queue and full transaction log with member ID</li>
+              <li>Catalog, settings, min cash-out, bonus, support links</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">Delivery</span>
+            <h3>Setup &amp; handover</h3>
+            <ul>
+              <li>Separate database and admin login for Msheireb</li>
+              <li>Source code of client, admin, and API</li>
+              <li>Environment setup notes and first-run seed</li>
+              <li>One round of branding revisions (logo, colours, copy)</li>
+              <li>Walkthrough of admin after delivery</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">03 · Commercials</p>
+        <h2>Fee and payment schedule</h2>
+        <table class="pay-table">
+          <thead>
+            <tr>
+              <th>Milestone</th>
+              <th>When it is due</th>
+              <th>%</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Booking / kickoff</strong><br><span class="muted">Signed quote + first payment. Branding assets collected. Project started.</span></td>
+              <td>On acceptance</td>
+              <td>30%</td>
+              <td><strong>USD 105</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Working demo</strong><br><span class="muted">Msheireb-branded member site running: landing, signup, dashboard, projects, wallet screens.</span></td>
+              <td>On demo approval</td>
+              <td>30%</td>
+              <td><strong>USD 105</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Final delivery</strong><br><span class="muted">Admin panel complete, cash-out live, testing done, source and credentials handed over.</span></td>
+              <td>On handover</td>
+              <td>40%</td>
+              <td><strong>USD 140</strong></td>
+            </tr>
+            <tr>
+              <td colspan="3"><strong>Project total</strong></td>
+              <td><strong>USD 350</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:16px">Work on the next milestone starts after the related payment is received. The 40% balance is due before live credentials and source handover.</p>
+      </section>
+
+      <section class="section">
+        <p class="kicker">04 · Timeline</p>
+        <h2>Estimated delivery</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>7–12 working days</h3>
+            <p class="muted">Typical duration after kickoff payment and receipt of logo, brand colours, support links, and legal copy. Faster if assets are ready on day one.</p>
+          </div>
+          <div class="card">
+            <h3>Suggested sequence</h3>
+            <ul>
+              <li>Days 1–2: branding, environments, admin seed</li>
+              <li>Days 3–6: member platform demo (30% milestone)</li>
+              <li>Days 7–10: admin, cash-out, settings, QA</li>
+              <li>Days 11–12: revisions, handover, walkthrough</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">05 · Boundaries</p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Included</h3>
+            <ul>
+              <li>Full member rewards platform as listed in this quote</li>
+              <li>Msheireb Properties branding throughout</li>
+              <li>Independent hosting-ready codebase and database</li>
+              <li>One branding revision round</li>
+              <li>Admin training session (remote)</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Not included</h3>
+            <ul>
+              <li>Features not listed in this quotation</li>
+              <li>Card / payment-gateway processing (cash-in is Telegram unless quoted separately)</li>
+              <li>Native iOS / Android apps</li>
+              <li>Ongoing hosting, domain, or server bills</li>
+              <li>Monthly support retainer (can be quoted after launch)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">06 · Terms</p>
+        <h2>Commercial terms</h2>
+        <ul>
+          <li>This quote is valid for <strong>21 days</strong> from 27 October 2026.</li>
+          <li>Currency is <strong>United States Dollars (USD 350)</strong>, paid as 30% / 30% / 40%.</li>
+          <li>Client supplies logo (PNG/SVG), preferred colours, Telegram/WhatsApp links, About/Terms text, and admin contact details.</li>
+          <li>Source code and production access are released after the final 40% payment.</li>
+          <li>All platform data, users, and credentials belong to Msheireb Properties after handover.</li>
+          <li>Extra features, extra revision rounds, or third-party payment integration are quoted separately.</li>
+          <li>Hosting, domain, SSL, and SMS/email provider accounts (if needed later) are billed by those providers, not included in this fee.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <p class="kicker">07 · Acceptance</p>
+        <h2>To proceed</h2>
+        <p>Sign below or reply with written acceptance of quote <strong>MP-2026-001</strong> for <strong>USD 350</strong>. Kickoff begins on receipt of the first <strong>USD 105</strong>.</p>
+        <div class="sign">
+          <div>
+            <div class="line">For Msheireb Properties<br>Name / title / date</div>
+          </div>
+          <div>
+            <div class="line">For the developer<br>Name / date</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Msheireb Properties platform quotation · MP-2026-001</span>
+      <span>Fixed fee USD 350 · 30 / 30 / 40</span>
+    </footer>
+  </div>
+</body>
+</html>

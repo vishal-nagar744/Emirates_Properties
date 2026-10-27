@@ -70,11 +70,11 @@ function viewSettings(row) {
 
 function defaults() {
   return {
-    platformName: 'Emirates Properties',
+    platformName: 'Alfardan Properties',
     welcomeBonusAmount: 100,
     trialBonusAmount: 0,
     minCashOutAmount: 500,
-    supportTelegramUsername: 'EmiratesPropertiesSupport',
+    supportTelegramUsername: 'AlfardanPropertiesSupport',
     supportWhatsappNumber: '',
     demoCashInUSDTAddress: '',
     bankPayoutEnabled: true,

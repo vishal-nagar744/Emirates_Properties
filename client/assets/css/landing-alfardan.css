@@ -1,0 +1,199 @@
+.primary_nav .menu-item-auth {
+  display: flex;
+  align-items: center;
+}
+.primary_nav .menu-item-auth a {
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 14px !important;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.primary_nav .menu-item-auth .nav-login {
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.primary_nav .menu-item-auth .nav-signup {
+  background: #c89328;
+  color: #fff !important;
+}
+header.sticky .primary_nav .menu-item-auth .nav-login {
+  color: #1a1a1a !important;
+  border-color: #c89328;
+}
+header.sticky .primary_nav .menu-item-auth .nav-signup {
+  color: #fff !important;
+}
+.offcanvas__menu .menu-item-auth {
+  margin: 8px 20px 0;
+}
+.offcanvas__menu .menu-item-auth a {
+  display: block;
+  text-align: center;
+  padding: 10px 14px !important;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.offcanvas__menu .menu-item-auth .nav-login {
+  border: 1px solid #c89328;
+  color: #1a1a1a !important;
+}
+.offcanvas__menu .menu-item-auth .nav-signup {
+  background: #c89328;
+  color: #fff !important;
+}
+.welcome-bonus-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 6;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid #c89328;
+  color: #fff;
+  padding: 10px 22px;
+  text-align: center;
+  min-width: min(420px, 90vw);
+}
+.welcome-bonus-bar span {
+  display: block;
+  font-size: 1.1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c89328;
+  font-weight: 700;
+}
+.welcome-bonus-bar strong {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+.header-top,
+.search_container,
+.lang_switch {
+  display: none !important;
+}
+.hero_section { position: relative; }
+.search_container form { pointer-events: auto; }
+.grecaptcha-badge, .selectextShadowHost { display: none !important; }
+
+/* Saved Alfardan CSS used Font Awesome Pro fonts that were not included.
+   Map those classes onto Font Awesome 6 Free so arrows and icons render. */
+.fa, .fal, .far, .fas, .fat,
+.icon_chevron::before {
+  font-family: "Font Awesome 6 Free" !important;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.fal, .far, .fat, .fas, .fa-solid,
+.icon_chevron::before {
+  font-weight: 900 !important;
+}
+.fab, .fa-brands {
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+}
+.search_button .search_icon,
+.search_button .fa-search {
+  color: inherit;
+  font-size: 1.5rem;
+}
+.amenity .icons li {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.amenity .icons li img {
+  display: none;
+}
+.amenity .icons li::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 1.4rem;
+  color: #c89328;
+}
+.amenity .icons li.parking::before { content: "\f1b9"; }
+.amenity .icons li.gym::before { content: "\f44b"; }
+.amenity .icons li.playground::before { content: "\f1ae"; }
+.amenity .icons li.swimming-pools::before { content: "\f5c4"; }
+.amenity .icons li.beach-access::before { content: "\f5ca"; }
+
+/* Header-top is hidden, so drop the extra height and offset. */
+:root {
+  --header-height: 88px;
+}
+header {
+  top: 0;
+}
+header .nav {
+  flex-wrap: nowrap !important;
+}
+
+header.bg-white .primary_nav .menu-item-auth .nav-login,
+header.sticky .primary_nav .menu-item-auth .nav-login {
+  color: #1a1a1a !important;
+  border-color: #c89328;
+}
+
+.screen-reader-text {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* About / Terms: same landing header on a light page. */
+body.inner-page {
+  --topbar-h: 88px;
+  padding-top: var(--header-height);
+}
+body.inner-page .topbar {
+  display: none !important;
+}
+body.inner-page header.site__header .nav {
+  height: auto;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap !important;
+  gap: 1.5rem;
+}
+body.inner-page header.site__header .primary_nav {
+  margin-left: auto;
+}
+body.inner-page header.site__header .brand-logo {
+  height: auto;
+  width: 18rem;
+  max-width: none;
+  object-fit: unset;
+  display: block;
+  flex: none;
+}
+body.inner-page header.site__header .brand-logo img {
+  height: auto;
+  width: 100%;
+  max-width: none;
+  object-fit: contain;
+}
+body.inner-page header.site__header .menu-item-auth {
+  align-self: center;
+  height: auto;
+}
+body.inner-page header.site__header .navbar-toggler svg {
+  color: #000;
+}
+@media screen and (max-width: 991px) {
+  body.inner-page header.site__header .brand-logo {
+    width: auto;
+  }
+}

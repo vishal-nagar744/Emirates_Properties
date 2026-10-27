@@ -185,7 +185,7 @@ function mountShell() {
   const aside = isAdmin
     ? `<aside class="sidebar" id="sidebar" aria-label="Admin navigation">
         <div class="sidebrand">
-          <a class="brand" href="dashboard.html" aria-label="Emirates Properties"><img class="brand-logo" src="../assets/logo-nobg.png" alt="Emirates Properties"></a>
+          <a class="brand" href="dashboard.html" aria-label="Alfardan Properties"><img class="brand-logo" src="../assets/logo-dark.png" alt="Alfardan Properties"></a>
           <button class="icon-btn sidebar-toggle" type="button" id="menu-toggle" aria-label="Close menu" aria-expanded="true">${navIcon('menu')}</button>
         </div>
         <nav class="sidenav" aria-label="Admin">${adminNav(page)}</nav>
@@ -195,7 +195,7 @@ function mountShell() {
       </aside>`
     : `<aside class="sidebar" id="sidebar" aria-label="Workspace">
         <div class="sidebrand">
-          <a class="brand" href="dashboard.html" aria-label="Emirates Properties"><img class="brand-logo" src="../assets/logo-nobg.png" alt="Emirates Properties"></a>
+          <a class="brand" href="dashboard.html" aria-label="Alfardan Properties"><img class="brand-logo" src="../assets/logo-dark.png" alt="Alfardan Properties"></a>
           <button class="icon-btn sidebar-toggle" type="button" id="menu-toggle" aria-label="Close menu" aria-expanded="true">${navIcon('menu')}</button>
         </div>
         <nav class="sidenav" aria-label="Workspace">

@@ -13,10 +13,10 @@ const Member = (() => {
   let accountsCache = [];
   let sessionsCache = [];
   let platform = {
-    platformName: 'Emirates Properties',
+    platformName: 'Alfardan Properties',
     welcomeBonusAmount: 100,
     minCashOutAmount: 500,
-    supportTelegramUsername: 'EmiratesPropertiesSupport',
+    supportTelegramUsername: 'AlfardanPropertiesSupport',
     demoCashInUSDTAddress: '',
     bankPayoutEnabled: true,
     cryptoPayoutEnabled: false,
@@ -1461,7 +1461,7 @@ const Member = (() => {
     if (!sections.length) {
       return `<div class="read-sheet"><p class="muted">Terms will appear here once published.</p></div>`;
     }
-    return `<div class="read-sheet"><p class="smallcaps">${esc(terms.company || 'Emirates Properties LLC')}</p><p class="muted">Effective ${esc(meta)}</p>${sections.map((section) => `<article class="read-block"><h3>${esc(section.title)}</h3>${(section.paragraphs || []).map((line) => `<p>${esc(line)}</p>`).join('')}</article>`).join('')}</div>`;
+    return `<div class="read-sheet"><p class="smallcaps">${esc(terms.company || 'Alfardan Properties')}</p><p class="muted">Effective ${esc(meta)}</p>${sections.map((section) => `<article class="read-block"><h3>${esc(section.title)}</h3>${(section.paragraphs || []).map((line) => `<p>${esc(line)}</p>`).join('')}</article>`).join('')}</div>`;
   }
 
   function accountDetail(pane, user) {
@@ -1517,7 +1517,7 @@ const Member = (() => {
     } else if (pane === 'support') {
       body = `
         <div>
-          <p class="muted">Message the Emirates Properties team on Telegram.</p>
+          <p class="muted">Message the Alfardan Properties team on Telegram.</p>
           <a class="btn primary" href="${support}" target="_blank" rel="noopener">Open Telegram</a>
         </div>`;
     } else if (pane === 'deposit') body = depositPanel();
@@ -1801,7 +1801,7 @@ const Member = (() => {
         </button>
         <div class="bonus-banner-hero">
           <p class="celebrate-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 8v13M4 12h16"/><path d="M20 8H4v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 8c-2.2-3.5-6-2.2-6 0 2.5.4 4.5 2 6 4 1.5-2 3.5-3.6 6-4 0-2.2-3.8-3.5-6 0z"/></svg></p>
-          <p class="smallcaps">Emirates Properties</p>
+          <p class="smallcaps">Alfardan Properties</p>
           <h3 class="serif">7 Days Sign In Bonus</h3>
           <p class="bonus-banner-sub">Get rewarded daily · Your trust, our priority</p>
         </div>
