@@ -16,7 +16,7 @@ const Member = (() => {
     platformName: 'Alfardan Properties',
     welcomeBonusAmount: 100,
     minCashOutAmount: 500,
-    supportTelegramUsername: 'EmiratesPropertiesSupport',
+    supportTelegramUsername: 'AlfardanPropertiesSupport',
     demoCashInUSDTAddress: '',
     bankPayoutEnabled: true,
     cryptoPayoutEnabled: false,

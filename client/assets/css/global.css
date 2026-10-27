@@ -1,5 +1,5 @@
 /* ============================================================
-   PRIMESPACE — GLOBAL DESIGN SYSTEM
+   GLOBAL DESIGN SYSTEM
    Alfardan Properties
    ============================================================ */
 
@@ -379,10 +379,10 @@ p {
   inset: 0;
   background: linear-gradient(
     105deg,
-    #f2f7f4 0%,
-    rgba(242, 247, 244, 0.96) 38%,
-    rgba(242, 247, 244, 0.55) 62%,
-    rgba(242, 247, 244, 0.12) 100%
+    #f8f4f3 0%,
+    rgba(248, 244, 243, 0.96) 38%,
+    rgba(248, 244, 243, 0.55) 62%,
+    rgba(248, 244, 243, 0.12) 100%
   );
 }
 
@@ -1810,7 +1810,7 @@ a.kpi:focus-visible {
 
 .bar-chart .bar {
   flex: 1;
-  background: linear-gradient(#6f9b84, #1c1916);
+  background: linear-gradient(#c89328, #1c1916);
   border-radius: 7px 7px 0 0;
   transition: opacity 0.2s;
 }
@@ -1821,7 +1821,7 @@ a.kpi:focus-visible {
 
 /* ── 33. Wallet card ──────────────────────────────────────── */
 .wallet-card {
-  background: linear-gradient(135deg, #1c1916, #1b5946);
+  background: linear-gradient(135deg, #1c1916, #3d2e16);
   color: #fff;
   padding: 24px 28px;
   display: flex;
@@ -3691,7 +3691,7 @@ a.chip {
   margin-top: 8px;
 }
 
-.status-ok { background: #e7f3ec; color: #1c1916; }
+.status-ok { background: #f1e8e7; color: #1c1916; }
 .status-pending { background: #f6edd4; color: #6a5424; }
 .status-warn { background: #f8f1e3; color: #8a6a2f; }
 .status-bad { background: #f8e8e4; color: #8a3b2e; }
@@ -3752,7 +3752,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     font-size: 10px;
     line-height: 1.2;
     font-weight: 700;
-    color: #74817b;
+    color: #6c757d;
     padding: 4px 2px;
     text-decoration: none;
     cursor: pointer;

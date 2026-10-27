@@ -1,6 +1,6 @@
 /* ============================================================
    auth.js — Login, Signup & Forgot Password (UI demo)
-   Alfardan Properties | PrimeSpace
+   Alfardan Properties
    ============================================================ */
 
 const API_BASE = window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000';

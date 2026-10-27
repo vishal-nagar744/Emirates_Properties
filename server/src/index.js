@@ -21,5 +21,5 @@ try {
 }
 
 app.listen(config.port, () => {
-  console.log(`Emirates Properties API on ${config.publicApiUrl}`);
+  console.log(`Alfardan Properties API on ${config.publicApiUrl}`);
 });

@@ -1,5 +1,5 @@
 /* ============================================================
-   PrimeSpace demo store — localStorage only (UI simulation)
+   Alfardan Properties demo store — localStorage only (UI simulation)
    ============================================================ */
 
 const Store = (() => {
@@ -43,8 +43,8 @@ const Store = (() => {
         currencySymbol: 'AED',
         welcomeBonusAmount: 100,
         minCashOutAmount: 500,
-        supportTelegramUsername: 'EmiratesPropertiesSupport',
-        demoCashInUSDTAddress: 'TEmiratesPropertiesUSDTTRC20XXXX',
+        supportTelegramUsername: 'AlfardanPropertiesSupport',
+        demoCashInUSDTAddress: 'TAlfardanPropertiesUSDTTRC20XXXX',
         supportedWithdrawalMethods: ['USDT TRC20', 'USDT BEP20', 'Bank'],
       },
       user: {

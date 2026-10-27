@@ -34,7 +34,7 @@ export const config = {
   admin: {
     loginId: text('ADMIN_LOGIN_ID', 'admin'),
     password: text('ADMIN_PASSWORD'),
-    name: text('ADMIN_NAME', 'Emirates Admin'),
+    name: text('ADMIN_NAME', 'Alfardan Admin'),
     mobile: text('ADMIN_MOBILE', '+971 4 000 0001'),
   },
 };
