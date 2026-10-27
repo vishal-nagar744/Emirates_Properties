@@ -39,7 +39,7 @@ const Store = (() => {
 
     return {
       settings: {
-        platformName: 'Emirates Properties',
+        platformName: 'Alfardan Properties',
         currencySymbol: 'AED',
         welcomeBonusAmount: 100,
         minCashOutAmount: 500,

@@ -32,6 +32,10 @@
         </article>`).join('');
     }
     if (close && about.close) close.textContent = about.close;
+    const bonusEl = document.getElementById('welcome-bonus-amount');
+    if (bonusEl && Number(settings.welcomeBonusAmount) > 0) {
+      bonusEl.textContent = `AED ${Number(settings.welcomeBonusAmount)} WELCOME BONUS`;
+    }
     if (deposit && Array.isArray(about.depositPoints) && about.depositPoints.length) {
       deposit.innerHTML = about.depositPoints.map((line) => `<li>${esc(line)}</li>`).join('');
     }
@@ -74,7 +78,7 @@
   function mountListProperty(settings) {
     const tg = String(settings.supportTelegramUsername || '').replace(/^@/, '');
     const wa = String(settings.supportWhatsappNumber || '').replace(/\D/g, '');
-    const text = 'I want to list my property on Emirates Properties.';
+    const text = 'I want to list my property on Alfardan Properties.';
     let href = '#';
     if (tg) href = `https://t.me/${encodeURIComponent(tg)}?text=${encodeURIComponent(text)}`;
     else if (wa) href = `https://wa.me/${encodeURIComponent(wa)}?text=${encodeURIComponent(text)}`;
@@ -132,6 +136,22 @@
     });
   }
 
+  function mountLandingSocial(settings) {
+    const root = document.getElementById('landing-social');
+    if (!root) return;
+    const tg = String(settings.supportTelegramUsername || '').replace(/^@/, '');
+    const wa = String(settings.supportWhatsappNumber || '').replace(/\D/g, '');
+    const links = [...root.querySelectorAll('a')];
+    if (tg && links[0]) {
+      links[0].href = `https://t.me/${encodeURIComponent(tg)}`;
+      links[0].setAttribute('aria-label', 'Telegram');
+    }
+    if (wa && links[1]) {
+      links[1].href = `https://wa.me/${encodeURIComponent(wa)}`;
+      links[1].setAttribute('aria-label', 'WhatsApp');
+    }
+  }
+
   async function boot() {
     try {
       const settings = await loadSettings();
@@ -139,6 +159,7 @@
       fillTerms(settings);
       mountListProperty(settings);
       mountSupportFab(settings);
+      mountLandingSocial(settings);
     } catch {
       /* keep static markup */
     }

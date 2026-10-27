@@ -1,6 +1,6 @@
 /* ============================================================
    PRIMESPACE — SHARED APP UTILITIES
-   Emirates Properties | PrimeSpace
+   Alfardan Properties | PrimeSpace
    Genuinely shared logic only — no page-specific code here.
    ============================================================ */
 

@@ -4,51 +4,163 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>About — Emirates Properties</title>
+  <title>About — Alfardan Properties</title>
   <link rel="icon" href="assets/logo-nobg.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/global.css">
+  <link rel="stylesheet" href="assets/alfardan/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="assets/alfardan/style.css">
+  <link rel="stylesheet" href="assets/css/landing-alfardan.css">
 </head>
 
-<body>
+<body class="inner-page">
 
-  <header class="topbar">
-    <div class="container nav">
-      <a class="brand" href="index.html" aria-label="Emirates Properties home">
-        <img class="brand-logo" src="assets/logo-nobg.png" alt="Emirates Properties">
-      </a>
-
-      <nav class="navlinks" aria-label="Primary navigation">
-        <a href="index.html#projects">Projects</a>
-        <a href="index.html#how-it-works">How it works</a>
-        <a href="index.html#faq">FAQ</a>
-        <a href="about.html">About</a>
-        <a href="terms.html">Terms</a>
-      </nav>
-
-      <div class="nav-actions">
-        <a class="btn light" href="pages/login.html">Log in</a>
-        <a class="btn primary" href="pages/signup.html">Create account</a>
-        <button class="nav-menu-btn" id="nav-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
-          <span></span><span></span><span></span>
-        </button>
-      </div>
-    </div>
-
-    <div class="mobile-nav" id="mobile-nav" hidden>
-      <a href="index.html#projects">Projects</a>
-      <a href="index.html#how-it-works">How it works</a>
-      <a href="index.html#faq">FAQ</a>
-      <a href="about.html">About</a>
-      <a href="terms.html">Terms</a>
-      <div class="mobile-nav-actions">
-        <a class="btn light btn-full" href="pages/login.html">Log in</a>
-        <a class="btn primary btn-full" href="pages/signup.html">Create account</a>
-      </div>
-    </div>
-  </header>
+  <header class="site__header bg-white">
+              <div class="header-bottom">
+                  <div class="container">
+                      <div class="nav align-items-center">
+                                                  <a href="index.html" class="brand-logo me-auto">
+                              <img width="264" height="72" src="assets/alfardan/alfardan-logo.png" alt="Alfardan Properties">
+                              <img width="264" height="72" src="assets/alfardan/alfardan-black.png" class="logo-sticky" alt="Alfardan Properties">
+                          </a>
+  
+                          <div class="primary_nav">
+                          <ul id="menu-primarymenu" class="main_menu ms-auto "><li id="menu-item-1311" class="menu-item menu-item-type-custom menu-item-object-custom current-menu-item current_page_item menu-item-home menu-item-1311"><a href="index.html">Home</a></li>
+  <li id="menu-item-1020" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-1020"><a href="#">About Us</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li id="menu-item-1017" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1017"><a target="_blank" href="#">Alfardan Corporation</a></li>
+  	<li id="menu-item-1018" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1018"><a href="about.html">Alfardan Properties</a></li>
+  	<li id="menu-item-1019" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1019"><a href="#">Alfardan Elite Collection</a></li>
+  </ul>
+  </li>
+  <li id="menu-item-275" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-275"><a href="#">Our Properties</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li id="menu-item-787" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-787"><a href="#">Qatar</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li id="menu-item-788" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-788"><a href="#">Residential</a></li>
+  		<li id="menu-item-789" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-789"><a href="#">Commercial</a></li>
+  		<li id="menu-item-790" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-790"><a href="#">Coworking Spaces</a></li>
+  		<li id="menu-item-791" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-791"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  	<li id="menu-item-792" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-792"><a href="#">Oman</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li id="menu-item-793" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-793"><a href="#">Residential</a></li>
+  		<li id="menu-item-794" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-794"><a href="#">Commercial</a></li>
+  		<li id="menu-item-795" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-795"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  	<li id="menu-item-2512" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-2512"><a href="#">KSA</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li id="menu-item-2513" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-2513"><a href="#">Commercial</a></li>
+  	</ul>
+  </li>
+  	<li id="menu-item-796" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-796"><a href="#">Türkiye</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li id="menu-item-797" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-797"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  </ul>
+  </li>
+  <li id="menu-item-281" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-281"><a href="#">Lifestyle</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li id="menu-item-74" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-74"><a href="#">Lifestyle Services</a></li>
+  	<li id="menu-item-75" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75"><a href="#">Alfardan Living Privilege Programme</a></li>
+  	<li id="menu-item-76" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-76"><a href="#">Alfardan Oyster Privilege Club</a></li>
+  </ul>
+  </li>
+  <li id="menu-item-2446" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-2446"><a href="#">Media</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li id="menu-item-1094" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1094"><a href="#">News &amp; Updates</a></li>
+  	<li id="menu-item-3412" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-3412"><a href="#">Latest Media Updates</a></li>
+  	<li id="menu-item-1096" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1096"><a href="#">Real Estate Insights</a></li>
+  </ul>
+  </li>
+  <li class="menu-item menu-item-auth"><a class="nav-login" href="pages/login.html">Log in</a></li>
+  <li class="menu-item menu-item-auth"><a class="nav-signup" href="pages/signup.html">Create account</a></li>
+  </ul>                        </div>
+  
+                          <button class="navbar-toggler">
+                              <svg width="18" height="12" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path fill-rule="evenodd" clip-rule="evenodd" d="M17.5 11H0.5C0.224 11 0 11.224 0 11.5C0 11.776 0.224 12 0.5 12H17.5C17.776 12 18 11.776 18 11.5C18 11.224 17.776 11 17.5 11ZM0.5 6.5H17.5C17.776 6.5 18 6.276 18 6C18 5.724 17.776 5.5 17.5 5.5H0.5C0.224 5.5 0 5.724 0 6C0 6.276 0.224 6.5 0.5 6.5ZM0.5 1H17.5C17.776 1 18 0.776 18 0.5C18 0.224 17.776 0 17.5 0H0.5C0.224 0 0 0.224 0 0.5C0 0.776 0.224 1 0.5 1Z" fill="currentcolor"></path>
+                              </svg>
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </header>
+          <div class="offcanvas__menu">
+              <div class="menu-header">
+                  <a href="index.html" class="brand-logo">
+                      <img width="150" height="41" src="assets/alfardan/alfardan-black.png" class="logo-sticky" alt="Alfardan Properties">
+                  </a>
+                  <button type="button" class="offcanvas__close">
+                      <i class="fal fa-times"></i>
+                  </button>
+              </div>
+              <div class="menu-body">
+                  <div class="primary_nav" id="primary_nav">
+                  <ul id="menu-primarymenu-1" class="main-menu "><li class="menu-item menu-item-type-custom menu-item-object-custom current-menu-item current_page_item menu-item-home menu-item-1311"><a href="index.html">Home</a></li>
+  <li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-1020"><a href="#">About Us</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1017"><a target="_blank" href="#">Alfardan Corporation</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1018"><a href="about.html">Alfardan Properties</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1019"><a href="#">Alfardan Elite Collection</a></li>
+  </ul>
+  </li>
+  <li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-275"><a href="#">Our Properties</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-787"><a href="#">Qatar</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-788"><a href="#">Residential</a></li>
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-789"><a href="#">Commercial</a></li>
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-790"><a href="#">Coworking Spaces</a></li>
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-791"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-792"><a href="#">Oman</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-793"><a href="#">Residential</a></li>
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-794"><a href="#">Commercial</a></li>
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-795"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-2512"><a href="#">KSA</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-2513"><a href="#">Commercial</a></li>
+  	</ul>
+  </li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-has-children menu-item-796"><a href="#">Türkiye</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  	<ul class=" sub-menu sub-sub-menu">
+  		<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-797"><a href="#">Hospitality</a></li>
+  	</ul>
+  </li>
+  </ul>
+  </li>
+  <li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-281"><a href="#">Lifestyle</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-74"><a href="#">Lifestyle Services</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-75"><a href="#">Alfardan Living Privilege Programme</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-76"><a href="#">Alfardan Oyster Privilege Club</a></li>
+  </ul>
+  </li>
+  <li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-has-children menu-item-2446"><a href="#">Media</a><button class="submenu_toggle" aria-expanded="false"><span class="icon icon_chevron"></span><span class="screen-reader-text">Open menu</span></button>
+  <ul class=" sub-menu">
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1094"><a href="#">News &amp; Updates</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-3412"><a href="#">Latest Media Updates</a></li>
+  	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1096"><a href="#">Real Estate Insights</a></li>
+  </ul>
+  </li>
+  <li class="menu-item menu-item-auth"><a class="nav-login" href="pages/login.html">Log in</a></li>
+  <li class="menu-item menu-item-auth"><a class="nav-signup" href="pages/signup.html">Create account</a></li>
+  </ul> 
+                  </div>
+              </div>
+          </div>
+  
 
   <main>
     <section class="split-page about-page">
@@ -57,10 +169,10 @@
         <figcaption>Dubai</figcaption>
       </figure>
       <div class="split-copy legal-copy">
-        <p class="smallcaps">Emirates Properties</p>
+        <p class="smallcaps">Alfardan Properties</p>
         <h1 id="about-title" class="serif">About</h1>
         <p class="doc-tagline" id="about-tagline">Your Property. Our Commitment.</p>
-        <p class="doc-lead" id="about-lead">Emirates Properties is a trusted real-estate promotion and property marketing company dedicated to helping clients discover the right property opportunities with confidence.</p>
+        <p class="doc-lead" id="about-lead">Alfardan Properties is a trusted real-estate promotion and property marketing company dedicated to helping clients discover the right property opportunities with confidence.</p>
         <div class="doc-points" id="about-points">
           <article>
             <span class="doc-index" aria-hidden="true">01</span>
@@ -68,14 +180,14 @@
           </article>
           <article>
             <span class="doc-index" aria-hidden="true">02</span>
-            <p>At Emirates Properties, we believe that every property has its own value and every client has unique requirements. We focus on transparent communication, effective property promotion, genuine opportunities, and customer-focused service.</p>
+            <p>At Alfardan Properties, we believe that every property has its own value and every client has unique requirements. We focus on transparent communication, effective property promotion, genuine opportunities, and customer-focused service.</p>
           </article>
           <article>
             <span class="doc-index" aria-hidden="true">03</span>
-            <p>Whether you are looking to sell your property, buy your dream home, invest in land, or promote a real-estate project, Emirates Properties is here to help you move forward.</p>
+            <p>Whether you are looking to sell your property, buy your dream home, invest in land, or promote a real-estate project, Alfardan Properties is here to help you move forward.</p>
           </article>
         </div>
-        <p class="doc-close" id="about-close">Emirates Properties – Promoting Properties. Building Opportunities. Creating Futures.</p>
+        <p class="doc-close" id="about-close">Alfardan Properties – Promoting Properties. Building Opportunities. Creating Futures.</p>
       </div>
     </section>
 
@@ -98,18 +210,21 @@
 
   <footer class="footer footer-bar" aria-label="Site footer">
     <div class="container footer-bar-row">
-      <a class="brand" href="index.html" aria-label="Emirates Properties home">
-        <img class="brand-logo" src="assets/logo-nobg.png" alt="Emirates Properties">
+      <a class="brand" href="index.html" aria-label="Alfardan Properties home">
+        <img class="brand-logo" src="assets/logo-dark.png" alt="Alfardan Properties">
       </a>
       <nav aria-label="Footer">
         <a href="about.html">About</a>
         <a href="terms.html">Terms</a>
         <a href="pages/login.html">Log in</a>
       </nav>
-      <span>© 2015 Emirates Properties</span>
+      <span>© 2026 Alfardan Properties</span>
     </div>
   </footer>
 
+
+  <script src="assets/alfardan/jquery-3.6.0.min.js"></script>
+  <script src="assets/alfardan/script.js"></script>
   <script src="assets/js/env.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/public-content.js"></script>
