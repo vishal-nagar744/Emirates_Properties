@@ -15,6 +15,45 @@
     return data.settings || {};
   }
 
+  function formatAed(amount) {
+    const cents = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) return '';
+    const value = cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+    return `AED ${value}`;
+  }
+
+  function fillLandingBonuses(settings) {
+    const bar = document.getElementById('welcome-bonus-bar');
+    if (!bar) return;
+    const welcome = formatAed(settings.welcomeBonusAmount);
+    const trial = formatAed(settings.trialBonusAmount);
+    const welcomeEl = document.getElementById('welcome-bonus-amount');
+    const trialEl = document.getElementById('trial-bonus-amount');
+    if (welcomeEl) {
+      welcomeEl.textContent = welcome;
+      welcomeEl.hidden = !welcome;
+    }
+    if (trialEl) {
+      trialEl.textContent = trial ? `${trial} trial` : '';
+      trialEl.hidden = !trial;
+    }
+    bar.hidden = !welcome && !trial;
+  }
+
+  function fillSignupOffers(settings) {
+    const title = document.getElementById('signup-welcome-title');
+    const note = document.getElementById('signup-trial-text');
+    if (!title && !note) return;
+    const welcome = formatAed(settings.welcomeBonusAmount);
+    const trial = formatAed(settings.trialBonusAmount);
+    if (title) {
+      title.textContent = welcome ? `${welcome} welcome bonus.` : 'Create your account.';
+    }
+    if (note) {
+      note.textContent = trial ? `${trial} trial.` : 'Name, mobile, and password.';
+    }
+  }
+
   function fillAbout(settings) {
     const about = settings.about || {};
     const tagline = document.getElementById('about-tagline');
@@ -32,10 +71,6 @@
         </article>`).join('');
     }
     if (close && about.close) close.textContent = about.close;
-    const bonusEl = document.getElementById('welcome-bonus-amount');
-    if (bonusEl && Number(settings.welcomeBonusAmount) > 0) {
-      bonusEl.textContent = `AED ${Number(settings.welcomeBonusAmount)} WELCOME BONUS`;
-    }
     if (deposit && Array.isArray(about.depositPoints) && about.depositPoints.length) {
       deposit.innerHTML = about.depositPoints.map((line) => `<li>${esc(line)}</li>`).join('');
     }
@@ -157,6 +192,8 @@
       const settings = await loadSettings();
       fillAbout(settings);
       fillTerms(settings);
+      fillLandingBonuses(settings);
+      fillSignupOffers(settings);
       mountListProperty(settings);
       mountSupportFab(settings);
       mountLandingSocial(settings);

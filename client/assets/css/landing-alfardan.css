@@ -57,6 +57,9 @@ header.sticky .primary_nav .menu-item-auth .nav-signup {
   text-align: center;
   min-width: min(420px, 90vw);
 }
+.welcome-bonus-bar[hidden] {
+  display: none !important;
+}
 .welcome-bonus-bar span {
   display: block;
   font-size: 1.1rem;
@@ -66,8 +69,34 @@ header.sticky .primary_nav .menu-item-auth .nav-signup {
   font-weight: 700;
 }
 .welcome-bonus-bar strong {
+  display: block;
   font-size: 1.8rem;
   font-weight: 700;
+}
+.welcome-bonus-bar strong[hidden] {
+  display: none !important;
+}
+.welcome-bonus-trial {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.95rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+.welcome-bonus-trial[hidden] {
+  display: none !important;
+}
+@media screen and (max-width: 640px) {
+  .welcome-bonus-bar {
+    min-width: min(320px, 90vw);
+    padding: 10px 16px;
+  }
+  .welcome-bonus-bar strong {
+    font-size: 1.4rem;
+  }
 }
 .header-top,
 .search_container,
