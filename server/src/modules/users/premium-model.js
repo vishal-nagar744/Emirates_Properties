@@ -14,6 +14,7 @@ const premiumSchema = new mongoose.Schema(
     reward: { type: String, enum: ['project', 'cash'], default: 'project' },
     opened: { type: Boolean, default: false },
     charged: { type: Boolean, default: false },
+    fundedAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -39,6 +40,7 @@ export function viewPremium(row) {
     reward,
     opened: Boolean(row.opened),
     charged: Boolean(row.charged),
+    fundedAmount: Number(row.fundedAmount) || 0,
     box: kind === 'fortune',
     projectType: reward === 'cash' ? 'fortune' : 'premium',
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : '',

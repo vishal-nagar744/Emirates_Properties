@@ -103,6 +103,30 @@ const Member = (() => {
     return `<div class="empty-state">${navIcon(icon)}<b>${esc(title)}</b><p>${esc(text)}</p></div>`;
   }
 
+  function setBtnLoading(button, on) {
+    if (!button || button.tagName !== 'BUTTON') return false;
+    if (on) {
+      if (button.classList.contains('is-loading')) return true;
+      button.classList.add('is-loading');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      return false;
+    }
+    button.classList.remove('is-loading');
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    return false;
+  }
+
+  function tapLoading(button, work) {
+    if (setBtnLoading(button, true)) return true;
+    window.setTimeout(() => {
+      work();
+      if (document.body.contains(button)) setBtnLoading(button, false);
+    }, 180);
+    return false;
+  }
+
   function renderDashboard() {
     const today = Store.dayKey(0);
     const todayCommission = commissionsCache.filter((c) => c.date === today).reduce((s, c) => s + c.amount, 0);
@@ -243,6 +267,7 @@ const Member = (() => {
       hold_release: 'Hold released',
       project_purchase: 'Property',
       project_commission: 'Commission',
+      premium_deposit: 'Premium deposit',
       cash_out: 'Cash out',
       refund: 'Refund',
       adjustment: 'Adjustment',
@@ -447,6 +472,7 @@ const Member = (() => {
     const seen = seenPremiums();
     seen.add(project.id);
     sessionStorage.setItem('ps_premium_seen', JSON.stringify([...seen]));
+    const funds = premiumFunding(project);
     openModal(`
       <div class="celebrate celebrate-premium">
         <div class="celebrate-hero is-gold">
@@ -458,18 +484,32 @@ const Member = (() => {
           <p class="celebrate-kicker">Premium project</p>
           <p class="celebrate-name">${esc(project.name)}</p>
           <p class="muted">${premiumUnlockNote(project)}</p>
-          <button class="btn primary btn-full" type="button" data-dismiss>Continue</button>
+          ${funds.ready
+            ? '<button class="btn primary btn-full" type="button" data-dismiss>Continue</button>'
+            : `<button class="btn primary btn-full" type="button" data-action="open-cash-in" data-amount="${funds.remaining}">Deposit ${Store.money(funds.remaining)}</button>
+          <button class="btn light btn-full" type="button" data-dismiss>Later</button>`}
         </div>
       </div>`, 'celebrate-modal');
   }
 
+  function premiumFunding(project) {
+    const price = Math.round((Number(project && project.price) || 0) * 100);
+    const funded = Math.round((Number(project && project.fundedAmount) || 0) * 100);
+    const remaining = Math.max(0, price - funded);
+    return {
+      price: price / 100,
+      funded: funded / 100,
+      remaining: remaining / 100,
+      ready: remaining <= 0,
+    };
+  }
+
   function premiumUnlockNote(project) {
-    const wallet = Number(Store.user().walletBalance) || 0;
-    const price = Store.money(project.price);
-    if (wallet < 0) {
-      return `${price} was taken from your wallet. Deposit enough to clear the balance, then submit this project.`;
+    const funds = premiumFunding(project);
+    if (!funds.ready) {
+      return `This premium is ${Store.money(funds.price)}. Deposit ${Store.money(funds.remaining)} to continue. Your wallet is not used for this project.`;
     }
-    return `${price} was taken from your wallet. This project is ready to submit.`;
+    return `This premium is paid. ${Store.money(funds.price)} plus commission will go to hold when you submit.`;
   }
 
   async function maybePremiumNotice(project) {
@@ -488,7 +528,9 @@ const Member = (() => {
         return;
       }
       premiumUnlocking = false;
+      const updated = premiumsCache.find((item) => item.id === project.id) || project;
       if (document.body.dataset.page === 'projects') renderProjects();
+      if (!seenPremiums().has(updated.id)) showPremiumUnlock(updated);
       return;
     }
     if (seenPremiums().has(project.id)) return;
@@ -703,10 +745,10 @@ const Member = (() => {
     }
     const status = Store.user().accountStatus;
     const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
-    const walletNow = Number(Store.user().walletBalance) || 0;
+    const premiumPay = next.projectType === 'premium' ? premiumFunding(next) : null;
     const label = status === 'pending'
       ? 'Approval required'
-      : (next.projectType === 'premium' && walletNow < 0 ? 'Deposit to submit' : 'Submit');
+      : (premiumPay && !premiumPay.ready ? `Deposit ${Store.money(premiumPay.remaining)}` : 'Submit');
     if (next.box && !next.opened) {
       return `
         <section class="card offer-card">
@@ -734,11 +776,14 @@ const Member = (() => {
             ${row('Commission rate', `${esc(next.commissionRatio)}%`)}
             ${row('Earn commission', Store.money(next.commissionAmount))}
             ${row('Price', Store.money(next.price))}
+            ${premiumPay ? row('Premium deposit', `${Store.money(premiumPay.funded)} / ${Store.money(premiumPay.price)}`) : ''}
             ${row('Ongoing projects', `${done}/${list.length}`)}
-            ${row(funds.label, Store.money(funds.amount))}
-            ${funds.kind === 'hold' ? row('Wallet balance', Store.money(funds.wallet)) : ''}
+            ${premiumPay ? '' : row(funds.label, Store.money(funds.amount))}
+            ${!premiumPay && funds.kind === 'hold' ? row('Wallet balance', Store.money(funds.wallet)) : ''}
+            ${premiumPay ? row('Wallet (not used)', Store.money(Store.user().walletBalance)) : ''}
+            ${premiumPay && Number(Store.user().holdBalance) > 0 ? row('Hold balance', Store.money(Store.user().holdBalance)) : ''}
           </dl>
-          <button class="btn primary btn-full" type="button" data-action="open-activate" data-id="${esc(next.id)}" ${blocked ? 'disabled' : ''}>${label}</button>
+          <button class="btn primary btn-full" type="button" data-action="${premiumPay && !premiumPay.ready ? 'open-cash-in' : 'open-activate'}" data-id="${esc(next.id)}" ${premiumPay && !premiumPay.ready ? `data-amount="${premiumPay.remaining}"` : ''} ${blocked ? 'disabled' : ''}>${label}</button>
         </div>
       </section>`;
   }
@@ -841,13 +886,14 @@ const Member = (() => {
         return;
       }
     } else if (premium) {
-      const wallet = Number(Store.user().walletBalance) || 0;
-      if (Math.round(wallet * 100) < 0) {
+      const funds = premiumFunding(p);
+      if (!funds.ready) {
         openModal(`
           <h3>Deposit to complete</h3>
-          <p>${Store.money(price)} was taken from your wallet when this premium unlocked. Your wallet balance is ${Store.money(wallet)}. Deposit enough to clear it, then submit.</p>
+          <p>This premium is ${Store.money(funds.price)}. ${Store.money(funds.funded)} is deposited. Deposit ${Store.money(funds.remaining)} to continue. Your wallet is not used for this project.</p>
           <div class="modal-actions">
             <button class="btn light" type="button" data-dismiss>Close</button>
+            <button class="btn primary" type="button" data-action="open-cash-in" data-amount="${funds.remaining}">Deposit ${Store.money(funds.remaining)}</button>
           </div>`);
         return;
       }
@@ -886,6 +932,8 @@ const Member = (() => {
         ${row('Price', Store.money(p.price))}
         ${row('Commission ratio', `${esc(p.commissionRatio)}%`)}
         ${row('Commission', Store.money(p.commissionAmount))}
+        ${premium ? row('From premium deposit', Store.money(p.price)) : ''}
+        ${premium ? row('To hold', Store.money((Number(p.price) || 0) + (Number(p.commissionAmount) || 0))) : ''}
         ${fromHold > 0 ? row('From hold', Store.money(fromHold)) : ''}
         ${fromWallet > 0 ? row('From wallet', Store.money(fromWallet)) : ''}
       </dl>
@@ -1219,30 +1267,43 @@ const Member = (() => {
     }
   }
 
-  function openCashIn() {
+  function pendingPremiumDue() {
+    const due = (premiumsCache || []).find((item) => item.projectType === 'premium' && item.charged && !premiumFunding(item).ready);
+    return due ? { project: due, funds: premiumFunding(due) } : null;
+  }
+
+  function openCashIn(suggested) {
     const address = platform.demoCashInUSDTAddress;
+    const due = pendingPremiumDue();
+    const asked = Number(suggested);
+    const remaining = due ? due.funds.remaining : 0;
+    const prefill = Number.isFinite(asked) && asked > 0 ? asked : remaining;
+    const shown = Number.isFinite(prefill) && prefill > 0 ? (Math.round(prefill * 100) / 100) : '';
     openModal(`
       <p class="smallcaps">Wallet</p>
       <h3>Cash in</h3>
       <dl class="stack-stats">
         ${row('Network', 'USDT TRC20')}
         ${row('Address', address)}
+        ${due ? row('Premium still due', Store.money(due.funds.remaining)) : ''}
       </dl>
+      ${due ? '<p class="muted">This cash-in is applied to your premium first. Extra goes to your wallet.</p>' : ''}
       <div class="hero-ctas">
         <button class="btn light" type="button" data-action="copy-address">Copy address</button>
       </div>
       <form class="fields" id="cashin-form">
         <div class="field">
           <label for="cashin-amount">Amount (AED)</label>
-          <input id="cashin-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="1000">
+          <input id="cashin-amount" type="number" min="1" step="0.01" inputmode="decimal" placeholder="1000"${shown === '' ? '' : ` value="${shown}"`}>
         </div>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
-          <button class="btn primary" type="submit">Continue on Telegram</button>
+          <button class="btn primary" type="submit" id="cashin-submit">Continue on Telegram</button>
         </div>
       </form>`);
     document.getElementById('cashin-form').addEventListener('submit', (e) => {
       e.preventDefault();
+      const submit = document.getElementById('cashin-submit');
       const amount = Number(document.getElementById('cashin-amount').value);
       if (!Number.isFinite(amount) || amount <= 0) {
         toast('Enter an amount greater than 0.');
@@ -1253,7 +1314,10 @@ const Member = (() => {
         toast('Telegram is not set yet.');
         return;
       }
-      const text = `I want to cash in AED ${amount}.`;
+      if (setBtnLoading(submit, true)) return;
+      const text = due
+        ? `I want to cash in AED ${amount} for premium project ${due.project.name}.`
+        : `I want to cash in AED ${amount}.`;
       window.location.assign(`https://t.me/${encodeURIComponent(handle)}?text=${encodeURIComponent(text)}`);
     });
   }
@@ -2042,16 +2106,25 @@ const Member = (() => {
     const el = e.target.closest('[data-action]');
     if (!el || document.body.dataset.app !== 'member') return;
     const action = el.dataset.action;
-    if (action === 'open-activate') openActivate(el.dataset.id);
-    if (action === 'show-fortune') showFortune(premiumsCache.find((item) => item.id === el.dataset.id));
+    if (action === 'open-activate') {
+      if (tapLoading(el, () => openActivate(el.dataset.id))) return;
+    }
+    if (action === 'show-fortune') {
+      if (tapLoading(el, () => showFortune(premiumsCache.find((item) => item.id === el.dataset.id)))) return;
+    }
     if (action === 'open-fortune') claimFortune(el.dataset.id);
     if (action === 'fortune-continue') {
       closeModal();
       if (document.body.dataset.page === 'projects') renderProjects();
     }
-    if (action === 'open-cash-in') openCashIn();
-    if (action === 'open-cash-out') openCashOut();
+    if (action === 'open-cash-in') {
+      if (tapLoading(el, () => openCashIn(el.dataset.amount))) return;
+    }
+    if (action === 'open-cash-out') {
+      if (tapLoading(el, () => openCashOut())) return;
+    }
     if (action === 'confirm-activate') {
+      if (setBtnLoading(el, true)) return;
       memberApi('/api/orders', { method: 'POST', body: { projectId: el.dataset.id } })
         .then((data) => {
           if (data.user) Store.applySession(data.user);
@@ -2066,7 +2139,10 @@ const Member = (() => {
           if (document.body.dataset.page === 'projects') renderProjects();
           orderSubmitted(data.order || {});
         })
-        .catch((err) => toast(err.message));
+        .catch((err) => {
+          setBtnLoading(el, false);
+          toast(err.message);
+        });
     }
     if (action === 'copy-address') copyText(platform.demoCashInUSDTAddress);
     if (action === 'copy') copyText(el.dataset.value);

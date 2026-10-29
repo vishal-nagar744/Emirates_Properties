@@ -639,6 +639,7 @@ const Admin = (() => {
           <div class="field"><label for="adj-amount">Adjust amount (+ / −)</label><input id="adj-amount" type="number" step="any"></div>
           <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason (optional)"></div>
         </div>
+        <p class="muted">Positive credits fill a pending premium first. Extra goes to the wallet. Wallet cannot go below zero.</p>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Close</button>
           <button class="btn primary" type="submit">Apply adjustment</button>
@@ -725,16 +726,23 @@ const Admin = (() => {
         });
         let user = statusData.user;
         directory = directory.map((row) => (row.id === user.id ? user : row));
+        let credit = null;
         if (amount !== '') {
           const data = await adminApi(`/api/users/${id}/adjustment`, {
             method: 'POST',
             body: { amount, reason },
           });
           user = data.user;
+          credit = data.credit || null;
           directory = directory.map((row) => (row.id === user.id ? user : row));
         }
         closeModal();
-        toast(amount !== '' ? 'Account updated' : 'Account status updated');
+        const toPremium = credit ? Number(credit.toPremium) || 0 : 0;
+        toast(amount === ''
+          ? 'Account status updated'
+          : (toPremium > 0
+            ? `Account updated. AED ${toPremium.toFixed(2)} applied to premium.`
+            : 'Account updated'));
         renderUsers();
       } catch (err) {
         toast(err.message);
@@ -1114,6 +1122,7 @@ const Admin = (() => {
       daily_commission: 'Commission',
       project_purchase: 'Property',
       project_commission: 'Commission',
+      premium_deposit: 'Premium deposit',
       cash_out: 'Cash out',
       refund: 'Refund',
       adjustment: 'Adjustment',

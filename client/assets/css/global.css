@@ -136,6 +136,41 @@ p {
   width: 100%;
 }
 
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+.btn.light.is-loading::after {
+  border-color: rgba(18, 63, 50, 0.18);
+  border-top-color: var(--g);
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── 6. Card ──────────────────────────────────────────────── */
 .card {
   background: #fff;
@@ -3474,6 +3509,7 @@ a.back-btn:hover { transform: none; }
   .offer-load-bars i,
   .offer-card.is-in .offer-body { animation: none; }
   .offer-load.is-done { transition: none; }
+  .btn.is-loading::after { animation: none; border-top-color: currentColor; }
 }
 
 .offer-media {
@@ -3723,6 +3759,7 @@ a.chip {
 .mobnav { display: none; }
 
 button:disabled { opacity: 0.55; cursor: not-allowed; }
+button.is-loading:disabled { opacity: 1; cursor: wait; }
 
 @media (max-width: 700px) {
   .active-card .prop-stats,

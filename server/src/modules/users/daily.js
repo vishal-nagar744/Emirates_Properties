@@ -1,16 +1,21 @@
 import { Transaction } from '../wallet/model.js';
 import { workDate } from '../../lib/workDate.js';
 import { UserPremium } from './premium-model.js';
+import { clearNegativeWallet } from './premium-fund.js';
 
 export async function ensureDailyReset(user) {
   if (!user || user.role !== 'user') return user;
   const today = workDate();
   if (!user.progressDate) {
     user.progressDate = today;
+    await clearNegativeWallet(user);
     await user.save();
     return user;
   }
-  if (user.progressDate === today) return user;
+  if (user.progressDate === today) {
+    if (await clearNegativeWallet(user)) await user.save();
+    return user;
+  }
 
   const hold = Math.round((Number(user.holdBalance) || 0) * 100) / 100;
   if (hold > 0) {
@@ -38,6 +43,8 @@ export async function ensureDailyReset(user) {
       referenceId: null,
     });
   }
+
+  await clearNegativeWallet(user);
 
   user.groupAccessSet = false;
   user.unlockedGroupIds = [];

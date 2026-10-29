@@ -5,6 +5,7 @@ import { groupImageUrl } from '../images/service.js';
 import { Project } from '../projects/model.js';
 import { itemId, nextAccessibleProject } from '../projects/service.js';
 import { UserPremium, viewPremium } from '../users/premium-model.js';
+import { clearNegativeWallet, remainingPremiumCents } from '../users/premium-fund.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { isSetOpen, openGroupIds, openSetKeys } from '../users/service.js';
@@ -179,8 +180,12 @@ export async function resetCompletedTrialBalances() {
   return cleared;
 }
 
-async function takePremiumPrice(user, row, group) {
-  if (row.charged) return false;
+async function takePremiumPrice(user, row) {
+  if (row.charged) {
+    await clearNegativeWallet(user);
+    if (user.isModified()) await user.save();
+    return false;
+  }
   const claimed = await UserPremium.findOneAndUpdate(
     { _id: row._id, charged: { $ne: true } },
     { $set: { charged: true } },
@@ -191,21 +196,8 @@ async function takePremiumPrice(user, row, group) {
     return false;
   }
   row.charged = true;
-  const priceCents = cents(row.price);
-  if (priceCents <= 0) return true;
-  user.walletBalance = (cents(user.walletBalance) - priceCents) / 100;
+  await clearNegativeWallet(user);
   await user.save();
-  const note = group && group.name ? `${group.name} · ${row.name}` : row.name;
-  await Transaction.create({
-    userId: String(user._id),
-    type: 'project_purchase',
-    amount: priceCents / 100,
-    direction: 'debit',
-    wallet: 'main',
-    description: note,
-    status: 'completed',
-    referenceId: String(row._id),
-  });
   return true;
 }
 
@@ -252,7 +244,7 @@ export async function unlockPremium({ userId, premiumId }) {
   if (!row || row.reward === 'cash') return { status: 404, message: 'This premium is not available.' };
   const ready = await premiumReady(user, row);
   if (ready.message) return ready;
-  await takePremiumPrice(user, row, ready.group);
+  await takePremiumPrice(user, row);
   return {
     status: 200,
     data: { premium: viewPremium(row), user: memberView(user, ready.openIds) },
@@ -285,10 +277,11 @@ export async function activateOrder({ userId, projectId }) {
   if (premiumOrder && !project.charged) {
     return { status: 409, message: 'This premium is not unlocked yet.' };
   }
-  if (premiumOrder && cents(user.walletBalance) < 0) {
+  if (premiumOrder && remainingPremiumCents(project) > 0) {
+    const due = remainingPremiumCents(project) / 100;
     return {
       status: 400,
-      message: `Deposit to complete this project. Your wallet balance is AED ${(cents(user.walletBalance) / 100).toFixed(2)}.`,
+      message: `Deposit AED ${due.toFixed(2)} for this premium project. Wallet balance is not used.`,
     };
   }
 
@@ -332,8 +325,11 @@ export async function activateOrder({ userId, projectId }) {
   if (premiumOrder) {
     settlement = {
       walletCents: balanceCents,
+      holdCents: cents(user.holdBalance) + priceCents + commissionCents,
+      holdGroupId: groupKey,
       fromWalletCents: 0,
       fromHoldCents: 0,
+      fromPremiumCents: priceCents,
     };
   } else if (!trialOrder) {
     settlement = settleGroupPayment({
@@ -380,6 +376,7 @@ export async function activateOrder({ userId, projectId }) {
     workDate: today,
   });
 
+  const purchaseNote = group && group.name ? `${group.name} · ${project.name}` : project.name;
   if (trialOrder) {
     user.trialBalance = (cents(user.trialBalance) - priceCents + priceCents) / 100;
     user.walletBalance = (balanceCents + commissionCents) / 100;
@@ -399,7 +396,36 @@ export async function activateOrder({ userId, projectId }) {
       });
     }
   } else if (premiumOrder) {
-    user.walletBalance = settlement.walletCents / 100;
+    const leftover = Math.max(0, cents(project.fundedAmount) - priceCents);
+    project.fundedAmount = 0;
+    project.charged = false;
+    await project.save();
+    if (leftover > 0) {
+      user.walletBalance = (cents(user.walletBalance) + leftover) / 100;
+      settlement.walletCents = cents(user.walletBalance);
+      await Transaction.create({
+        userId: String(user._id),
+        type: 'premium_deposit',
+        amount: leftover / 100,
+        direction: 'debit',
+        wallet: 'premium',
+        description: `${purchaseNote} · Extra returned to wallet`,
+        status: 'completed',
+        referenceId: String(project._id),
+      });
+      await Transaction.create({
+        userId: String(user._id),
+        type: 'premium_deposit',
+        amount: leftover / 100,
+        direction: 'credit',
+        wallet: 'main',
+        description: `${purchaseNote} · Extra returned to wallet`,
+        status: 'completed',
+        referenceId: String(project._id),
+      });
+    }
+    user.holdBalance = settlement.holdCents / 100;
+    user.holdGroupId = settlement.holdGroupId || '';
     const finished = group ? await trialGroupFinished(user._id, group._id) : false;
     if (finished && cents(user.holdBalance) > 0) {
       const released = cents(user.holdBalance) / 100;
@@ -423,7 +449,6 @@ export async function activateOrder({ userId, projectId }) {
   }
   await user.save();
 
-  const purchaseNote = group && group.name ? `${group.name} · ${project.name}` : project.name;
   if (trialOrder && priceCents > 0) {
     await Transaction.create({
       userId: String(user._id),
@@ -460,6 +485,18 @@ export async function activateOrder({ userId, projectId }) {
       referenceId: String(order._id),
     });
   }
+  if (premiumOrder && settlement && settlement.fromPremiumCents > 0) {
+    await Transaction.create({
+      userId: String(user._id),
+      type: 'project_purchase',
+      amount: settlement.fromPremiumCents / 100,
+      direction: 'debit',
+      wallet: 'premium',
+      description: purchaseNote,
+      status: 'completed',
+      referenceId: String(order._id),
+    });
+  }
 
   if (trialOrder && priceCents > 0) {
     await Transaction.create({
@@ -486,19 +523,17 @@ export async function activateOrder({ userId, projectId }) {
     status: 'completed',
   });
 
-  if (!premiumOrder) {
-    const creditCents = trialOrder ? commissionCents : priceCents + commissionCents;
-    await Transaction.create({
-      userId: String(user._id),
-      type: 'project_commission',
-      amount: creditCents / 100,
-      direction: 'credit',
-      wallet: trialOrder ? 'main' : 'hold',
-      description: group && group.name ? `${group.name} · ${project.name}` : project.name,
-      status: 'completed',
-      referenceId: String(order._id),
-    });
-  }
+  const creditCents = trialOrder ? commissionCents : priceCents + commissionCents;
+  await Transaction.create({
+    userId: String(user._id),
+    type: 'project_commission',
+    amount: creditCents / 100,
+    direction: 'credit',
+    wallet: trialOrder ? 'main' : 'hold',
+    description: group && group.name ? `${group.name} · ${project.name}` : project.name,
+    status: 'completed',
+    referenceId: String(order._id),
+  });
 
   if (!trialOrder && settlement && settlement.released > 0) {
     const groupName = group && group.name ? group.name : 'Group';
@@ -570,7 +605,7 @@ export async function openFortuneBox({ userId, premiumId }) {
   if (row.reward !== 'cash') {
     row.opened = true;
     await row.save();
-    await takePremiumPrice(user, row, group);
+    await takePremiumPrice(user, row);
     return {
       status: 200,
       data: { fortune: viewPremium(row), user: memberView(user, openIds) },

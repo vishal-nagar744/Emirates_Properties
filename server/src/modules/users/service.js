@@ -15,6 +15,7 @@ import { UserPremium } from './premium-model.js';
 import { orderWorkDate } from '../../lib/workDate.js';
 import { ensureDailyReset } from './daily.js';
 import { nextMemberNo } from './memberNo.js';
+import { applyIncomingCredit } from './premium-fund.js';
 
 function digits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -198,14 +199,20 @@ export async function adjustMemberWallet(id, { amount, reason }) {
   if (!Number.isFinite(value) || value === 0) return { status: 400, message: 'Enter an amount other than zero.' };
   const user = await findMember(id);
   if (!user) return { status: 404, message: 'User not found.' };
+  if (value > 0) {
+    const credit = await applyIncomingCredit(user, value, { type: 'adjustment', description: note });
+    const [view] = await decorate([user]);
+    return { status: 200, data: { user: view, credit } };
+  }
   const next = Math.round(((Number(user.walletBalance) || 0) + value) * 100) / 100;
+  if (next < 0) return { status: 400, message: 'Wallet cannot go below zero.' };
   user.walletBalance = next;
   await user.save();
   await Transaction.create({
     userId: String(user._id),
     type: 'adjustment',
     amount: Math.abs(value),
-    direction: value > 0 ? 'credit' : 'debit',
+    direction: 'debit',
     description: note,
     status: 'completed',
     referenceId: null,
