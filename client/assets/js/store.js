@@ -499,6 +499,8 @@ const Store = (() => {
       setAccessSet: session.setAccessSet === true,
       unlockedSetKeys: Array.isArray(session.unlockedSetKeys) ? session.unlockedSetKeys : [],
       unlockNotices: Array.isArray(session.unlockNotices) ? session.unlockNotices : [],
+      progressCycleStart: session.progressCycleStart || '',
+      progressCycleDone: session.progressCycleDone === true,
       role: session.role || 'user',
     };
   }

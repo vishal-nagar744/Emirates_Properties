@@ -44,6 +44,8 @@ function publicUser(user) {
     unlockedSetKeys: [],
     unlockNotices: Array.isArray(user.unlockNotices) ? user.unlockNotices : [],
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
+    progressCycleStart: user.progressCycleStart || '',
+    progressCycleDone: Boolean(user.progressCycleDone),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
   };
 }

@@ -14,3 +14,10 @@ export function orderWorkDate(order) {
   const when = order && (order.createdAt || order.startDate);
   return when ? workDate(when) : '';
 }
+
+export function inProgressCycle(order, user, isTrial) {
+  if (isTrial) return true;
+  const start = String((user && user.progressCycleStart) || '');
+  if (!start) return true;
+  return orderWorkDate(order) >= start;
+}

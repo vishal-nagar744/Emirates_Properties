@@ -3588,6 +3588,46 @@ a.back-btn:hover { transform: none; }
 
 .offer-rows { margin: 14px 0 18px; }
 
+.offer-outlook {
+  margin: 0 0 16px;
+  padding: 12px 14px 10px;
+  border-radius: 10px;
+  background: var(--pale);
+  border: 1px solid var(--line);
+}
+
+.offer-outlook-kicker {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.offer-outlook dl { margin: 0; }
+
+.offer-outlook .stack-row {
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.offer-outlook .stack-row b {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-outlook .stack-row:last-of-type { border-bottom: 0; }
+
+.offer-outlook-note {
+  margin: 4px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .offer-rows .stack-row {
   align-items: baseline;
   gap: 16px;
@@ -3825,6 +3865,7 @@ button.is-loading:disabled { opacity: 1; cursor: wait; }
   .offer-rows { margin: 10px 0 14px; }
   .offer-rows .stack-row { font-size: 14px; padding: 10px 0; }
   .offer-rows .stack-row b { font-size: 14px; }
+  .offer-outlook { margin-bottom: 14px; padding: 10px 12px 8px; }
   .welcome-banner { padding: 18px; }
   .welcome-banner h1 { font-size: clamp(26px, 7vw, 32px); overflow-wrap: anywhere; }
   .hero-ctas { flex-wrap: wrap; }

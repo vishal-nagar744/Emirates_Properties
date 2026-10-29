@@ -566,13 +566,16 @@ const Member = (() => {
       </div>`, 'fortune-modal');
   }
 
-  function showFortuneCash(amount) {
+  function showFortuneCash(amount, holdReleased) {
+    const released = Number(holdReleased) || 0;
     openModal(`
       <div class="fortune">
         <p class="fortune-kicker">Cash reward</p>
         <h3 class="serif">Fortune Box</h3>
         <p class="fortune-amount">${Store.money(amount)}</p>
-        <p class="fortune-note">Added to your main wallet.</p>
+        <p class="fortune-note">${released > 0
+          ? `Added to your wallet. ${Store.money(released)} hold was also released and can be withdrawn.`
+          : 'Added to your main wallet.'}</p>
         <button class="btn primary btn-full" type="button" data-action="fortune-continue">Continue</button>
       </div>`, 'fortune-modal');
     const root = document.getElementById('modal-root');
@@ -603,7 +606,7 @@ const Member = (() => {
       if (data.user) Store.applySession(data.user);
       if (data.order) ordersCache = [data.order, ...ordersCache.filter((order) => order.id !== data.order.id)];
       if (data.fortune && data.fortune.reward === 'cash') {
-        showFortuneCash(data.amount);
+        showFortuneCash(data.amount, data.holdReleased);
       } else if (data.fortune) {
         const seen = seenPremiums();
         seen.add(data.fortune.id);
@@ -675,6 +678,68 @@ const Member = (() => {
     return { label: 'Wallet balance', amount: Number(user.walletBalance) || 0, kind: 'wallet' };
   }
 
+  function moneyCents(value) {
+    return Math.round((Number(value) || 0) * 100);
+  }
+
+  function remainingInSet(board) {
+    const done = boughtIds();
+    return (board && board.projects ? board.projects : []).filter((project) => !done.has(project.id));
+  }
+
+  function setOutlook(group, board) {
+    const remaining = remainingInSet(board);
+    if (!remaining.length) return null;
+    const user = Store.user();
+    const trial = Boolean(group && group.isTrial);
+    const otherHold = !trial && Number(user.holdBalance) > 0 && user.holdGroupId && group && user.holdGroupId !== group.id;
+    if (otherHold) return null;
+    let holdCents = trial ? 0 : moneyCents(user.holdBalance);
+    const holdFrom = holdCents;
+    let earnCents = 0;
+    remaining.forEach((project) => {
+      const price = moneyCents(project.price);
+      const commission = moneyCents(project.commissionAmount);
+      if (project.projectType === 'fortune' || project.reward === 'cash') {
+        earnCents += price;
+        return;
+      }
+      earnCents += commission;
+      if (trial) return;
+      if (project.projectType === 'premium') {
+        holdCents += price + commission;
+        return;
+      }
+      const fromHold = Math.min(holdCents, price);
+      holdCents = holdCents - fromHold + price + commission;
+    });
+    const done = boughtIds();
+    const moreInGroup = setBoards().some((other) => (
+      other.setNumber !== board.setNumber && other.projects.some((project) => !done.has(project.id))
+    ));
+    return {
+      trial,
+      earn: earnCents / 100,
+      holdFrom: holdFrom / 100,
+      holdTo: holdCents / 100,
+      groupFinishes: !trial && !moreInGroup,
+      setNumber: board.setNumber,
+    };
+  }
+
+  function outlookSection(outlook) {
+    if (!outlook) return '';
+    return `
+      <aside class="offer-outlook">
+        <p class="offer-outlook-kicker">After Set ${esc(String(outlook.setNumber))}</p>
+        <dl>
+          ${row('You earn', Store.money(outlook.earn))}
+          ${outlook.trial ? '' : row('Hold balance', `${Store.money(outlook.holdFrom)} → ${Store.money(outlook.holdTo)}`)}
+        </dl>
+        ${outlook.groupFinishes ? '<p class="offer-outlook-note">This hold is then released to your wallet.</p>' : ''}
+      </aside>`;
+  }
+
   function lockIcon() {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   }
@@ -732,13 +797,16 @@ const Member = (() => {
         </section>`;
     }
     if (!next) {
+      const cycleDone = Store.user().progressCycleDone === true && !(group && group.isTrial);
       return `
         <section class="card offer-card offer-done">
           ${media}
           <div class="offer-body">
             <h2 class="serif">${esc(title)}</h2>
             ${sets}
-            <p>Every project in this group is done.</p>
+            <p>${cycleDone
+              ? 'All groups and sets are complete. Come back tomorrow to start again from the first paid group. Trial is one-time only.'
+              : 'Every project in this group is done.'}</p>
             <p class="offer-count">${done}/${list.length}</p>
           </div>
         </section>`;
@@ -746,6 +814,7 @@ const Member = (() => {
     const status = Store.user().accountStatus;
     const blocked = status === 'pending' || status === 'blocked' || status === 'suspended';
     const premiumPay = next.projectType === 'premium' ? premiumFunding(next) : null;
+    const outlook = setOutlook(group, active);
     const label = status === 'pending'
       ? 'Approval required'
       : (premiumPay && !premiumPay.ready ? `Deposit ${Store.money(premiumPay.remaining)}` : 'Submit');
@@ -759,6 +828,7 @@ const Member = (() => {
             <p class="offer-fortune">Fortune box</p>
             <p class="offer-project">A gift is waiting in this set.</p>
             <p class="offer-count">${done}/${list.length}</p>
+            ${outlookSection(outlook)}
             <button class="btn primary btn-full" type="button" data-action="show-fortune" data-id="${esc(next.id)}" ${blocked ? 'disabled' : ''}>${blocked && status === 'pending' ? 'Approval required' : 'Open fortune box'}</button>
           </div>
         </section>`;
@@ -783,6 +853,7 @@ const Member = (() => {
             ${premiumPay ? row('Wallet (not used)', Store.money(Store.user().walletBalance)) : ''}
             ${premiumPay && Number(Store.user().holdBalance) > 0 ? row('Hold balance', Store.money(Store.user().holdBalance)) : ''}
           </dl>
+          ${outlookSection(outlook)}
           <button class="btn primary btn-full" type="button" data-action="${premiumPay && !premiumPay.ready ? 'open-cash-in' : 'open-activate'}" data-id="${esc(next.id)}" ${premiumPay && !premiumPay.ready ? `data-amount="${premiumPay.remaining}"` : ''} ${blocked ? 'disabled' : ''}>${label}</button>
         </div>
       </section>`;
@@ -813,10 +884,14 @@ const Member = (() => {
   }
 
   function boughtIds() {
-    const today = dubaiToday();
-    return new Set(ordersCache.filter((order) => (
-      (order.status === 'active' || order.status === 'completed') && (order.workDate || String(order.createdAt || '').slice(0, 10)) === today
-    )).map((order) => order.projectId));
+    const cycleStart = String((Store.user() && Store.user().progressCycleStart) || '');
+    const trialIds = new Set((groupsCache || []).filter((group) => group.isTrial).map((group) => group.id));
+    return new Set(ordersCache.filter((order) => {
+      if (order.status !== 'active' && order.status !== 'completed') return false;
+      if (trialIds.has(order.groupId)) return true;
+      const day = order.workDate || String(order.createdAt || '').slice(0, 10);
+      return !cycleStart || day >= cycleStart;
+    }).map((order) => order.projectId));
   }
 
   function renderProject() {
@@ -1951,21 +2026,24 @@ const Member = (() => {
     root.addEventListener('click', watch);
   }
 
-  function orderSubmitted(order) {
+  function orderSubmitted(order, holdReleased) {
     const name = order && order.projectName ? order.projectName : 'Your project';
     const pendingPremium = premiumAfterOrder;
+    const released = Number(holdReleased) || 0;
     openModal(`
       <div class="celebrate celebrate-order">
         <div class="celebrate-hero">
           <p class="celebrate-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.3 2.3 4.7-5"/></svg></p>
           <p class="smallcaps">Congratulations</p>
-          <h3 class="serif">Order submitted</h3>
+          <h3 class="serif">${released > 0 ? 'Group complete' : 'Order submitted'}</h3>
         </div>
         <div class="celebrate-body">
           <p class="celebrate-name">${esc(name)}</p>
-          <p class="muted">Your order is confirmed.</p>
+          <p class="muted">${released > 0
+            ? `${Store.money(released)} moved to your wallet. You can cash out now.`
+            : 'Your order is confirmed.'}</p>
           <div class="celebrate-actions">
-            <button class="btn primary btn-full" type="button" data-dismiss>Next task</button>
+            <button class="btn primary btn-full" type="button" data-dismiss>${released > 0 ? 'Done' : 'Next task'}</button>
           </div>
         </div>
       </div>`, 'celebrate-modal');
@@ -2137,7 +2215,7 @@ const Member = (() => {
           closeModal();
           holdNextOffer = document.body.dataset.page === 'projects' && Boolean(new URLSearchParams(location.search).get('group'));
           if (document.body.dataset.page === 'projects') renderProjects();
-          orderSubmitted(data.order || {});
+          orderSubmitted(data.order || {}, data.holdReleased);
         })
         .catch((err) => {
           setBtnLoading(el, false);

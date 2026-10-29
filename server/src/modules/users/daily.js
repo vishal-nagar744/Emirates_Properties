@@ -1,61 +1,37 @@
-import { Transaction } from '../wallet/model.js';
 import { workDate } from '../../lib/workDate.js';
+import { ProjectGroup } from '../groups/model.js';
 import { UserPremium } from './premium-model.js';
 import { clearNegativeWallet } from './premium-fund.js';
+
+async function startPaidCycle(user, today) {
+  user.progressCycleStart = today;
+  user.progressCycleDone = false;
+  const trial = await ProjectGroup.findOne({ isTrial: true }).select('_id');
+  const filter = { userId: String(user._id) };
+  if (trial) filter.groupId = { $ne: String(trial._id) };
+  await UserPremium.updateMany(
+    filter,
+    { $set: { opened: false, charged: false, fundedAmount: 0 } },
+  );
+}
 
 export async function ensureDailyReset(user) {
   if (!user || user.role !== 'user') return user;
   const today = workDate();
+  let changed = false;
+
   if (!user.progressDate) {
     user.progressDate = today;
-    await clearNegativeWallet(user);
-    await user.save();
-    return user;
-  }
-  if (user.progressDate === today) {
-    if (await clearNegativeWallet(user)) await user.save();
-    return user;
+    changed = true;
   }
 
-  const hold = Math.round((Number(user.holdBalance) || 0) * 100) / 100;
-  if (hold > 0) {
-    user.walletBalance = Math.round(((Number(user.walletBalance) || 0) + hold) * 100) / 100;
-    user.holdBalance = 0;
-    user.holdGroupId = '';
-    await Transaction.create({
-      userId: String(user._id),
-      type: 'hold_release',
-      amount: hold,
-      direction: 'debit',
-      wallet: 'hold',
-      description: 'Daily reset',
-      status: 'completed',
-      referenceId: null,
-    });
-    await Transaction.create({
-      userId: String(user._id),
-      type: 'hold_release',
-      amount: hold,
-      direction: 'credit',
-      wallet: 'main',
-      description: 'Daily reset',
-      status: 'completed',
-      referenceId: null,
-    });
+  if (user.progressDate !== today) {
+    if (user.progressCycleDone) await startPaidCycle(user, today);
+    user.progressDate = today;
+    changed = true;
   }
 
-  await clearNegativeWallet(user);
-
-  user.groupAccessSet = false;
-  user.unlockedGroupIds = [];
-  user.lockedGroupIds = [];
-  user.setAccessSet = false;
-  user.unlockedSetKeys = [];
-  user.progressDate = today;
-  await user.save();
-  await UserPremium.updateMany(
-    { userId: String(user._id) },
-    { $set: { opened: false, charged: false } },
-  );
+  if (await clearNegativeWallet(user)) changed = true;
+  if (changed) await user.save();
   return user;
 }

@@ -30,6 +30,8 @@ const userSchema = new mongoose.Schema(
     unlockedSetKeys: { type: [String], default: [] },
     unlockNotices: { type: [mongoose.Schema.Types.Mixed], default: [] },
     progressDate: { type: String, default: '' },
+    progressCycleStart: { type: String, default: '' },
+    progressCycleDone: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

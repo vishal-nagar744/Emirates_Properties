@@ -3,14 +3,14 @@ import { Commission } from '../commissions/model.js';
 import { ProjectGroup, hasImage } from '../groups/model.js';
 import { groupImageUrl } from '../images/service.js';
 import { Project } from '../projects/model.js';
-import { itemId, nextAccessibleProject } from '../projects/service.js';
+import { itemId, nextAccessibleProject, setNumberOf, setSequence } from '../projects/service.js';
 import { UserPremium, viewPremium } from '../users/premium-model.js';
 import { clearNegativeWallet, remainingPremiumCents } from '../users/premium-fund.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { isSetOpen, openGroupIds, openSetKeys } from '../users/service.js';
 import { ensureDailyReset } from '../users/daily.js';
-import { orderWorkDate, workDate } from '../../lib/workDate.js';
+import { inProgressCycle, workDate } from '../../lib/workDate.js';
 import { Order, viewOrder } from './model.js';
 
 function cents(value) {
@@ -49,6 +49,8 @@ function memberView(user, openIds = []) {
     unlockedSetKeys: openSetKeys(user),
     unlockNotices: Array.isArray(user.unlockNotices) ? user.unlockNotices : [],
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
+    progressCycleStart: user.progressCycleStart || '',
+    progressCycleDone: Boolean(user.progressCycleDone),
   };
 }
 
@@ -125,23 +127,48 @@ async function ordersForUser(userId, extra = {}) {
   }).select('projectId groupId workDate createdAt startDate');
 }
 
-function onWorkDate(rows, date) {
-  return rows.filter((row) => orderWorkDate(row) === date);
+function cycleRows(rows, user, isTrial) {
+  return rows.filter((row) => inProgressCycle(row, user, isTrial));
 }
 
 async function expectedIds(userId, groupId) {
   const [projects, premiums] = await Promise.all([
-    Project.find({ groupId: String(groupId) }).select('_id'),
-    UserPremium.find({ userId: String(userId), groupId: String(groupId) }).select('_id'),
+    Project.find({ groupId: String(groupId) }),
+    UserPremium.find({ userId: String(userId), groupId: String(groupId) }),
   ]);
-  return [...projects, ...premiums].map((row) => String(row._id));
+  const ids = [];
+  for (const setNumber of [1, 2, 3]) {
+    const sequence = setSequence(
+      projects.filter((project) => setNumberOf(project) === setNumber),
+      premiums.filter((premium) => setNumberOf(premium) === setNumber),
+    );
+    sequence.forEach((item) => ids.push(itemId(item)));
+  }
+  return [...new Set(ids.filter(Boolean))];
 }
 
-async function trialGroupFinished(userId, groupId, date = workDate()) {
-  const ids = await expectedIds(userId, groupId);
+async function trialGroupFinished(user, groupId) {
+  const ids = await expectedIds(user._id, groupId);
   if (!ids.length) return false;
-  const done = onWorkDate(await ordersForUser(userId, { projectId: { $in: ids } }), date);
+  const group = await ProjectGroup.findById(groupId).select('isTrial');
+  const done = cycleRows(
+    await ordersForUser(user._id, { projectId: { $in: ids } }),
+    user,
+    Boolean(group && group.isTrial),
+  );
   return new Set(done.map((row) => String(row.projectId))).size >= ids.length;
+}
+
+async function markCycleDoneIfReady(user) {
+  if (!user || user.progressCycleDone) return;
+  const openIds = await openGroupIds(user);
+  const groups = openIds.length ? await ProjectGroup.find({ _id: { $in: openIds } }) : [];
+  const paid = groups.filter((group) => !group.isTrial);
+  if (!paid.length) return;
+  for (const group of paid) {
+    if (!(await trialGroupFinished(user, String(group._id)))) return;
+  }
+  user.progressCycleDone = true;
 }
 
 export async function resetCompletedTrialBalances() {
@@ -215,10 +242,13 @@ async function premiumReady(user, row) {
     return { status: 403, message: 'This group is locked.' };
   }
   if (groupKey) {
-    const today = workDate();
     const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
-    const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
+    const doneOrders = cycleRows(
+      await ordersForUser(user._id, { groupId: groupKey }),
+      user,
+      Boolean(group && group.isTrial),
+    );
     const done = new Set(doneOrders.map((order) => String(order.projectId)));
     const access = accessNext(user, groupKey, siblings, premiums, done);
     if (access.lockedSet) {
@@ -287,21 +317,25 @@ export async function activateOrder({ userId, projectId }) {
 
   const now = new Date();
   const today = workDate(now);
+  const group = await ProjectGroup.findById(project.groupId);
   const earlier = await ordersForUser(user._id, { projectId: String(project._id) });
-  if (onWorkDate(earlier, today).length) {
-    return { status: 409, message: 'You have already submitted an order for this project today.' };
+  if (cycleRows(earlier, user, Boolean(group && group.isTrial)).length) {
+    return { status: 409, message: 'You have already submitted this project.' };
   }
   const priceCents = cents(project.price);
   const balanceCents = cents(user.walletBalance);
   const commissionCents = cents(project.commissionAmount);
   const amount = commissionCents / 100;
-  const group = await ProjectGroup.findById(project.groupId);
   const groupKey = group ? String(group._id) : String(project.groupId || '');
   const openIds = await openGroupIds(user);
   if (groupKey) {
     const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
-    const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
+    const doneOrders = cycleRows(
+      await ordersForUser(user._id, { groupId: groupKey }),
+      user,
+      Boolean(group && group.isTrial),
+    );
     const done = new Set(doneOrders.map((row) => String(row.projectId)));
     const access = accessNext(user, groupKey, siblings, premiums, done);
     if (access.lockedSet) {
@@ -380,7 +414,7 @@ export async function activateOrder({ userId, projectId }) {
   if (trialOrder) {
     user.trialBalance = (cents(user.trialBalance) - priceCents + priceCents) / 100;
     user.walletBalance = (balanceCents + commissionCents) / 100;
-    const finished = await trialGroupFinished(user._id, group._id);
+    const finished = await trialGroupFinished(user, group._id);
     if (finished && cents(user.trialBalance) > 0) {
       const cleared = cents(user.trialBalance) / 100;
       user.trialBalance = 0;
@@ -426,7 +460,7 @@ export async function activateOrder({ userId, projectId }) {
     }
     user.holdBalance = settlement.holdCents / 100;
     user.holdGroupId = settlement.holdGroupId || '';
-    const finished = group ? await trialGroupFinished(user._id, group._id) : false;
+    const finished = group ? await trialGroupFinished(user, group._id) : false;
     if (finished && cents(user.holdBalance) > 0) {
       const released = cents(user.holdBalance) / 100;
       user.walletBalance = (cents(user.walletBalance) + cents(user.holdBalance)) / 100;
@@ -434,11 +468,12 @@ export async function activateOrder({ userId, projectId }) {
       user.holdGroupId = '';
       settlement.released = released;
     }
+    if (finished) await markCycleDoneIfReady(user);
   } else {
     user.walletBalance = settlement.walletCents / 100;
     user.holdBalance = settlement.holdCents / 100;
     user.holdGroupId = settlement.holdGroupId || '';
-    const finished = group ? await trialGroupFinished(user._id, group._id) : false;
+    const finished = group ? await trialGroupFinished(user, group._id) : false;
     if (finished && cents(user.holdBalance) > 0) {
       const released = cents(user.holdBalance) / 100;
       user.walletBalance = (cents(user.walletBalance) + cents(user.holdBalance)) / 100;
@@ -446,6 +481,7 @@ export async function activateOrder({ userId, projectId }) {
       user.holdGroupId = '';
       settlement.released = released;
     }
+    if (finished) await markCycleDoneIfReady(user);
   }
   await user.save();
 
@@ -559,7 +595,14 @@ export async function activateOrder({ userId, projectId }) {
     });
   }
 
-  return { status: 201, data: { order: viewOrder(order), user: memberView(user, await openGroupIds(user)) } };
+  return {
+    status: 201,
+    data: {
+      order: viewOrder(order),
+      user: memberView(user, await openGroupIds(user)),
+      holdReleased: settlement && settlement.released ? settlement.released : 0,
+    },
+  };
 }
 
 export async function openFortuneBox({ userId, premiumId }) {
@@ -577,12 +620,11 @@ export async function openFortuneBox({ userId, premiumId }) {
 
   const now = new Date();
   const today = workDate(now);
-  const earlier = await ordersForUser(user._id, { projectId: String(row._id) });
-  if (onWorkDate(earlier, today).length) {
-    return { status: 409, message: 'You have already opened this fortune box today.' };
-  }
-
   const group = await ProjectGroup.findById(row.groupId);
+  const earlier = await ordersForUser(user._id, { projectId: String(row._id) });
+  if (cycleRows(earlier, user, Boolean(group && group.isTrial)).length) {
+    return { status: 409, message: 'You have already opened this fortune box.' };
+  }
   const groupKey = group ? String(group._id) : String(row.groupId || '');
   const openIds = await openGroupIds(user);
   if (groupKey && !openIds.includes(groupKey)) {
@@ -591,7 +633,11 @@ export async function openFortuneBox({ userId, premiumId }) {
   if (groupKey) {
     const siblings = await Project.find({ groupId: groupKey }).sort({ price: 1, createdAt: 1 });
     const premiums = await UserPremium.find({ userId: String(user._id), groupId: groupKey });
-    const doneOrders = onWorkDate(await ordersForUser(user._id, { groupId: groupKey }), today);
+    const doneOrders = cycleRows(
+      await ordersForUser(user._id, { groupId: groupKey }),
+      user,
+      Boolean(group && group.isTrial),
+    );
     const done = new Set(doneOrders.map((order) => String(order.projectId)));
     const access = accessNext(user, groupKey, siblings, premiums, done);
     if (access.lockedSet) {
@@ -642,7 +688,7 @@ export async function openFortuneBox({ userId, premiumId }) {
   const trialOrder = Boolean(group && group.isTrial);
   let released = 0;
   if (trialOrder) {
-    const finished = await trialGroupFinished(user._id, group._id, today);
+    const finished = await trialGroupFinished(user, group._id);
     if (finished && cents(user.trialBalance) > 0) {
       const cleared = cents(user.trialBalance) / 100;
       user.trialBalance = 0;
@@ -657,16 +703,15 @@ export async function openFortuneBox({ userId, premiumId }) {
         referenceId: String(order._id),
       });
     }
-  } else if (group && cents(user.holdBalance) > 0) {
-    const ids = await expectedIds(user._id, group._id);
-    const done = onWorkDate(await ordersForUser(user._id, { projectId: { $in: ids } }), today);
-    const finished = ids.length > 0 && new Set(done.map((item) => String(item.projectId))).size >= ids.length;
-    if (finished) {
+  } else if (group) {
+    const finished = await trialGroupFinished(user, group._id);
+    if (finished && cents(user.holdBalance) > 0) {
       released = cents(user.holdBalance) / 100;
       user.walletBalance = (cents(user.walletBalance) + cents(user.holdBalance)) / 100;
       user.holdBalance = 0;
       user.holdGroupId = '';
     }
+    if (finished) await markCycleDoneIfReady(user);
   }
   await user.save();
 
@@ -712,6 +757,7 @@ export async function openFortuneBox({ userId, premiumId }) {
       order: viewOrder(order),
       user: memberView(user, await openGroupIds(user)),
       amount: amountCents / 100,
+      holdReleased: released,
     },
   };
 }

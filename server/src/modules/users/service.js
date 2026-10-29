@@ -75,6 +75,8 @@ function viewUser(user, extra = {}) {
     unlockedSetKeys: openSetKeys(user),
     unlockNotices: noticeList(user),
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
+    progressCycleStart: user.progressCycleStart || '',
+    progressCycleDone: Boolean(user.progressCycleDone),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
     ...extra,
   };
