@@ -91,35 +91,41 @@ async function findMember(id) {
   return user;
 }
 
+function resolvedOpenGroupIds(user, trialId) {
+  if (!user || user.role === 'admin') return [];
+  if (user.groupAccessSet) return (user.unlockedGroupIds || []).map(String);
+  if (!trialId) return [];
+  if ((user.lockedGroupIds || []).map(String).includes(trialId)) return [];
+  return [trialId];
+}
+
 export async function openGroupIds(user) {
   if (!user || user.role === 'admin') return [];
   if (user.groupAccessSet) return (user.unlockedGroupIds || []).map(String);
   const trial = await ProjectGroup.findOne({ isTrial: true }).select('_id');
-  if (!trial) return [];
-  const id = String(trial._id);
-  if ((user.lockedGroupIds || []).map(String).includes(id)) return [];
-  return [id];
+  return resolvedOpenGroupIds(user, trial ? String(trial._id) : '');
 }
 
 async function decorate(users) {
-  const views = [];
-  for (const user of users) {
-    views.push(viewUser(user, {
-      unlockedGroupIds: await openGroupIds(user),
-    }));
-  }
-  return views;
+  const needsTrial = users.some((user) => user && user.role !== 'admin' && !user.groupAccessSet);
+  const trial = needsTrial ? await ProjectGroup.findOne({ isTrial: true }).select('_id') : null;
+  const trialId = trial ? String(trial._id) : '';
+  return users.map((user) => viewUser(user, {
+    unlockedGroupIds: resolvedOpenGroupIds(user, trialId),
+  }));
 }
 
 export async function listMembers({ status, q }) {
   const filter = { role: 'user' };
   if (status && status !== 'all') filter.accountStatus = status;
-  let rows = await User.find(filter).sort({ createdAt: -1 });
+  let rows = await User.find(filter)
+    .select('-passwordHash -withdrawalPasswordHash')
+    .sort({ createdAt: -1 })
+    .lean();
   const query = String(q || '').trim().toLowerCase();
   if (query) {
     rows = rows.filter((user) => `${user.fullName} ${user.mobile} ${user.memberNo || ''}`.toLowerCase().includes(query));
   }
-  for (const user of rows) await ensureDailyReset(user);
   return { status: 200, data: { users: await decorate(rows) } };
 }
 
