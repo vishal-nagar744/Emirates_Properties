@@ -501,6 +501,8 @@ const Store = (() => {
       unlockNotices: Array.isArray(session.unlockNotices) ? session.unlockNotices : [],
       progressCycleStart: session.progressCycleStart || '',
       progressCycleDone: session.progressCycleDone === true,
+      groupCycleStarts: session.groupCycleStarts && typeof session.groupCycleStarts === 'object' ? session.groupCycleStarts : {},
+      restartGroupIds: Array.isArray(session.restartGroupIds) ? session.restartGroupIds : [],
       role: session.role || 'user',
     };
   }

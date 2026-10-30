@@ -1,16 +1,21 @@
 import { workDate } from '../../lib/workDate.js';
-import { ProjectGroup } from '../groups/model.js';
 import { UserPremium } from './premium-model.js';
 import { clearNegativeWallet } from './premium-fund.js';
 
-async function startPaidCycle(user, today) {
-  user.progressCycleStart = today;
+async function restartFinishedGroups(user, today) {
+  const ids = [...new Set((user.restartGroupIds || []).map(String).filter(Boolean))];
+  if (!ids.length) return;
+  const starts = new Map(
+    (Array.isArray(user.groupCycles) ? user.groupCycles : [])
+      .filter((row) => row && row.groupId && row.start)
+      .map((row) => [String(row.groupId), String(row.start)]),
+  );
+  ids.forEach((groupId) => starts.set(groupId, today));
+  user.groupCycles = [...starts.entries()].map(([groupId, start]) => ({ groupId, start }));
+  user.restartGroupIds = [];
   user.progressCycleDone = false;
-  const trial = await ProjectGroup.findOne({ isTrial: true }).select('_id');
-  const filter = { userId: String(user._id) };
-  if (trial) filter.groupId = { $ne: String(trial._id) };
   await UserPremium.updateMany(
-    filter,
+    { userId: String(user._id), groupId: { $in: ids } },
     { $set: { opened: false, charged: false, fundedAmount: 0 } },
   );
 }
@@ -26,7 +31,7 @@ export async function ensureDailyReset(user) {
   }
 
   if (user.progressDate !== today) {
-    if (user.progressCycleDone) await startPaidCycle(user, today);
+    await restartFinishedGroups(user, today);
     user.progressDate = today;
     changed = true;
   }

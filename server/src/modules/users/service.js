@@ -12,7 +12,7 @@ import { Project } from '../projects/model.js';
 import { nextGroupProject, setSequence, setNumberOf } from '../projects/service.js';
 import { Referral } from '../referrals/model.js';
 import { UserPremium } from './premium-model.js';
-import { orderWorkDate } from '../../lib/workDate.js';
+import { groupCycleStarts, orderWorkDate } from '../../lib/workDate.js';
 import { ensureDailyReset } from './daily.js';
 import { nextMemberNo } from './memberNo.js';
 import { applyIncomingCredit } from './premium-fund.js';
@@ -77,6 +77,8 @@ function viewUser(user, extra = {}) {
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     progressCycleStart: user.progressCycleStart || '',
     progressCycleDone: Boolean(user.progressCycleDone),
+    groupCycleStarts: groupCycleStarts(user),
+    restartGroupIds: Array.isArray(user.restartGroupIds) ? user.restartGroupIds.map(String) : [],
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
     ...extra,
   };

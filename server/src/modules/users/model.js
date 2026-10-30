@@ -32,6 +32,8 @@ const userSchema = new mongoose.Schema(
     progressDate: { type: String, default: '' },
     progressCycleStart: { type: String, default: '' },
     progressCycleDone: { type: Boolean, default: false },
+    groupCycles: { type: [{ groupId: { type: String }, start: { type: String } }], default: [] },
+    restartGroupIds: { type: [String], default: [] },
   },
   { timestamps: true }
 );

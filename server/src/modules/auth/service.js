@@ -6,6 +6,7 @@ import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { openGroupIds, openSetKeys } from '../users/service.js';
 import { nextMemberNo } from '../users/memberNo.js';
+import { groupCycleStarts } from '../../lib/workDate.js';
 import { ensureDailyReset } from '../users/daily.js';
 import { issueToken, revokeToken, revokeUserSessions } from './session.js';
 
@@ -46,6 +47,8 @@ function publicUser(user) {
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     progressCycleStart: user.progressCycleStart || '',
     progressCycleDone: Boolean(user.progressCycleDone),
+    groupCycleStarts: groupCycleStarts(user),
+    restartGroupIds: Array.isArray(user.restartGroupIds) ? user.restartGroupIds.map(String) : [],
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : '',
   };
 }

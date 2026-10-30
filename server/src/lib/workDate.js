@@ -15,9 +15,25 @@ export function orderWorkDate(order) {
   return when ? workDate(when) : '';
 }
 
-export function inProgressCycle(order, user, isTrial) {
+export function groupCycleStarts(user) {
+  const starts = {};
+  const rows = Array.isArray(user && user.groupCycles) ? user.groupCycles : [];
+  rows.forEach((row) => {
+    if (row && row.groupId && row.start) starts[String(row.groupId)] = String(row.start);
+  });
+  return starts;
+}
+
+export function cycleStartForGroup(user, groupId) {
+  const starts = groupCycleStarts(user);
+  const key = String(groupId || '');
+  if (key && starts[key]) return starts[key];
+  return String((user && user.progressCycleStart) || '');
+}
+
+export function inProgressCycle(order, user, isTrial, groupId) {
   if (isTrial) return true;
-  const start = String((user && user.progressCycleStart) || '');
+  const start = cycleStartForGroup(user, groupId || (order && order.groupId));
   if (!start) return true;
   return orderWorkDate(order) >= start;
 }

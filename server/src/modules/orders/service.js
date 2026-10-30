@@ -10,7 +10,7 @@ import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { isSetOpen, openGroupIds, openSetKeys } from '../users/service.js';
 import { ensureDailyReset } from '../users/daily.js';
-import { inProgressCycle, workDate } from '../../lib/workDate.js';
+import { groupCycleStarts, inProgressCycle, workDate } from '../../lib/workDate.js';
 import { Order, viewOrder } from './model.js';
 
 function cents(value) {
@@ -51,6 +51,8 @@ function memberView(user, openIds = []) {
     hasWithdrawalPassword: Boolean(user.withdrawalPasswordHash),
     progressCycleStart: user.progressCycleStart || '',
     progressCycleDone: Boolean(user.progressCycleDone),
+    groupCycleStarts: groupCycleStarts(user),
+    restartGroupIds: Array.isArray(user.restartGroupIds) ? user.restartGroupIds.map(String) : [],
   };
 }
 
@@ -159,16 +161,14 @@ async function trialGroupFinished(user, groupId) {
   return new Set(done.map((row) => String(row.projectId))).size >= ids.length;
 }
 
-async function markCycleDoneIfReady(user) {
-  if (!user || user.progressCycleDone) return;
+async function markGroupFinished(user, group) {
+  if (!user || !group || group.isTrial) return;
+  const id = String(group._id);
+  user.restartGroupIds = [...new Set([...(user.restartGroupIds || []).map(String), id])];
   const openIds = await openGroupIds(user);
   const groups = openIds.length ? await ProjectGroup.find({ _id: { $in: openIds } }) : [];
-  const paid = groups.filter((group) => !group.isTrial);
-  if (!paid.length) return;
-  for (const group of paid) {
-    if (!(await trialGroupFinished(user, String(group._id)))) return;
-  }
-  user.progressCycleDone = true;
+  const paid = groups.filter((row) => !row.isTrial);
+  user.progressCycleDone = paid.length > 0 && paid.every((row) => user.restartGroupIds.includes(String(row._id)));
 }
 
 export async function resetCompletedTrialBalances() {
@@ -468,7 +468,7 @@ export async function activateOrder({ userId, projectId }) {
       user.holdGroupId = '';
       settlement.released = released;
     }
-    if (finished) await markCycleDoneIfReady(user);
+    if (finished) await markGroupFinished(user, group);
   } else {
     user.walletBalance = settlement.walletCents / 100;
     user.holdBalance = settlement.holdCents / 100;
@@ -481,7 +481,7 @@ export async function activateOrder({ userId, projectId }) {
       user.holdGroupId = '';
       settlement.released = released;
     }
-    if (finished) await markCycleDoneIfReady(user);
+    if (finished) await markGroupFinished(user, group);
   }
   await user.save();
 
@@ -711,7 +711,7 @@ export async function openFortuneBox({ userId, premiumId }) {
       user.holdBalance = 0;
       user.holdGroupId = '';
     }
-    if (finished) await markCycleDoneIfReady(user);
+    if (finished) await markGroupFinished(user, group);
   }
   await user.save();
 

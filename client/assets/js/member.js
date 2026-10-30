@@ -797,16 +797,21 @@ const Member = (() => {
         </section>`;
     }
     if (!next) {
+      const restartIds = Array.isArray(Store.user().restartGroupIds) ? Store.user().restartGroupIds : [];
+      const groupDone = group && !group.isTrial && restartIds.includes(group.id);
       const cycleDone = Store.user().progressCycleDone === true && !(group && group.isTrial);
+      const doneNote = cycleDone
+        ? 'All paid groups and sets are complete. Come back tomorrow to start again from the first paid group. Trial is one-time only.'
+        : (groupDone
+          ? 'This group is complete. Come back tomorrow to start it again from the beginning.'
+          : 'Every project in this group is done.');
       return `
         <section class="card offer-card offer-done">
           ${media}
           <div class="offer-body">
             <h2 class="serif">${esc(title)}</h2>
             ${sets}
-            <p>${cycleDone
-              ? 'All groups and sets are complete. Come back tomorrow to start again from the first paid group. Trial is one-time only.'
-              : 'Every project in this group is done.'}</p>
+            <p>${doneNote}</p>
             <p class="offer-count">${done}/${list.length}</p>
           </div>
         </section>`;
@@ -884,13 +889,16 @@ const Member = (() => {
   }
 
   function boughtIds() {
-    const cycleStart = String((Store.user() && Store.user().progressCycleStart) || '');
+    const user = Store.user() || {};
+    const starts = user.groupCycleStarts && typeof user.groupCycleStarts === 'object' ? user.groupCycleStarts : {};
+    const cycleStart = String(user.progressCycleStart || '');
     const trialIds = new Set((groupsCache || []).filter((group) => group.isTrial).map((group) => group.id));
     return new Set(ordersCache.filter((order) => {
       if (order.status !== 'active' && order.status !== 'completed') return false;
       if (trialIds.has(order.groupId)) return true;
       const day = order.workDate || String(order.createdAt || '').slice(0, 10);
-      return !cycleStart || day >= cycleStart;
+      const start = String(starts[order.groupId] || cycleStart || '');
+      return !start || day >= start;
     }).map((order) => order.projectId));
   }
 
