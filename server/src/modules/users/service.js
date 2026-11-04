@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { normalizeCurrency } from '../../lib/currency.js';
 import { hashPassword } from '../../lib/password.js';
 import { Session } from '../auth/model.js';
 import { revokeUserSessions } from '../auth/session.js';
@@ -9,7 +10,7 @@ import { User } from './model.js';
 import { Transaction, WithdrawalAccount } from '../wallet/model.js';
 import { Order } from '../orders/model.js';
 import { Project } from '../projects/model.js';
-import { nextGroupProject, setSequence, setNumberOf } from '../projects/service.js';
+import { itemId, nextAccessibleProject, setSequence, setNumberOf } from '../projects/service.js';
 import { Referral } from '../referrals/model.js';
 import { UserPremium } from './premium-model.js';
 import { groupCycleStarts, orderWorkDate } from '../../lib/workDate.js';
@@ -64,6 +65,7 @@ function viewUser(user, extra = {}) {
     mobile: user.mobile,
     loginId: user.loginId || '',
     role: user.role,
+    currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -133,6 +135,17 @@ export async function getMember(id) {
   const user = await findMember(id);
   if (!user) return { status: 404, message: 'User not found.' };
   await ensureDailyReset(user);
+  const [view] = await decorate([user]);
+  return { status: 200, data: { user: view } };
+}
+
+export async function setOwnCurrency(session, currency) {
+  if (!session || session.role !== 'user') return { status: 401, message: 'Sign in required.' };
+  if (!mongoose.isValidObjectId(session.subjectId)) return { status: 401, message: 'Sign in required.' };
+  const user = await User.findById(session.subjectId);
+  if (!user || user.role !== 'user') return { status: 401, message: 'Sign in required.' };
+  user.currency = normalizeCurrency(currency);
+  await user.save();
   const [view] = await decorate([user]);
   return { status: 200, data: { user: view } };
 }
@@ -320,10 +333,12 @@ export async function memberDailyHistory(id) {
   const groupIds = [...new Set(orders.map((order) => order.groupId).filter(Boolean))];
   const [groupRows, projectRows, premiumRows] = await Promise.all([
     groupIds.length ? ProjectGroup.find({ _id: { $in: groupIds } }).select('name') : [],
-    groupIds.length ? Project.find({ groupId: { $in: groupIds } }).select('name price projectType setNumber groupId createdAt') : [],
+    groupIds.length ? Project.find({ groupId: { $in: groupIds } }).select('name price commissionAmount projectType setNumber groupId createdAt') : [],
     groupIds.length ? UserPremium.find({ userId: String(user._id), groupId: { $in: groupIds } }) : [],
   ]);
   const groupName = new Map(groupRows.map((group) => [String(group._id), group.name]));
+  const projectById = new Map(projectRows.map((project) => [String(project._id), project]));
+  const premiumById = new Map(premiumRows.map((premium) => [String(premium._id), premium]));
   const projectsByGroup = new Map();
   projectRows.forEach((project) => {
     const key = String(project.groupId);
@@ -331,6 +346,68 @@ export async function memberDailyHistory(id) {
     list.push(project);
     projectsByGroup.set(key, list);
   });
+  const premiumsByGroup = new Map();
+  premiumRows.forEach((premium) => {
+    const key = String(premium.groupId);
+    const list = premiumsByGroup.get(key) || [];
+    list.push(premium);
+    premiumsByGroup.set(key, list);
+  });
+
+  const doneByGroup = new Map();
+  orders.forEach((order) => {
+    const key = order.groupId || 'none';
+    const done = doneByGroup.get(key) || new Set();
+    done.add(String(order.projectId));
+    doneByGroup.set(key, done);
+  });
+
+  const itemDetails = (id) => {
+    const premium = premiumById.get(String(id));
+    if (premium) {
+      const kind = premium.kind === 'fortune' ? 'fortune' : 'premium';
+      const reward = kind === 'fortune' && premium.reward === 'cash' ? 'cash' : 'project';
+      return {
+        projectType: reward === 'cash' ? 'fortune' : 'premium',
+        kind,
+        reward,
+        position: Number(premium.position) || 1,
+        setNumber: setNumberOf(premium),
+      };
+    }
+    const project = projectById.get(String(id));
+    if (project) {
+      return {
+        projectType: 'normal',
+        kind: 'normal',
+        reward: 'project',
+        position: 0,
+        setNumber: setNumberOf(project),
+      };
+    }
+    return { projectType: 'normal', kind: 'normal', reward: 'project', position: 0, setNumber: 1 };
+  };
+
+  const orderView = (order) => ({
+    id: String(order._id),
+    projectName: order.projectName,
+    price: Number(order.price) || 0,
+    commissionAmount: Number(order.commissionAmount) || Number(order.earnedCommission) || 0,
+    createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : '',
+    ...itemDetails(order.projectId),
+  });
+
+  const currentView = (item, groupId) => {
+    const details = itemDetails(itemId(item));
+    return {
+      id: itemId(item),
+      name: item.name,
+      price: Number(item.price) || 0,
+      commissionAmount: Number(item.commissionAmount) || 0,
+      ...details,
+      locked: !isSetOpen(user, groupId, details.setNumber),
+    };
+  };
 
   const byDay = new Map();
   orders.forEach((order) => {
@@ -349,34 +426,45 @@ export async function memberDailyHistory(id) {
       date,
       groups: [...groups.entries()].map(([groupId, rows]) => {
         const projects = projectsByGroup.get(groupId) || [];
-        const premiums = premiumRows.filter((row) => String(row.groupId) === groupId);
-        const done = new Set(rows.map((order) => String(order.projectId)));
-        const next = nextGroupProject(projects, premiums, done);
-        const total = [1, 2, 3].reduce((sum, setNumber) => {
-          const setProjects = setSequence(
+        const premiums = premiumsByGroup.get(groupId) || [];
+        const allDone = doneByGroup.get(groupId) || new Set();
+        const currentItem = nextAccessibleProject(projects, premiums, allDone).item;
+        const current = currentItem ? currentView(currentItem, groupId) : null;
+        const dayOrders = rows.map(orderView);
+        const daySpent = dayOrders.reduce((sum, order) => sum + order.price, 0);
+        const dayCommission = dayOrders.reduce((sum, order) => sum + order.commissionAmount, 0);
+        let total = 0;
+        const sets = [1, 2, 3].map((setNumber) => {
+          const sequence = setSequence(
             projects.filter((project) => setNumberOf(project) === setNumber),
             premiums.filter((premium) => setNumberOf(premium) === setNumber),
           );
-          return sum + setProjects.length;
-        }, 0);
-        const commission = rows.reduce((sum, order) => sum + (Number(order.commissionAmount) || Number(order.earnedCommission) || 0), 0);
-        const spent = rows.reduce((sum, order) => sum + (Number(order.price) || 0), 0);
+          const completed = sequence.filter((item) => allDone.has(itemId(item))).length;
+          const setOrders = dayOrders.filter((order) => order.setNumber === setNumber);
+          total += sequence.length;
+          return {
+            setNumber,
+            total: Math.max(sequence.length, completed),
+            completed,
+            locked: !isSetOpen(user, groupId, setNumber),
+            current: Boolean(current && current.setNumber === setNumber),
+            orders: setOrders,
+          };
+        }).filter((set) => set.total > 0 || set.orders.length || set.current);
+        const completed = sets.reduce((sum, set) => sum + set.completed, 0);
+        const overallTotal = Math.max(total, completed);
         return {
           groupId,
           groupName: groupName.get(groupId) || rows[0].groupName || 'Group',
-          completed: done.size,
-          total: total || done.size,
-          finished: !next && total > 0 && done.size >= total,
-          stoppedAt: next ? next.name : '',
-          spent: Math.round(spent * 100) / 100,
-          commission: Math.round(commission * 100) / 100,
-          orders: rows.map((order) => ({
-            id: String(order._id),
-            projectName: order.projectName,
-            price: Number(order.price) || 0,
-            commissionAmount: Number(order.commissionAmount) || Number(order.earnedCommission) || 0,
-            createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : '',
-          })),
+          completed,
+          total: overallTotal,
+          finished: !current && overallTotal > 0 && completed >= overallTotal,
+          stoppedAt: current ? current.name : '',
+          spent: Math.round(daySpent * 100) / 100,
+          commission: Math.round(dayCommission * 100) / 100,
+          current,
+          sets,
+          orders: dayOrders,
         };
       }),
     }));

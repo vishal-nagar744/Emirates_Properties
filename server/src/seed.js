@@ -90,6 +90,7 @@ export async function seed() {
         welcomeBonusAmount: 100,
         trialBonusAmount: 0,
         minCashOutAmount: 500,
+        omrPerAed: 0.1046,
         supportTelegramUsername: 'AlfardanPropertiesSupport',
         supportWhatsappNumber: '',
         demoCashInUSDTAddress: '',
@@ -103,6 +104,10 @@ export async function seed() {
   await Settings.updateOne(
     { key: 'platform', trialBonusAmount: { $exists: false } },
     { $set: { trialBonusAmount: 0 } }
+  );
+  await Settings.updateOne(
+    { key: 'platform', omrPerAed: { $exists: false } },
+    { $set: { omrPerAed: 0.1046 } }
   );
   await Settings.updateOne(
     { key: 'platform', platformName: 'Emirates Properties' },

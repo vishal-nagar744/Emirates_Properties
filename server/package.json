@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "cleanup:order-images": "node scripts/strip-order-images.mjs",
+    "rebuild:orders": "node scripts/rebuild-orders-without-images.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

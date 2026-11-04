@@ -1,3 +1,4 @@
+import { DEFAULT_OMR_PER_AED, normalizeRate, setOmrRateCache } from '../../lib/currency.js';
 import { Settings } from './model.js';
 import { defaultAbout, defaultTerms } from './contentDefaults.js';
 
@@ -58,6 +59,7 @@ function viewSettings(row) {
     welcomeBonusAmount: row.welcomeBonusAmount,
     trialBonusAmount: Number(row.trialBonusAmount) || 0,
     minCashOutAmount: row.minCashOutAmount,
+    omrPerAed: normalizeRate(row.omrPerAed),
     supportTelegramUsername: row.supportTelegramUsername,
     supportWhatsappNumber: row.supportWhatsappNumber || '',
     demoCashInUSDTAddress: row.demoCashInUSDTAddress || '',
@@ -74,6 +76,7 @@ function defaults() {
     welcomeBonusAmount: 100,
     trialBonusAmount: 0,
     minCashOutAmount: 500,
+    omrPerAed: DEFAULT_OMR_PER_AED,
     supportTelegramUsername: 'AlfardanPropertiesSupport',
     supportWhatsappNumber: '',
     demoCashInUSDTAddress: '',
@@ -131,6 +134,9 @@ export async function updateSettings(body) {
   const welcomeBonusAmount = Number(body.welcomeBonusAmount);
   const trialBonusAmount = Number(body.trialBonusAmount);
   const minCashOutAmount = Number(body.minCashOutAmount);
+  const omrPerAed = body.omrPerAed === undefined || body.omrPerAed === ''
+    ? null
+    : Number(body.omrPerAed);
   const supportTelegramUsername = String(body.supportTelegramUsername || '').trim().replace(/^@/, '');
   const supportWhatsappNumber = String(body.supportWhatsappNumber || '').replace(/\D/g, '');
   const demoCashInUSDTAddress = String(body.demoCashInUSDTAddress || '').trim();
@@ -146,9 +152,13 @@ export async function updateSettings(body) {
   if (!Number.isFinite(minCashOutAmount) || minCashOutAmount < 1) {
     return { status: 400, message: 'Minimum cash out must be at least 1.' };
   }
+  if (omrPerAed !== null && (!Number.isFinite(omrPerAed) || omrPerAed <= 0)) {
+    return { status: 400, message: 'OMR rate must be greater than 0.' };
+  }
   if (!supportTelegramUsername) return { status: 400, message: 'Enter a Telegram username.' };
 
   const current = await Settings.findOne({ key: 'platform' });
+  const rate = omrPerAed === null ? normalizeRate(current && current.omrPerAed) : omrPerAed;
   const about = readAbout(body) || normalizeAbout(current && current.about);
   const terms = readTerms(body) || normalizeTerms(current && current.terms);
 
@@ -160,6 +170,7 @@ export async function updateSettings(body) {
       welcomeBonusAmount,
       trialBonusAmount,
       minCashOutAmount,
+      omrPerAed: rate,
       supportTelegramUsername,
       supportWhatsappNumber,
       demoCashInUSDTAddress,
@@ -170,5 +181,6 @@ export async function updateSettings(body) {
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
+  setOmrRateCache(rate);
   return { status: 200, data: { settings: viewSettings(row) } };
 }

@@ -16,6 +16,7 @@ const Member = (() => {
     platformName: 'Alfardan Properties',
     welcomeBonusAmount: 100,
     minCashOutAmount: 500,
+    omrPerAed: 0.1046,
     supportTelegramUsername: 'AlfardanPropertiesSupport',
     demoCashInUSDTAddress: '',
     bankPayoutEnabled: true,
@@ -1213,6 +1214,9 @@ const Member = (() => {
   }
 
   function aedAmount(value) {
+    if (Store.currency() !== 'AED') {
+      return `<span class="aed-val"><span>${Store.money(value)}</span></span>`;
+    }
     const text = Store.money(value).replace(/^AED\s*/, '');
     return `<span class="aed-val"><svg class="aed-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4.2h8.6a5.4 5.4 0 0 1 0 10.8H6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 8.6h15.2M4 12h15.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>${text}</span></span>`;
   }
@@ -1361,7 +1365,8 @@ const Member = (() => {
     const asked = Number(suggested);
     const remaining = due ? due.funds.remaining : 0;
     const prefill = Number.isFinite(asked) && asked > 0 ? asked : remaining;
-    const shown = Number.isFinite(prefill) && prefill > 0 ? (Math.round(prefill * 100) / 100) : '';
+    const code = Store.currency();
+    const shown = Number.isFinite(prefill) && prefill > 0 ? Store.fromAed(prefill) : '';
     openModal(`
       <p class="smallcaps">Wallet</p>
       <h3>Cash in</h3>
@@ -1376,8 +1381,8 @@ const Member = (() => {
       </div>
       <form class="fields" id="cashin-form">
         <div class="field">
-          <label for="cashin-amount">Amount (AED)</label>
-          <input id="cashin-amount" type="number" min="1" step="0.01" inputmode="decimal" placeholder="1000"${shown === '' ? '' : ` value="${shown}"`}>
+          <label for="cashin-amount">Amount (${code})</label>
+          <input id="cashin-amount" type="number" min="1" step="${code === 'OMR' ? '0.001' : '0.01'}" inputmode="decimal" placeholder="${code === 'OMR' ? '100' : '1000'}"${shown === '' ? '' : ` value="${shown}"`}>
         </div>
         <div class="modal-actions">
           <button class="btn light" type="button" data-dismiss>Cancel</button>
@@ -1387,7 +1392,7 @@ const Member = (() => {
     document.getElementById('cashin-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const submit = document.getElementById('cashin-submit');
-      const amount = Number(document.getElementById('cashin-amount').value);
+      const amount = Store.toAed(document.getElementById('cashin-amount').value);
       if (!Number.isFinite(amount) || amount <= 0) {
         toast('Enter an amount greater than 0.');
         return;
@@ -1399,14 +1404,15 @@ const Member = (() => {
       }
       if (setBtnLoading(submit, true)) return;
       const text = due
-        ? `I want to cash in AED ${amount} for premium project ${due.project.name}.`
-        : `I want to cash in AED ${amount}.`;
+        ? `I want to cash in ${Store.money(amount)} for premium project ${due.project.name}.`
+        : `I want to cash in ${Store.money(amount)}.`;
       window.location.assign(`https://t.me/${encodeURIComponent(handle)}?text=${encodeURIComponent(text)}`);
     });
   }
 
   function openCashOut() {
     const user = Store.user();
+    const code = Store.currency();
     const hasWith = Boolean(user.hasWithdrawalPassword);
     const all = accountsCache;
     const flags = payoutFlags();
@@ -1428,8 +1434,8 @@ const Member = (() => {
           <select id="cashout-account"></select>
         </div>
         <div class="field">
-          <label for="cashout-amount">Amount (AED)</label>
-          <input id="cashout-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="500">
+          <label for="cashout-amount">Amount (${code})</label>
+          <input id="cashout-amount" type="number" min="1" step="${code === 'OMR' ? '0.001' : '1'}" inputmode="decimal" placeholder="${code === 'OMR' ? '50' : '500'}">
         </div>
         <div class="field">
           <label for="cashout-password">Withdrawal password</label>
@@ -1493,7 +1499,7 @@ const Member = (() => {
         const data = await memberApi('/api/cashouts', {
           method: 'POST',
           body: {
-            amount: document.getElementById('cashout-amount').value,
+            amount: Store.toAed(document.getElementById('cashout-amount').value),
             accountId: select.value,
             withdrawalPassword: document.getElementById('cashout-password').value,
           },
@@ -1902,7 +1908,7 @@ const Member = (() => {
   }
 
   function bonusTickerText() {
-    const days = bonusRewards().map((row) => `Day ${row.day}: ${row.amount} AED`).join(' · ');
+    const days = bonusRewards().map((row) => `Day ${row.day}: ${Store.money(row.amount)}`).join(' · ');
     return `7 Days Sign In Bonus · ${days} · Get rewarded daily · Tap for details`;
   }
 
@@ -1957,8 +1963,8 @@ const Member = (() => {
             ${days.map((row) => `
               <article class="bonus-day">
                 <p class="bonus-day-label">Day ${row.day}</p>
-                <p class="bonus-day-amount">${row.amount}<small>AED</small></p>
-                <p class="bonus-day-cta">Sign in &amp; get ${row.amount} AED</p>
+                <p class="bonus-day-amount">${Store.fromAed(row.amount)}<small>${Store.currency()}</small></p>
+                <p class="bonus-day-cta">Sign in &amp; get ${Store.money(row.amount)}</p>
               </article>`).join('')}
           </div>
           <p class="bonus-banner-line">Daily sign in · Bigger rewards</p>
@@ -2111,6 +2117,7 @@ const Member = (() => {
     const page = document.body.dataset.page;
     loadError = '';
     await refreshMember();
+    if (typeof syncCurrencyPicker === 'function') syncCurrencyPicker();
     if (page === 'projects' || page === 'dashboard') {
       const groupId = page === 'projects' ? (new URLSearchParams(location.search).get('group') || '') : '';
       try {
@@ -2149,12 +2156,14 @@ const Member = (() => {
         catalog = [];
       }
     }
-    if (page === 'dashboard' || page === 'orders' || page === 'wallet' || page === 'profile' || page === 'support' || page === 'projects') {
+    if (page === 'dashboard' || page === 'orders' || page === 'wallet' || page === 'profile' || page === 'support' || page === 'projects' || page === 'project') {
       try {
         platform = (await memberApi('/api/settings')).settings || platform;
       } catch {
         /* keep the last known platform settings */
       }
+      Store.setCurrencyConfig(platform);
+      if (typeof syncCurrencyPicker === 'function') syncCurrencyPicker();
     }
     if (page === 'dashboard' || page === 'orders' || page === 'wallet' || page === 'profile') {
       try {
@@ -2297,7 +2306,7 @@ const Member = (() => {
     }
   });
 
-  return { render };
+  return { render, repaint: paintPage };
 })();
 
 if (document.body.dataset.app === 'member') Member.render();

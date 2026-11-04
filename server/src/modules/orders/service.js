@@ -10,6 +10,7 @@ import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
 import { isSetOpen, openGroupIds, openSetKeys } from '../users/service.js';
 import { ensureDailyReset } from '../users/daily.js';
+import { formatUserMoney, normalizeCurrency } from '../../lib/currency.js';
 import { groupCycleStarts, inProgressCycle, workDate } from '../../lib/workDate.js';
 import { Order, viewOrder } from './model.js';
 
@@ -38,6 +39,7 @@ function memberView(user, openIds = []) {
     memberNo: user.memberNo || null,
     fullName: user.fullName,
     mobile: user.mobile,
+    currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -311,7 +313,7 @@ export async function activateOrder({ userId, projectId }) {
     const due = remainingPremiumCents(project) / 100;
     return {
       status: 400,
-      message: `Deposit AED ${due.toFixed(2)} for this premium project. Wallet balance is not used.`,
+      message: `Deposit ${await formatUserMoney(due, user)} for this premium project. Wallet balance is not used.`,
     };
   }
 
@@ -352,7 +354,7 @@ export async function activateOrder({ userId, projectId }) {
   if (trialOrder && cents(user.trialBalance) < priceCents) {
     return {
       status: 400,
-      message: `Insufficient trial balance. This project is AED ${(priceCents / 100).toFixed(2)} and your trial balance is AED ${(cents(user.trialBalance) / 100).toFixed(2)}.`,
+      message: `Insufficient trial balance. This project is ${await formatUserMoney(priceCents / 100, user)} and your trial balance is ${await formatUserMoney(cents(user.trialBalance) / 100, user)}.`,
     };
   }
   let settlement = null;
@@ -380,13 +382,13 @@ export async function activateOrder({ userId, projectId }) {
     if (settlement.error === 'short') {
       return {
         status: 400,
-        message: `Insufficient balance. This project is AED ${(priceCents / 100).toFixed(2)}. Hold is AED ${(cents(user.holdBalance) / 100).toFixed(2)} and your wallet is AED ${(balanceCents / 100).toFixed(2)}.`,
+        message: `Insufficient balance. This project is ${await formatUserMoney(priceCents / 100, user)}. Hold is ${await formatUserMoney(cents(user.holdBalance) / 100, user)} and your wallet is ${await formatUserMoney(balanceCents / 100, user)}.`,
       };
     }
     if (settlement.error === 'wallet') {
       return {
         status: 400,
-        message: `Insufficient wallet balance. This project is AED ${(priceCents / 100).toFixed(2)} and your wallet balance is AED ${(balanceCents / 100).toFixed(2)}.`,
+        message: `Insufficient wallet balance. This project is ${await formatUserMoney(priceCents / 100, user)} and your wallet balance is ${await formatUserMoney(balanceCents / 100, user)}.`,
       };
     }
   }
@@ -396,9 +398,6 @@ export async function activateOrder({ userId, projectId }) {
     projectName: project.name,
     groupId: group ? String(group._id) : String(project.groupId || ''),
     groupName: group ? group.name : '',
-    image: group && group.image && group.image.data
-      ? { data: group.image.data, contentType: group.image.contentType }
-      : undefined,
     price: priceCents / 100,
     commissionRatio: project.commissionRatio,
     commissionAmount: amount,
@@ -667,9 +666,6 @@ export async function openFortuneBox({ userId, premiumId }) {
     projectName: 'Fortune box',
     groupId: groupKey,
     groupName: group ? group.name : '',
-    image: group && group.image && group.image.data
-      ? { data: group.image.data, contentType: group.image.contentType }
-      : undefined,
     price: 0,
     commissionRatio: 0,
     commissionAmount: 0,

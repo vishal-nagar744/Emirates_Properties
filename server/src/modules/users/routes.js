@@ -12,6 +12,7 @@ import {
   setMemberPasswords,
   setMemberSets,
   setMemberStatus,
+  setOwnCurrency,
   updateOwnProfile,
 } from './service.js';
 import { openFortuneBox, unlockPremium } from '../orders/service.js';
@@ -53,6 +54,10 @@ router.post('/me/premiums/:id/unlock', requireUser, route(async (req, res) => {
 router.patch('/me', requireUser, route(async (req, res) => {
   const body = req.body || {};
   send(res, await updateOwnProfile(req.session, { fullName: body.fullName, mobile: body.mobile }));
+}));
+
+router.patch('/me/currency', requireUser, route(async (req, res) => {
+  send(res, await setOwnCurrency(req.session, (req.body || {}).currency));
 }));
 
 router.delete('/me/notices', requireUser, route(async (req, res) => {

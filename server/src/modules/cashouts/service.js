@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { formatAmount, getOmrPerAed, normalizeCurrency } from '../../lib/currency.js';
 import { verifyPassword } from '../../lib/password.js';
 import { Settings } from '../settings/model.js';
 import { User } from '../users/model.js';
@@ -11,6 +12,7 @@ function snapshot(user) {
     id: String(user._id),
     fullName: user.fullName,
     mobile: user.mobile,
+    currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -38,7 +40,10 @@ export async function requestCashOut({ userId, amount, accountId, withdrawalPass
   if (!Number.isFinite(value) || value <= 0) return { status: 400, message: 'Enter a cash out amount.' };
   const settings = await Settings.findOne({ key: 'platform' });
   const minimum = settings ? settings.minCashOutAmount : 500;
-  if (value < minimum) return { status: 400, message: `Minimum cash out is AED ${minimum}.` };
+  if (value < minimum) {
+    const rate = await getOmrPerAed();
+    return { status: 400, message: `Minimum cash out is ${formatAmount(minimum, user.currency, rate)}.` };
+  }
   if (value > user.walletBalance) return { status: 400, message: 'Amount is higher than your available balance.' };
   if (!user.withdrawalPasswordHash) {
     return { status: 400, message: 'Set a withdrawal password first.' };

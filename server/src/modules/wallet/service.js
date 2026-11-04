@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { normalizeCurrency } from '../../lib/currency.js';
 import { User } from '../users/model.js';
 import { Settings } from '../settings/model.js';
 import { Transaction, WithdrawalAccount, viewAccount } from './model.js';
@@ -23,6 +24,7 @@ function snapshot(user) {
     id: String(user._id),
     fullName: user.fullName,
     mobile: user.mobile,
+    currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,

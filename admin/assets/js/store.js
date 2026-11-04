@@ -443,10 +443,44 @@ const Store = (() => {
     return `${prefix}_${db.seq}`;
   }
 
+  const CURRENCY_DECIMALS = { AED: 2, OMR: 3 };
+  let currencyRate = 0.1046;
+  let displayCurrency = '';
+
+  function setCurrencyConfig(config) {
+    const rate = Number(config && (config.omrPerAed != null ? config.omrPerAed : config.omrRate));
+    if (Number.isFinite(rate) && rate > 0) currencyRate = rate;
+  }
+
+  function setDisplayCurrency(code) {
+    displayCurrency = code ? String(code).toUpperCase() : '';
+  }
+
+  function currency() {
+    const code = displayCurrency || (user() && user().currency) || 'AED';
+    return String(code).toUpperCase() === 'OMR' ? 'OMR' : 'AED';
+  }
+
+  function toAed(amount) {
+    const value = Number(amount) || 0;
+    return currency() === 'OMR' ? Math.round((value / currencyRate) * 100) / 100 : Math.round(value * 100) / 100;
+  }
+
+  function fromAed(amount) {
+    const value = Number(amount) || 0;
+    if (currency() !== 'OMR') return Math.round(value * 100) / 100;
+    return Math.round(value * currencyRate * 1000) / 1000;
+  }
+
   function money(n) {
     const value = Number(n) || 0;
-    const abs = Math.abs(value).toLocaleString('en-AE');
-    return `${value < 0 ? '-' : ''}AED ${abs}`;
+    const code = currency();
+    const converted = code === 'OMR' ? value * currencyRate : value;
+    const abs = Math.abs(converted).toLocaleString('en-AE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: CURRENCY_DECIMALS[code] || 2,
+    });
+    return `${value < 0 ? '-' : ''}${code} ${abs}`;
   }
 
   function user() {
@@ -944,6 +978,7 @@ const Store = (() => {
 
   return {
     load, save, reset, money, user, settings, projects, projectById, orders, orderById,
+    setCurrencyConfig, setDisplayCurrency, currency, toAed, fromAed,
     commissionsFor, allCommissions, transactions, stats,
     activate, creditDue, nextCommissionLabel, cashIn, saveWithdrawal, cashOut,
     updateProfile, changePassword, setWithdrawalPassword, maskAccount, destinationFor,

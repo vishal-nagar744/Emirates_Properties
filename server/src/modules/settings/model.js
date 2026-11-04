@@ -7,6 +7,7 @@ const settingsSchema = new mongoose.Schema(
     welcomeBonusAmount: { type: Number, required: true },
     trialBonusAmount: { type: Number, default: 0 },
     minCashOutAmount: { type: Number, required: true },
+    omrPerAed: { type: Number, default: 0.1046 },
     supportTelegramUsername: { type: String, required: true },
     supportWhatsappNumber: { type: String, default: '' },
     demoCashInUSDTAddress: { type: String, default: '' },

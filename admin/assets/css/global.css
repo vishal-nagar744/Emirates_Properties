@@ -2139,6 +2139,38 @@ a.back-btn:hover { transform: none; }
   gap: 12px;
 }
 
+.currency-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currency-pick-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.currency-pick .picker { min-width: 92px; }
+
+.currency-pick .picker-btn {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+@media (max-width: 720px) {
+  .currency-pick-label { display: none; }
+  .currency-pick .picker { min-width: 76px; }
+}
+
 .who-card {
   display: flex;
   align-items: center;
@@ -2489,6 +2521,26 @@ button.chip {
 .history-day { margin-top: 16px; }
 .history-day h4 { margin: 0 0 8px; font-size: 14px; }
 .history-group { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.history-group > summary,
+.hist-set > summary { cursor: pointer; list-style: none; }
+.history-group > summary::-webkit-details-marker,
+.hist-set > summary::-webkit-details-marker { display: none; }
+.history-group > summary::marker,
+.hist-set > summary::marker { content: ''; }
+.history-group-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.history-group-head b { color: var(--g); }
+.history-group-count { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.hist-chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.2s;
+}
+details[open] > summary .hist-chevron { transform: rotate(-135deg); }
 .history-meta { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .history-meta span, .history-stop { color: var(--muted); font-size: 13px; }
 .history-stop { margin: 6px 0 0; }
@@ -2509,6 +2561,71 @@ button.chip {
 .history-orders li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .history-orders small { display: block; color: var(--muted); font-size: 12px; }
 .history-figures { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; color: var(--ink); white-space: nowrap; }
+
+.hist-note { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.hist-progress {
+  height: 6px;
+  margin: 8px 0 10px;
+  border-radius: 999px;
+  background: #e8efeb;
+  overflow: hidden;
+}
+.hist-progress span { display: block; height: 100%; border-radius: inherit; background: var(--g); }
+.hist-day-line { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.hist-day-line b { color: var(--ink); }
+
+.hist-current {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfe0d7;
+  border-radius: 10px;
+  background: #f4f9f6;
+}
+.hist-current.is-locked { border-color: #eadcc0; background: #fbf7ee; }
+.hist-current.is-done { border-color: var(--line); background: #fafbfa; }
+.hist-current-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hist-current-main { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hist-current-main b { font-size: 14px; }
+.hist-current-figures { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.hist-current-figures b { color: var(--ink); }
+.hist-premium-note { display: block; margin-top: 4px; color: #6a5424; font-size: 12px; }
+
+.hist-sets { display: grid; gap: 10px; }
+.hist-set { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.hist-set.is-current { border-color: #bfd6c9; background: #fbfdfb; }
+.hist-set-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.hist-set-head b { color: var(--g); }
+.hist-set-head > span:not(.hist-tag) { color: var(--muted); font-size: 12px; }
+.hist-set-head .hist-chevron { margin-left: auto; }
+.hist-set-body { margin-top: 6px; }
+.hist-set .history-orders { margin-top: 0; }
+.hist-empty { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.hist-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef3f0;
+  color: #466052;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hist-tag.premium { background: #f6edd4; color: #6a5424; }
+.hist-tag.fortune { background: #efe7f8; color: #5b3a7a; }
+.hist-tag.current { background: #e3f0e8; color: var(--g); }
+.hist-tag.locked { background: #f6e7e2; color: #8a3b2e; }
+.history-orders .hist-order-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 
 .page-tools {
   display: flex;
@@ -2812,6 +2929,8 @@ tr.order-row:hover td { background: var(--pale); }
   overflow: auto;
 }
 
+.modal.history-modal { width: min(760px, 100%); }
+
 .modal h3 { color: var(--g); font-size: 22px; margin-bottom: 8px; }
 
 .modal-actions {
@@ -2947,6 +3066,36 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     right: 12px;
     bottom: calc(84px + env(safe-area-inset-bottom));
   }
+}
+
+@media (max-width: 520px) {
+  .dashbar { gap: 8px; padding: 8px 10px; }
+  .dashbar-left, .dashbar-right { gap: 8px; }
+  .dashbar-left { flex: 1 1 auto; }
+
+  .crumbs { flex: 1 1 auto; gap: 6px; font-size: 12px; }
+  .crumbs > a, .crumbs > .crumb-sep { display: none; }
+  .crumb-current { max-width: 100%; }
+
+  .who-card {
+    max-width: none;
+    min-height: 44px;
+    padding: 3px;
+  }
+  .who-card .who { display: none; }
+
+  .currency-pick .picker { min-width: 64px; }
+  .currency-pick .picker-btn {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  .history-meta { flex-wrap: wrap; gap: 2px; }
+  .history-orders li { flex-direction: column; gap: 4px; }
+  .history-figures { flex-direction: row; flex-wrap: wrap; gap: 8px; white-space: normal; }
+  .hist-current-figures { gap: 6px; }
 }
 
 @media (max-width: 420px) {

@@ -9,6 +9,8 @@ const orderSchema = new mongoose.Schema(
     projectName: { type: String, required: true },
     groupId: { type: String, default: '' },
     groupName: { type: String, default: '' },
+    // Legacy: older orders embedded a copy of the group image. Never write this field;
+    // order thumbnails are resolved from the project group (see withGroups in service.js).
     image: {
       data: { type: Buffer },
       contentType: { type: String, default: '' },

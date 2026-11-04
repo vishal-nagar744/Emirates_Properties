@@ -42,6 +42,7 @@ memberAuth.post('/signup', route(async (req, res) => {
     fullName: body.fullName,
     mobile: body.mobile,
     password: body.password,
+    currency: body.currency,
     context: clientContext(req, 'Sign up'),
   }));
 }));

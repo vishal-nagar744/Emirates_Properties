@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { config } from '../../config.js';
+import { normalizeCurrency } from '../../lib/currency.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { Settings } from '../settings/model.js';
 import { Transaction } from '../wallet/model.js';
@@ -34,6 +35,7 @@ function publicUser(user) {
     mobile: user.mobile,
     loginId: user.loginId || '',
     role: user.role,
+    currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
@@ -89,7 +91,7 @@ async function platformSettings() {
   return settings;
 }
 
-export async function signup({ fullName, mobile, password, context }) {
+export async function signup({ fullName, mobile, password, currency, context }) {
   const name = String(fullName || '').trim();
   const phone = String(mobile || '').trim();
   const pass = String(password || '');
@@ -112,6 +114,7 @@ export async function signup({ fullName, mobile, password, context }) {
       passwordHash: hashPassword(pass),
       withdrawalPasswordHash: '',
       role: 'user',
+      currency: normalizeCurrency(currency),
       referralCode: await referralCodeFor(name),
       referredBy: null,
       accountStatus: 'pending',

@@ -165,6 +165,18 @@ function crumbLabel(page) {
   return labels[page] || 'Dashboard';
 }
 
+function syncCurrencyPicker() {
+  const select = document.getElementById('currency-select');
+  if (!select) return;
+  const admin = document.body.dataset.app === 'admin';
+  const desired = admin ? (localStorage.getItem('ps_admin_currency') || 'AED') : Store.currency();
+  const code = String(desired).toUpperCase() === 'OMR' ? 'OMR' : 'AED';
+  select.value = code;
+  const picker = select.closest('.picker');
+  const label = picker && picker.querySelector('.picker-label');
+  if (label) label.textContent = code;
+}
+
 function mountShell() {
   const app = document.body.dataset.app;
   const page = document.body.dataset.page || 'dashboard';
@@ -218,6 +230,13 @@ function mountShell() {
           <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
         </div>
         <div class="dashbar-right">
+          <div class="currency-pick">
+            <span class="currency-pick-label">Currency</span>
+            <select id="currency-select" aria-label="Display currency">
+              <option value="AED">AED</option>
+              <option value="OMR">OMR</option>
+            </select>
+          </div>
           <div class="who-card">
             <div class="avatar" aria-hidden="true">${initial}</div>
             <div class="who">
@@ -246,6 +265,47 @@ function mountShell() {
     </nav>
   `;
   document.body.prepend(root);
+
+  const currencySelect = document.getElementById('currency-select');
+  if (currencySelect) {
+    Store.setDisplayCurrency(isAdmin ? (localStorage.getItem('ps_admin_currency') || 'AED') : '');
+    syncCurrencyPicker();
+    currencySelect.addEventListener('change', async () => {
+      const code = currencySelect.value === 'OMR' ? 'OMR' : 'AED';
+      if (isAdmin) {
+        Store.setDisplayCurrency(code);
+        localStorage.setItem('ps_admin_currency', code);
+        if (typeof Admin !== 'undefined' && Admin.render) Admin.render();
+        toast(`Showing amounts in ${code}`);
+        return;
+      }
+      const previous = Store.currency();
+      Store.setDisplayCurrency('');
+      const token = localStorage.getItem('ps_token') || sessionStorage.getItem('ps_token');
+      try {
+        const res = await fetch(`${window.apiBase ? window.apiBase() : 'http://127.0.0.1:4000'}/api/users/me/currency`, {
+          method: 'PATCH',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ currency: code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Could not change currency.');
+        Store.applySession(data.user || { currency: code });
+        if (typeof Member !== 'undefined' && Member.repaint) Member.repaint();
+        else if (typeof Member !== 'undefined' && Member.render) await Member.render();
+        else syncCurrencyPicker();
+        toast(`Showing amounts in ${code}`);
+      } catch (err) {
+        currencySelect.value = previous;
+        syncCurrencyPicker();
+        toast(err.message);
+      }
+    });
+  }
 
   const menu = document.getElementById('menu-toggle');
   if (menu) menu.addEventListener('click', toggleSide);

@@ -309,43 +309,116 @@ const Admin = (() => {
     return when.toLocaleTimeString('en-AE', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Dubai' });
   }
 
+  function historyTypeTag(item) {
+    const type = String((item && item.projectType) || 'normal');
+    if (type === 'premium') return '<span class="hist-tag premium">Premium</span>';
+    if (type === 'fortune') return '<span class="hist-tag fortune">Fortune</span>';
+    return '<span class="hist-tag">Project</span>';
+  }
+
+  function historyPremiumNote(item) {
+    const type = String((item && item.projectType) || 'normal');
+    if (type !== 'premium' && type !== 'fortune') return '';
+    const bits = [];
+    if (item.position) bits.push(`Position ${item.position}`);
+    if (type === 'fortune') bits.push(item.reward === 'cash' ? 'Cash reward' : 'Project reward');
+    else bits.push('Premium project');
+    return `<span class="hist-premium-note">${esc(bits.join(' · '))}</span>`;
+  }
+
+  function historyCurrentView(group) {
+    const current = group.current;
+    if (!current) {
+      return `<div class="hist-current is-done">
+        <span class="hist-current-label">Current position</span>
+        <b>${group.finished ? 'Group completed' : 'No project available'}</b>
+      </div>`;
+    }
+    const locked = Boolean(current.locked);
+    return `<div class="hist-current${locked ? ' is-locked' : ''}">
+      <span class="hist-current-label">${locked ? 'Next project · set locked' : 'Currently at'}</span>
+      <div class="hist-current-main">
+        <b>${esc(current.name)}</b>
+        ${historyTypeTag(current)}
+        ${locked ? '<span class="hist-tag locked">Locked</span>' : ''}
+      </div>
+      <div class="hist-current-figures">
+        <span>Set ${current.setNumber}</span>
+        <span>Price <b>${Store.money(current.price)}</b></span>
+        <span>Commission <b>${Store.money(current.commissionAmount)}</b></span>
+      </div>
+      ${historyPremiumNote(current)}
+    </div>`;
+  }
+
+  function historyOrderView(order) {
+    return `<li>
+      <span>
+        <b>${esc(order.projectName)}</b>
+        <small class="hist-order-meta">${esc(historyClock(order.createdAt))} ${historyTypeTag(order)}</small>
+        ${historyPremiumNote(order)}
+      </span>
+      <span class="history-figures">
+        <span>Bought ${Store.money(order.price)}</span>
+        <span>Earned ${Store.money(order.commissionAmount)}</span>
+      </span>
+    </li>`;
+  }
+
   function historyDayView(day) {
-    if (!day) return '<p class="muted">No orders on this day.</p>';
-    const groups = day.groups || [];
+    if (!day) return '<p class="muted">No projects completed on this date.</p>';
+    const groups = Array.isArray(day.groups) ? day.groups : [];
     const orders = groups.flatMap((group) => group.orders || []);
     const spentOf = (group) => (group.orders || []).reduce((sum, order) => sum + (Number(order.price) || 0), 0);
     const earnedOf = (group) => (group.orders || []).reduce((sum, order) => sum + (Number(order.commissionAmount) || 0), 0);
     const spent = groups.reduce((sum, group) => sum + (Number.isFinite(Number(group.spent)) ? Number(group.spent) : spentOf(group)), 0);
     const commission = groups.reduce((sum, group) => sum + (Number.isFinite(Number(group.commission)) ? Number(group.commission) : earnedOf(group)), 0);
     return `
+      <p class="hist-note">This day's completed projects are grouped by set. Overall progress and current position show the member's latest state.</p>
       <dl class="stack-stats history-totals">
-        <div class="stack-row"><span>Projects completed</span><b>${orders.length}</b></div>
-        <div class="stack-row"><span>Price bought</span><b>${Store.money(spent)}</b></div>
-        <div class="stack-row"><span>Commission earned</span><b>${Store.money(commission)}</b></div>
+        <div class="stack-row"><span>Projects completed on this day</span><b>${orders.length}</b></div>
+        <div class="stack-row"><span>Price bought on this day</span><b>${Store.money(spent)}</b></div>
+        <div class="stack-row"><span>Commission earned on this day</span><b>${Store.money(commission)}</b></div>
       </dl>
-      ${groups.map((group) => `
-        <article class="history-group">
-          <div class="history-meta">
+      ${groups.length ? groups.map((group) => {
+        const sets = Array.isArray(group.sets) && group.sets.length
+          ? group.sets
+          : [{ combined: true, total: group.total, completed: group.completed, orders: group.orders || [], current: false, locked: false }];
+        const pct = group.total ? Math.min(100, Math.round((group.completed / group.total) * 100)) : 0;
+        const groupSpent = Number.isFinite(Number(group.spent)) ? Number(group.spent) : spentOf(group);
+        const groupCommission = Number.isFinite(Number(group.commission)) ? Number(group.commission) : earnedOf(group);
+        return `<details class="history-group">
+          <summary class="history-group-head">
             <b>${esc(group.groupName)}</b>
-            <span>${group.completed} of ${group.total}</span>
+            <span class="history-group-count">${group.completed} of ${group.total} overall</span>
+            <span class="hist-chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="hist-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${group.total || 0}" aria-valuenow="${group.completed || 0}" aria-label="${esc(group.groupName)} progress"><span style="width:${pct}%"></span></div>
+          <p class="hist-day-line"><b>This day:</b> ${(group.orders || []).length} completed · Bought ${Store.money(groupSpent)} · Earned ${Store.money(groupCommission)}</p>
+          ${historyCurrentView(group)}
+          <div class="hist-sets">
+            ${sets.map((set) => `
+              <details class="hist-set${set.current ? ' is-current' : ''}">
+                <summary class="hist-set-head">
+                  <b>${set.combined ? 'All sets combined' : `Set ${set.setNumber}`}</b>
+                  <span>${set.completed} of ${set.total} overall</span>
+                  ${set.locked ? '<span class="hist-tag locked">Locked</span>' : ''}
+                  ${set.current ? '<span class="hist-tag current">Current set</span>' : ''}
+                  <span class="hist-chevron" aria-hidden="true"></span>
+                </summary>
+                <div class="hist-set-body">
+                  ${(set.orders || []).length
+                    ? `<ul class="history-orders">${set.orders.map(historyOrderView).join('')}</ul>`
+                    : '<p class="hist-empty">No projects completed in this set on this day.</p>'}
+                </div>
+              </details>`).join('')}
           </div>
-          <p class="history-stop">${group.finished ? 'Finished this group' : `Stopped before ${esc(group.stoppedAt || 'the next project')}`}</p>
-          <dl class="stack-stats">
-            <div class="stack-row"><span>Price bought</span><b>${Store.money(Number.isFinite(Number(group.spent)) ? group.spent : spentOf(group))}</b></div>
-            <div class="stack-row"><span>Commission earned</span><b>${Store.money(Number.isFinite(Number(group.commission)) ? group.commission : earnedOf(group))}</b></div>
-          </dl>
-          <ul class="history-orders">
-            ${(group.orders || []).map((order) => `
-              <li>
-                <span><b>${esc(order.projectName)}</b><small>${esc(historyClock(order.createdAt))}</small></span>
-                <span class="history-figures"><span>Bought ${Store.money(order.price)}</span><span>Earned ${Store.money(order.commissionAmount)}</span></span>
-              </li>`).join('')}
-          </ul>
-        </article>`).join('')}`;
+        </details>`;
+      }).join('') : '<p class="muted">No projects completed on this date.</p>'}`;
   }
 
   async function openUserHistory(id, name) {
-    openModal(`<h3>Daily history</h3><p class="muted">${esc(name || 'User')}</p><p class="muted">Loading…</p>`);
+    openModal(`<h3>Daily history</h3><p class="muted">${esc(name || 'User')}</p><p class="muted">Loading…</p>`, 'history-modal');
     try {
       const data = await adminApi(`/api/users/${encodeURIComponent(id)}/history`);
       const days = Array.isArray(data.days) ? data.days : [];
@@ -358,7 +431,7 @@ const Admin = (() => {
         <label class="field history-date" for="history-date">Date</label>
         <input id="history-date" type="date" value="${esc(latest)}" ${earliest ? `min="${esc(earliest)}" max="${esc(latest)}"` : ''}>
         <div id="history-body"></div>
-        <div class="modal-actions"><button class="btn light" type="button" data-dismiss>Close</button></div>`);
+        <div class="modal-actions"><button class="btn light" type="button" data-dismiss>Close</button></div>`, 'history-modal');
       const input = document.getElementById('history-date');
       const body = document.getElementById('history-body');
       const paint = () => {
@@ -368,7 +441,7 @@ const Admin = (() => {
       if (input) input.addEventListener('change', paint);
       paint();
     } catch (error) {
-      openModal(`<h3>Daily history</h3><p>${esc(error.message)}</p><div class="modal-actions"><button class="btn light" type="button" data-dismiss>Close</button></div>`);
+      openModal(`<h3>Daily history</h3><p>${esc(error.message)}</p><div class="modal-actions"><button class="btn light" type="button" data-dismiss>Close</button></div>`, 'history-modal');
     }
   }
 
@@ -636,7 +709,7 @@ const Admin = (() => {
       </form>
       <form id="adjust-form" class="fields" style="margin-top:14px">
         <div class="form-2">
-          <div class="field"><label for="adj-amount">Adjust amount (+ / −)</label><input id="adj-amount" type="number" step="any"></div>
+          <div class="field"><label for="adj-amount">Adjust amount (+ / −, AED)</label><input id="adj-amount" type="number" step="any"></div>
           <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason (optional)"></div>
         </div>
         <p class="muted">Positive credits fill a pending premium first. Extra goes to the wallet. Wallet cannot go below zero.</p>
@@ -741,7 +814,7 @@ const Admin = (() => {
         toast(amount === ''
           ? 'Account status updated'
           : (toPremium > 0
-            ? `Account updated. AED ${toPremium.toFixed(2)} applied to premium.`
+            ? `Account updated. ${Store.money(toPremium)} applied to premium.`
             : 'Account updated'));
         renderUsers();
       } catch (err) {
@@ -1189,6 +1262,7 @@ const Admin = (() => {
       welcomeBonusAmount: 100,
       trialBonusAmount: 0,
       minCashOutAmount: 500,
+      omrPerAed: 0.1046,
       supportTelegramUsername: '',
       supportWhatsappNumber: '',
       demoCashInUSDTAddress: '',
@@ -1209,7 +1283,9 @@ const Admin = (() => {
           <div class="field"><label for="set-bonus">Welcome bonus (AED)</label><input id="set-bonus" type="number" min="0" step="0.01" value="${s.welcomeBonusAmount}"></div>
           <div class="field"><label for="set-trial">Trial bonus (AED)</label><input id="set-trial" type="number" min="0" step="0.01" value="${s.trialBonusAmount || 0}"></div>
           <div class="field"><label for="set-min">Minimum cash out (AED)</label><input id="set-min" type="number" value="${s.minCashOutAmount}"></div>
+          <div class="field"><label for="set-rate">OMR rate (1 AED = ? OMR)</label><input id="set-rate" type="number" min="0.0001" step="0.0001" value="${s.omrPerAed != null ? s.omrPerAed : 0.1046}"></div>
         </div>
+        <p class="muted">Amounts are stored in AED. Members and admins can switch the display to OMR from the header; values are converted using this rate.</p>
         <div class="form-2">
           <div class="field"><label for="set-tg">Telegram username</label><input id="set-tg" value="${esc(s.supportTelegramUsername)}"></div>
           <div class="field"><label for="set-wa">WhatsApp number</label><input id="set-wa" value="${esc(s.supportWhatsappNumber || '')}" placeholder="9715XXXXXXXX" inputmode="tel"></div>
@@ -1272,6 +1348,7 @@ const Admin = (() => {
             welcomeBonusAmount: document.getElementById('set-bonus').value,
             trialBonusAmount: document.getElementById('set-trial').value,
             minCashOutAmount: document.getElementById('set-min').value,
+            omrPerAed: document.getElementById('set-rate').value,
             supportTelegramUsername: document.getElementById('set-tg').value.trim(),
             supportWhatsappNumber: document.getElementById('set-wa').value.trim(),
             demoCashInUSDTAddress: document.getElementById('set-addr').value.trim(),
@@ -1297,6 +1374,7 @@ const Admin = (() => {
           },
         });
         platform = data.settings;
+        Store.setCurrencyConfig(platform);
         toast('Settings saved');
         renderSettings();
       } catch (err) {
@@ -1321,6 +1399,8 @@ const Admin = (() => {
     loading = true;
     safeRender();
     try {
+      if (!platform) platform = (await adminApi('/api/settings')).settings;
+      Store.setCurrencyConfig(platform);
       if (page === 'dashboard' || page === 'users') {
         directory = (await adminApi('/api/users')).users || [];
       }

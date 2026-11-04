@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     withdrawalPasswordHash: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin'], default: 'user', required: true },
+    currency: { type: String, enum: ['AED', 'OMR'], default: 'AED' },
     referralCode: { type: String, required: true, unique: true },
     referredBy: { type: String, default: null },
     accountStatus: {

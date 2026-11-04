@@ -27,12 +27,12 @@ function copyText(text) {
   area.remove();
 }
 
-function openModal(innerHtml) {
+function openModal(innerHtml, className = '') {
   const root = document.getElementById('modal-root');
   if (!root) return;
   root.innerHTML = `
     <div class="modal-back" data-close-modal>
-      <div class="modal card" role="dialog" aria-modal="true">${innerHtml}</div>
+      <div class="modal card${className ? ` ${className}` : ''}" role="dialog" aria-modal="true">${innerHtml}</div>
     </div>`;
   const back = root.querySelector('.modal-back');
   let pointerOnBack = false;
@@ -149,6 +149,16 @@ function crumbLabel(page) {
   return labels[page] || 'Dashboard';
 }
 
+function syncCurrencyPicker() {
+  const select = document.getElementById('currency-select');
+  if (!select) return;
+  const code = String(localStorage.getItem('ps_admin_currency') || 'AED').toUpperCase() === 'OMR' ? 'OMR' : 'AED';
+  select.value = code;
+  const picker = select.closest('.picker');
+  const label = picker && picker.querySelector('.picker-label');
+  if (label) label.textContent = code;
+}
+
 function mountShell() {
   const app = document.body.dataset.app;
   const page = document.body.dataset.page || 'dashboard';
@@ -205,6 +215,14 @@ function mountShell() {
           <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
         </div>
         <div class="dashbar-right">
+          ${isAdmin ? `
+          <div class="currency-pick">
+            <span class="currency-pick-label">Currency</span>
+            <select id="currency-select" aria-label="Display currency">
+              <option value="AED">AED</option>
+              <option value="OMR">OMR</option>
+            </select>
+          </div>` : ''}
           <div class="who-card">
             <div class="avatar" aria-hidden="true">${initial}</div>
             <div class="who">
@@ -234,6 +252,19 @@ function mountShell() {
     </nav>
   `;
   document.body.prepend(root);
+
+  const currencySelect = document.getElementById('currency-select');
+  if (currencySelect) {
+    Store.setDisplayCurrency(localStorage.getItem('ps_admin_currency') || 'AED');
+    syncCurrencyPicker();
+    currencySelect.addEventListener('change', () => {
+      const code = currencySelect.value === 'OMR' ? 'OMR' : 'AED';
+      Store.setDisplayCurrency(code);
+      localStorage.setItem('ps_admin_currency', code);
+      if (typeof Admin !== 'undefined' && Admin.render) Admin.render();
+      if (typeof toast === 'function') toast(`Showing amounts in ${code}`);
+    });
+  }
 
   const menu = document.getElementById('menu-toggle');
   if (menu) menu.addEventListener('click', toggleSide);

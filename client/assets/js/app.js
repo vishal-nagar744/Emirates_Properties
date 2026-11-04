@@ -246,6 +246,20 @@ function mountPicker(select) {
     const height = menu.offsetHeight;
     const below = window.innerHeight - rect.bottom;
     const openUp = below < height + 12 && rect.top > height + 12;
+    // The dashboard header has a backdrop-filter, which makes position: fixed
+    // resolve against the header instead of the viewport. Anchor the menu to
+    // its own picker there so it opens directly below the button.
+    if (btn.closest('.dashbar')) {
+      menu.style.position = 'absolute';
+      menu.style.top = openUp
+        ? `${btn.offsetTop - height - 6}px`
+        : `${btn.offsetTop + btn.offsetHeight + 6}px`;
+      menu.style.left = 'auto';
+      menu.style.right = '0';
+      return;
+    }
+    menu.style.position = '';
+    menu.style.right = '';
     menu.style.top = `${openUp ? rect.top - height - 6 : rect.bottom + 6}px`;
     const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
     menu.style.left = `${left}px`;
