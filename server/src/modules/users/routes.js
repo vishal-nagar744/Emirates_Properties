@@ -17,6 +17,7 @@ import {
 } from './service.js';
 import { openFortuneBox, unlockPremium } from '../orders/service.js';
 import { createPremium, deletePremium, listPremiums, updatePremium } from './premiums.js';
+import { listAccounts, removeAccount, updateAccount } from '../wallet/service.js';
 
 function send(res, result) {
   if (result.message) return res.status(result.status).json({ message: result.message });
@@ -82,6 +83,22 @@ router.patch('/:id/premiums/:premiumId', requireAdmin, route(async (req, res) =>
 
 router.delete('/:id/premiums/:premiumId', requireAdmin, route(async (req, res) => {
   send(res, await deletePremium(req.params.id, req.params.premiumId));
+}));
+
+router.get('/:id/accounts', requireAdmin, route(async (req, res) => {
+  send(res, await listAccounts(req.params.id));
+}));
+
+router.patch('/:id/accounts/:accountId', requireAdmin, route(async (req, res) => {
+  send(res, await updateAccount({
+    userId: req.params.id,
+    id: req.params.accountId,
+    body: req.body || {},
+  }));
+}));
+
+router.delete('/:id/accounts/:accountId', requireAdmin, route(async (req, res) => {
+  send(res, await removeAccount({ userId: req.params.id, id: req.params.accountId }));
 }));
 
 router.get('/:id/history', requireAdmin, route(async (req, res) => {

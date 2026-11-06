@@ -73,6 +73,28 @@ export async function listAccounts(userId) {
   return { status: 200, data: { accounts: rows.map(viewAccount) } };
 }
 
+function normalizedAccount(kind, body, { mobileRequired = true } = {}) {
+  if (kind === 'crypto') {
+    const network = body.network === 'USDT BEP20' ? 'USDT BEP20' : 'USDT TRC20';
+    const address = String(body.address || '').trim();
+    if (address.length < 8) return { error: 'Enter a wallet address.' };
+    return { values: { network, address } };
+  }
+  const holder = String(body.holder || '').trim();
+  const bankName = String(body.bankName || '').trim();
+  const iban = String(body.iban || '').trim().replace(/\s+/g, '');
+  const accountNumber = String(body.accountNumber || '').trim();
+  const mobile = String(body.mobile || '').trim();
+  if (!holder || !bankName) return { error: 'Account holder and bank name are required.' };
+  if (!iban && !accountNumber) return { error: 'Enter an IBAN or account number.' };
+  const mobileDigits = mobile.replace(/\D/g, '');
+  const invalidMobile = mobileDigits.length < 6 || mobileDigits.length > 15;
+  if (mobileRequired ? invalidMobile : (mobileDigits && invalidMobile)) {
+    return { error: 'Enter a valid mobile number.' };
+  }
+  return { values: { holder, bankName, iban, accountNumber, mobile } };
+}
+
 export async function addAccount({ userId, body }) {
   const user = await member(userId);
   if (!user) return { status: 401, message: 'Sign in required.' };
@@ -82,27 +104,23 @@ export async function addAccount({ userId, body }) {
   const cryptoOn = Boolean(settings && settings.cryptoPayoutEnabled === true);
   if (kind === 'crypto' && !cryptoOn) return { status: 400, message: 'Crypto accounts are turned off.' };
   if (kind === 'bank' && !bankOn) return { status: 400, message: 'Bank accounts are turned off.' };
-  let account;
-  if (kind === 'crypto') {
-    const network = body.network === 'USDT BEP20' ? 'USDT BEP20' : 'USDT TRC20';
-    const address = String(body.address || '').trim();
-    if (address.length < 8) return { status: 400, message: 'Enter a wallet address.' };
-    account = await WithdrawalAccount.create({ userId: String(user._id), kind, network, address });
-  } else {
-    const holder = String(body.holder || '').trim();
-    const bankName = String(body.bankName || '').trim();
-    const iban = String(body.iban || '').trim().replace(/\s+/g, '');
-    const accountNumber = String(body.accountNumber || '').trim();
-    const mobile = String(body.mobile || '').trim();
-    if (!holder || !bankName) return { status: 400, message: 'Account holder and bank name are required.' };
-    if (!iban && !accountNumber) return { status: 400, message: 'Enter an IBAN or account number.' };
-    const mobileDigits = mobile.replace(/\D/g, '');
-    if (mobileDigits.length < 6 || mobileDigits.length > 15) return { status: 400, message: 'Enter a valid mobile number.' };
-    account = await WithdrawalAccount.create({
-      userId: String(user._id), kind, holder, bankName, iban, accountNumber, mobile,
-    });
-  }
+  const normalized = normalizedAccount(kind, body);
+  if (normalized.error) return { status: 400, message: normalized.error };
+  const account = await WithdrawalAccount.create({
+    userId: String(user._id), kind, ...normalized.values,
+  });
   return { status: 201, data: { account: viewAccount(account) } };
+}
+
+export async function updateAccount({ userId, id, body }) {
+  if (!mongoose.isValidObjectId(id)) return { status: 404, message: 'Account not found.' };
+  const account = await WithdrawalAccount.findOne({ _id: id, userId: String(userId) });
+  if (!account) return { status: 404, message: 'Account not found.' };
+  const normalized = normalizedAccount(account.kind, body, { mobileRequired: false });
+  if (normalized.error) return { status: 400, message: normalized.error };
+  Object.assign(account, normalized.values);
+  await account.save();
+  return { status: 200, data: { account: viewAccount(account) } };
 }
 
 export async function removeAccount({ userId, id }) {

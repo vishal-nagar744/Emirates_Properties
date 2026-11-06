@@ -451,23 +451,34 @@ const Admin = (() => {
     let setNumber = 1;
     let mode = 'premium';
     let reward = 'cash';
-    const account = document.getElementById('manage-account');
-    const premium = document.getElementById('manage-premium');
+    const panels = {
+      overview: document.getElementById('manage-overview'),
+      access: document.getElementById('manage-access'),
+      accounts: document.getElementById('manage-accounts'),
+      security: document.getElementById('manage-security'),
+      premium: document.getElementById('manage-premium'),
+    };
     const form = document.getElementById('premium-form');
     const meta = document.getElementById('premium-meta');
     const list = document.getElementById('premium-list');
     const err = document.getElementById('prem-error');
-    document.querySelectorAll('[data-manage-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const on = button.dataset.manageTab === 'premium';
-        account.hidden = on;
-        premium.hidden = !on;
-        document.querySelectorAll('[data-manage-tab]').forEach((item) => {
-          const active = item === button;
-          item.classList.toggle('active', active);
-          item.setAttribute('aria-selected', active ? 'true' : 'false');
-        });
+    const showTab = (name) => {
+      document.querySelectorAll('.group-menu').forEach((node) => { node.hidden = true; });
+      document.querySelectorAll('.group-picker .picker-btn, .set-picker .picker-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
+      Object.entries(panels).forEach(([key, panel]) => {
+        if (panel) panel.hidden = key !== name;
       });
+      document.querySelectorAll('[data-manage-tab]').forEach((item) => {
+        const active = item.dataset.manageTab === name;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      if (name === 'premium' && !groupId && groups.length) {
+        load(groups[0].id).catch((error) => toast(error.message));
+      }
+    };
+    document.querySelectorAll('[data-manage-tab]').forEach((button) => {
+      button.addEventListener('click', () => showTab(button.dataset.manageTab));
     });
     document.querySelectorAll('[data-premium-set]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -632,99 +643,391 @@ const Admin = (() => {
     });
   }
 
+  function bindManageAccounts(userId) {
+    const listSection = document.getElementById('account-list-section');
+    const list = document.getElementById('account-list');
+    const form = document.getElementById('account-form');
+    const kindBadge = document.getElementById('account-kind-badge');
+    const cryptoFields = document.getElementById('account-crypto-fields');
+    const bankFields = document.getElementById('account-bank-fields');
+    const error = document.getElementById('account-error');
+    let accounts = [];
+    let editingId = '';
+    let confirmId = '';
+    let loaded = false;
+    let loading = false;
+
+    function showError(message) {
+      error.hidden = false;
+      error.textContent = message;
+    }
+
+    function rowDetail(account) {
+      return account.kind === 'crypto'
+        ? (account.address || 'No wallet address')
+        : [account.holder, account.iban || account.accountNumber, account.mobile].filter(Boolean).join(' · ');
+    }
+
+    function paintList() {
+      if (!accounts.length) {
+        list.innerHTML = '<p class="muted">No bound payout accounts for this member.</p>';
+        return;
+      }
+      list.innerHTML = accounts.map((account) => {
+        const crypto = account.kind === 'crypto';
+        const kind = crypto ? 'Crypto' : 'Bank';
+        const title = crypto ? (account.network || 'Crypto wallet') : (account.bankName || 'Bank account');
+        const confirming = confirmId === account.id;
+        return `<article class="managed-account${confirming ? ' is-confirming' : ''}">
+          <div class="managed-account-title">
+            <span class="status">${esc(kind)}</span>
+            <b>${esc(title)}</b>
+          </div>
+          <p class="managed-account-detail">${esc(rowDetail(account))}</p>
+          ${confirming ? `
+            <p class="account-confirm-text">Delete this ${esc(kind.toLowerCase())} account? This cannot be undone.</p>
+            <div class="managed-account-actions">
+              <button class="btn light" type="button" data-account-delete-cancel>Cancel</button>
+              <button class="btn danger" type="button" data-account-delete-confirm="${esc(account.id)}">Delete account</button>
+            </div>` : `
+            <div class="managed-account-actions">
+              <button class="btn light" type="button" data-account-edit="${esc(account.id)}">Edit</button>
+              <button class="btn danger-outline" type="button" data-account-delete="${esc(account.id)}">Delete</button>
+            </div>`}
+        </article>`;
+      }).join('');
+      list.querySelectorAll('[data-account-edit]').forEach((button) => {
+        button.addEventListener('click', () => openEditor(button.dataset.accountEdit));
+      });
+      list.querySelectorAll('[data-account-delete]').forEach((button) => {
+        button.addEventListener('click', () => {
+          confirmId = button.dataset.accountDelete;
+          paintList();
+        });
+      });
+      list.querySelectorAll('[data-account-delete-cancel]').forEach((button) => {
+        button.addEventListener('click', () => {
+          confirmId = '';
+          paintList();
+        });
+      });
+      list.querySelectorAll('[data-account-delete-confirm]').forEach((button) => {
+        button.addEventListener('click', () => remove(button.dataset.accountDeleteConfirm));
+      });
+    }
+
+    function showList() {
+      editingId = '';
+      confirmId = '';
+      error.hidden = true;
+      form.hidden = true;
+      listSection.hidden = false;
+      paintList();
+    }
+
+    function openEditor(accountId) {
+      const account = accounts.find((item) => item.id === accountId);
+      if (!account) return;
+      editingId = account.id;
+      confirmId = '';
+      error.hidden = true;
+      listSection.hidden = true;
+      form.hidden = false;
+      const crypto = account.kind === 'crypto';
+      kindBadge.textContent = crypto ? 'Crypto' : 'Bank';
+      cryptoFields.hidden = !crypto;
+      bankFields.hidden = crypto;
+      document.getElementById('acct-network').value = account.network === 'USDT BEP20' ? 'USDT BEP20' : 'USDT TRC20';
+      document.getElementById('acct-address').value = account.address || '';
+      document.getElementById('acct-holder').value = account.holder || '';
+      document.getElementById('acct-bank').value = account.bankName || '';
+      document.getElementById('acct-iban').value = account.iban || '';
+      document.getElementById('acct-number').value = account.accountNumber || '';
+      document.getElementById('acct-mobile').value = account.mobile || '';
+    }
+
+    async function load(force = false) {
+      if (loading || (loaded && !force)) return;
+      loading = true;
+      list.innerHTML = '<p class="muted">Loading accounts…</p>';
+      try {
+        const data = await adminApi(`/api/users/${encodeURIComponent(userId)}/accounts`);
+        accounts = data.accounts || [];
+        loaded = true;
+        paintList();
+      } catch (err) {
+        list.innerHTML = `<p class="field-error">${esc(err.message)}</p>`;
+      } finally {
+        loading = false;
+      }
+    }
+
+    async function remove(accountId) {
+      try {
+        await adminApi(`/api/users/${encodeURIComponent(userId)}/accounts/${encodeURIComponent(accountId)}`, { method: 'DELETE' });
+        accounts = accounts.filter((row) => row.id !== accountId);
+        confirmId = '';
+        toast('Account deleted');
+        paintList();
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+
+    document.getElementById('account-cancel').addEventListener('click', showList);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const account = accounts.find((item) => item.id === editingId);
+      if (!account) { showList(); return; }
+      error.hidden = true;
+      let payload;
+      if (account.kind === 'crypto') {
+        const address = document.getElementById('acct-address').value.trim();
+        if (address.length < 8) { showError('Enter a wallet address.'); return; }
+        payload = { network: document.getElementById('acct-network').value, address };
+      } else {
+        const holder = document.getElementById('acct-holder').value.trim();
+        const bankName = document.getElementById('acct-bank').value.trim();
+        const iban = document.getElementById('acct-iban').value.trim();
+        const accountNumber = document.getElementById('acct-number').value.trim();
+        const mobile = document.getElementById('acct-mobile').value.trim();
+        if (!holder || !bankName) { showError('Account holder and bank name are required.'); return; }
+        if (!iban && !accountNumber) { showError('Enter an IBAN or account number.'); return; }
+        const digits = mobile.replace(/\D/g, '');
+        if (digits && (digits.length < 6 || digits.length > 15)) { showError('Enter a valid mobile number, or leave it blank.'); return; }
+        payload = { holder, bankName, iban, accountNumber, mobile };
+      }
+      try {
+        const data = await adminApi(`/api/users/${encodeURIComponent(userId)}/accounts/${encodeURIComponent(editingId)}`, { method: 'PATCH', body: payload });
+        if (data.account) {
+          accounts = accounts.map((row) => (row.id === editingId ? data.account : row));
+        }
+        toast('Account updated');
+        showList();
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    const tab = document.querySelector('[data-manage-tab="accounts"]');
+    if (tab) {
+      tab.addEventListener('click', () => {
+        if (form.hidden) load(true);
+      });
+    }
+  }
+
   function openUser(id) {
     const u = directory.find((x) => x.id === id);
     if (!u) return;
+    const initial = String(u.fullName || '?').trim().charAt(0).toUpperCase() || '?';
     openModal(`
-      <div class="modal-title">
-        <h3>${esc(u.fullName)}</h3>
-        <div class="row-actions">
-          <button class="icon-btn" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="View sessions"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
-          <button class="icon-btn" type="button" data-action="delete-user" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}" aria-label="Delete user"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>
+      <div class="modal-title manage-modal-head">
+        <div class="manage-identity">
+          <span class="manage-avatar" aria-hidden="true">${esc(initial)}</span>
+          <div>
+            <h3>${esc(u.fullName)}</h3>
+            <p class="muted">${esc(u.mobile)}${u.memberNo ? ` · ID ${esc(u.memberNo)}` : ''}</p>
+          </div>
+        </div>
+        <div class="manage-head-actions">
+          ${badge(u.accountStatus)}
+          <button class="icon-btn" type="button" data-dismiss aria-label="Close">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
         </div>
       </div>
-      <p class="muted">${esc(u.mobile)}${u.memberNo ? ` · ID ${esc(u.memberNo)}` : ''}</p>
-      <div class="set-tabs manage-tabs" role="tablist" aria-label="Manage">
-        <button class="set-tab active" type="button" data-manage-tab="account" aria-selected="true">Account</button>
-        <button class="set-tab" type="button" data-manage-tab="premium" aria-selected="false">Premium</button>
+      <div class="manage-tabs" role="tablist" aria-label="Manage user">
+        <button class="manage-tab active" type="button" role="tab" data-manage-tab="overview" aria-selected="true">Overview</button>
+        <button class="manage-tab" type="button" role="tab" data-manage-tab="access" aria-selected="false">Access</button>
+        <button class="manage-tab" type="button" role="tab" data-manage-tab="accounts" aria-selected="false">Accounts</button>
+        <button class="manage-tab" type="button" role="tab" data-manage-tab="security" aria-selected="false">Security</button>
+        <button class="manage-tab" type="button" role="tab" data-manage-tab="premium" aria-selected="false">Premium</button>
       </div>
-      <div id="manage-account">
-      <dl class="stack-stats">
-        <div class="stack-row"><span>User ID</span><b>${esc(u.memberNo || '—')}</b></div>
-        <div class="stack-row"><span>Balance</span><b>${Store.money(u.walletBalance)}</b></div>
-        <div class="stack-row"><span>Hold balance</span><b>${Store.money(u.holdBalance)}</b></div>
-        <div class="stack-row"><span>Trial balance</span><b>${Store.money(u.trialBalance)}</b></div>
-        <div class="stack-row"><span>Pending cash out</span><b>${Store.money(u.pendingCashOut)}</b></div>
-      </dl>
-      <div class="field status-field">
-        <label for="user-status">Account status</label>
-        <select id="user-status">
-          <option value="active"${u.accountStatus === 'active' ? ' selected' : ''}>Active</option>
-          <option value="pending"${u.accountStatus === 'pending' ? ' selected' : ''}>Pending</option>
-          <option value="blocked"${u.accountStatus === 'blocked' ? ' selected' : ''}>Blocked</option>
-          <option value="suspended"${u.accountStatus === 'suspended' ? ' selected' : ''}>Suspended</option>
-        </select>
-      </div>
-      <div class="field group-locks">
-        <span class="field-label" id="group-lock-label">Locked groups</span>
-        ${groups.length ? `
-          <div class="group-picker">
-            <button class="picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="group-lock-label">
-              <span class="picker-label">${esc(groupLockLabel(u))}</span>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="group-menu" role="group" aria-label="Locked groups" hidden>
-              ${groups.map((group) => {
-                const open = Array.isArray(u.unlockedGroupIds) && u.unlockedGroupIds.includes(group.id);
-                return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}"${open ? '' : ' checked'}><span>${esc(group.name)}</span></label>`;
-              }).join('')}
+      <div id="manage-overview" class="manage-panel">
+        <section class="manage-section">
+          <div class="manage-section-head">
+            <h4>Balances</h4>
+            <p>Current wallet and cash-out position.</p>
+          </div>
+          <div class="manage-stats">
+            <div class="manage-stat"><span>Wallet balance</span><b>${Store.money(u.walletBalance)}</b></div>
+            <div class="manage-stat"><span>Hold balance</span><b>${Store.money(u.holdBalance)}</b></div>
+            <div class="manage-stat"><span>Trial balance</span><b>${Store.money(u.trialBalance)}</b></div>
+            <div class="manage-stat"><span>Pending cash out</span><b>${Store.money(u.pendingCashOut)}</b></div>
+          </div>
+        </section>
+        <form id="adjust-form" class="fields">
+          <section class="manage-section">
+            <div class="manage-section-head">
+              <h4>Account status</h4>
+              <p>Controls whether this member can sign in and use the account.</p>
             </div>
-          </div>` : '<p class="muted">No groups yet.</p>'}
-      </div>
-      <div class="field group-locks">
-        <span class="field-label" id="set-lock-label">Locked sets</span>
-        ${groups.length ? `
-          <div class="set-picker group-picker">
-            <button class="picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="set-lock-label">
-              <span class="picker-label">${esc(setLockLabel(u))}</span>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="group-menu" role="group" aria-label="Locked sets" hidden>
-              ${groups.map((group) => [1, 2, 3].map((setNumber) => {
-                const open = setIsOpen(u, group.id, setNumber);
-                return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}:${setNumber}"${open ? '' : ' checked'}><span>${esc(group.name)} · Set ${setNumber}</span></label>`;
-              }).join('')).join('')}
+            <div class="field status-field">
+              <label for="user-status">Status</label>
+              <select id="user-status">
+                <option value="active"${u.accountStatus === 'active' ? ' selected' : ''}>Active</option>
+                <option value="pending"${u.accountStatus === 'pending' ? ' selected' : ''}>Pending</option>
+                <option value="blocked"${u.accountStatus === 'blocked' ? ' selected' : ''}>Blocked</option>
+                <option value="suspended"${u.accountStatus === 'suspended' ? ' selected' : ''}>Suspended</option>
+              </select>
             </div>
-          </div>` : '<p class="muted">No groups yet.</p>'}
+          </section>
+          <section class="manage-section">
+            <div class="manage-section-head">
+              <h4>Adjust balance</h4>
+              <p>Positive credits fill a pending premium first. Extra goes to the wallet. Wallet cannot go below zero.</p>
+            </div>
+            <div class="form-2">
+              <div class="field"><label for="adj-amount">Amount (+ / −, AED)</label><input id="adj-amount" type="number" step="any"></div>
+              <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason (optional)"></div>
+            </div>
+          </section>
+          <div class="modal-actions manage-actions">
+            <button class="btn light" type="button" data-dismiss>Cancel</button>
+            <button class="btn primary" type="submit">Save account changes</button>
+          </div>
+        </form>
       </div>
-      <form id="password-form" class="fields" style="margin-top:14px">
-        <p class="muted" style="margin:0 0 8px">Leave a field blank to keep the current password.</p>
-        <div class="form-2">
-          <div class="field"><label for="admin-login-pass">New login password</label><input id="admin-login-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
-          <div class="field"><label for="admin-withdraw-pass">New withdrawal password</label><input id="admin-withdraw-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn primary" type="submit">Update passwords</button>
-        </div>
-      </form>
-      <form id="adjust-form" class="fields" style="margin-top:14px">
-        <div class="form-2">
-          <div class="field"><label for="adj-amount">Adjust amount (+ / −, AED)</label><input id="adj-amount" type="number" step="any"></div>
-          <div class="field"><label for="adj-reason">Reason</label><input id="adj-reason" placeholder="Reason (optional)"></div>
-        </div>
-        <p class="muted">Positive credits fill a pending premium first. Extra goes to the wallet. Wallet cannot go below zero.</p>
-        <div class="modal-actions">
-          <button class="btn light" type="button" data-dismiss>Close</button>
-          <button class="btn primary" type="submit">Apply adjustment</button>
-        </div>
-      </form>
+      <div id="manage-access" class="manage-panel" hidden>
+        <section class="manage-section">
+          <div class="manage-section-head">
+            <h4>Locked groups</h4>
+            <p>Checked groups are locked. Unchecked groups can be accessed by this member.</p>
+          </div>
+          <div class="field group-locks">
+            <span class="field-label" id="group-lock-label">Locked groups</span>
+            ${groups.length ? `
+              <div class="group-picker">
+                <button class="picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="group-lock-label">
+                  <span class="picker-label">${esc(groupLockLabel(u))}</span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="group-menu" role="group" aria-label="Locked groups" hidden>
+                  ${groups.map((group) => {
+                    const open = Array.isArray(u.unlockedGroupIds) && u.unlockedGroupIds.includes(group.id);
+                    return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}"${open ? '' : ' checked'}><span>${esc(group.name)}</span></label>`;
+                  }).join('')}
+                </div>
+              </div>` : '<p class="muted">No groups yet.</p>'}
+          </div>
+        </section>
+        <section class="manage-section">
+          <div class="manage-section-head">
+            <h4>Locked sets</h4>
+            <p>Checked sets are locked. Set access is applied per group.</p>
+          </div>
+          <div class="field group-locks">
+            <span class="field-label" id="set-lock-label">Locked sets</span>
+            ${groups.length ? `
+              <div class="set-picker group-picker">
+                <button class="picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="set-lock-label">
+                  <span class="picker-label">${esc(setLockLabel(u))}</span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="group-menu" role="group" aria-label="Locked sets" hidden>
+                  ${groups.map((group) => [1, 2, 3].map((setNumber) => {
+                    const open = setIsOpen(u, group.id, setNumber);
+                    return `<label class="group-option"><input type="checkbox" value="${esc(group.id)}:${setNumber}"${open ? '' : ' checked'}><span>${esc(group.name)} · Set ${setNumber}</span></label>`;
+                  }).join('')).join('')}
+                </div>
+              </div>` : '<p class="muted">No groups yet.</p>'}
+          </div>
+        </section>
       </div>
-      <div id="manage-premium" hidden>
-        <div class="premium-groups" id="premium-groups">
-          ${groups.map((group) => `<button class="chip" type="button" data-premium-group="${esc(group.id)}">${esc(group.name)}</button>`).join('') || '<p class="muted">No groups yet.</p>'}
-        </div>
-        <p class="muted" id="premium-meta"></p>
-        <form id="premium-form" class="fields" hidden>
+      <div id="manage-accounts" class="manage-panel" hidden>
+        <section class="manage-section" id="account-list-section">
+          <div class="manage-section-head">
+            <h4>Bound payout accounts</h4>
+            <p>Bank accounts and crypto wallets this member can cash out to. Changes apply to future cash outs only.</p>
+          </div>
+          <div id="account-list" class="managed-accounts">
+            <p class="muted">Open this tab to load accounts.</p>
+          </div>
+        </section>
+        <form id="account-form" class="manage-section fields" hidden>
+          <div class="manage-section-head">
+            <h4 id="account-form-title">Edit account</h4>
+            <p>Update the payout details for this account.</p>
+          </div>
+          <div class="managed-account-type">
+            <span class="field-label">Account type</span>
+            <span class="status" id="account-kind-badge">Bank</span>
+          </div>
+          <div id="account-crypto-fields" class="fields" hidden>
+            <div class="field">
+              <label for="acct-network">Network</label>
+              <select id="acct-network">
+                <option value="USDT TRC20">USDT TRC20</option>
+                <option value="USDT BEP20">USDT BEP20</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="acct-address">Wallet address</label>
+              <input id="acct-address" autocomplete="off">
+            </div>
+          </div>
+          <div id="account-bank-fields" class="fields" hidden>
+            <div class="form-2">
+              <div class="field"><label for="acct-holder">Account holder</label><input id="acct-holder" autocomplete="off"></div>
+              <div class="field"><label for="acct-bank">Bank name</label><input id="acct-bank" autocomplete="off"></div>
+            </div>
+            <div class="form-2">
+              <div class="field"><label for="acct-iban">IBAN</label><input id="acct-iban" autocomplete="off"></div>
+              <div class="field"><label for="acct-number">Account number</label><input id="acct-number" autocomplete="off"></div>
+            </div>
+            <div class="field"><label for="acct-mobile">Mobile linked to account</label><input id="acct-mobile" inputmode="tel" autocomplete="off"></div>
+          </div>
+          <p class="field-error" id="account-error" role="alert" hidden></p>
+          <div class="modal-actions manage-actions">
+            <button class="btn light" type="button" id="account-cancel">Cancel</button>
+            <button class="btn primary" type="submit" id="account-save">Save account</button>
+          </div>
+        </form>
+      </div>
+      <div id="manage-security" class="manage-panel" hidden>
+        <section class="manage-section">
+          <div class="manage-section-head">
+            <h4>Passwords</h4>
+            <p>Leave a field blank to keep the current password.</p>
+          </div>
+          <form id="password-form" class="fields">
+            <div class="form-2">
+              <div class="field"><label for="admin-login-pass">New login password</label><input id="admin-login-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
+              <div class="field"><label for="admin-withdraw-pass">New withdrawal password</label><input id="admin-withdraw-pass" type="password" autocomplete="new-password" minlength="6" placeholder="Optional"></div>
+            </div>
+            <div class="modal-actions manage-actions">
+              <button class="btn primary" type="submit">Update passwords</button>
+            </div>
+          </form>
+        </section>
+        <section class="manage-section manage-danger">
+          <div class="manage-section-head">
+            <h4>Account actions</h4>
+            <p>Review active sessions or permanently delete this member.</p>
+          </div>
+          <div class="manage-action-row">
+            <button class="btn light" type="button" data-action="user-sessions" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}">View sessions</button>
+            <button class="btn danger" type="button" data-action="delete-user" data-id="${esc(u.id)}" data-name="${esc(u.fullName)}">Delete user</button>
+          </div>
+        </section>
+      </div>
+      <div id="manage-premium" class="manage-panel" hidden>
+        <section class="manage-section">
+          <div class="manage-section-head">
+            <h4>Premium assignments</h4>
+            <p>Select a group, then add or edit its premium projects and fortune boxes.</p>
+          </div>
+          <div class="premium-groups" id="premium-groups">
+            ${groups.map((group) => `<button class="chip" type="button" data-premium-group="${esc(group.id)}">${esc(group.name)}</button>`).join('') || '<p class="muted">No groups yet.</p>'}
+          </div>
+          <p class="muted" id="premium-meta"></p>
+        </section>
+        <form id="premium-form" class="manage-section fields" hidden>
+          <div class="manage-section-head">
+            <h4>Add or edit premium</h4>
+            <p>Choose the type, set and position for this member.</p>
+          </div>
           <div class="field">
             <span class="field-label">Add</span>
             <div class="type-picks" id="prem-kind">
@@ -756,16 +1059,16 @@ const Admin = (() => {
             <div class="field" id="prem-ratio-wrap"><label for="prem-ratio">Commission ratio (%)</label><input id="prem-ratio" type="number" min="0" max="100" step="0.01"></div>
           </div>
           <p class="field-error" id="prem-error" role="alert" hidden></p>
-          <div class="modal-actions">
-            <button class="btn light" type="button" data-dismiss>Close</button>
+          <div class="modal-actions manage-actions">
             <button class="btn primary" type="submit" id="prem-save">Add premium</button>
           </div>
         </form>
-        <div id="premium-list"></div>
-      </div>`);
+        <div id="premium-list" class="premium-list"></div>
+      </div>`, 'manage-modal');
     bindGroupPicker(id);
     bindSetPicker(id);
     bindManageTabs(id);
+    bindManageAccounts(id);
     document.getElementById('password-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const loginPassword = document.getElementById('admin-login-pass').value;
