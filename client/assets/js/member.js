@@ -508,9 +508,9 @@ const Member = (() => {
   function premiumUnlockNote(project) {
     const funds = premiumFunding(project);
     if (!funds.ready) {
-      return `This premium is ${Store.money(funds.price)}. Deposit ${Store.money(funds.remaining)} to continue. Your wallet is not used for this project.`;
+      return `Congratulations on earning the 10X Premium Project. Deposit ${Store.money(funds.remaining)} to claim the 10 times premium commissions now.`;
     }
-    return `This premium is paid. ${Store.money(funds.price)} plus commission will go to hold when you submit.`;
+    return `Congratulations on earning the 10X Premium Project. Your deposit is complete — submit the project to claim the 10 times premium commissions.`;
   }
 
   async function maybePremiumNotice(project) {
@@ -1241,7 +1241,6 @@ const Member = (() => {
               <b>${esc(accountTitle(account))}</b>
               <span>${esc(boundAccountLine(account))}</span>
             </div>
-            <button class="btn light" type="button" data-action="unbind" data-id="${esc(account.id)}">Remove</button>
           </li>`).join('')}
         </ul>` : (step ? '' : `<div class="empty-wrap">${emptyState('card', 'No account bound', canBind ? 'Add a bank account to receive cash outs.' : 'Account binding is turned off.')}</div>`)}
         ${step === 'choose' ? `
@@ -1288,6 +1287,10 @@ const Member = (() => {
               <div class="field">
                 <label for="bank-number">Account number</label>
                 <input id="bank-number" autocomplete="off" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label for="bank-mobile">Mobile number</label>
+                <input id="bank-mobile" type="tel" autocomplete="tel" inputmode="tel" placeholder="Enter Number">
               </div>
             </div>
             <p class="field-error" id="bank-error" role="alert" hidden></p>
@@ -1340,6 +1343,7 @@ const Member = (() => {
               bankName: document.getElementById('bank-name').value,
               iban: document.getElementById('bank-iban').value,
               accountNumber: document.getElementById('bank-number').value,
+              mobile: document.getElementById('bank-mobile').value,
             },
           });
           accountsCache = [data.account, ...accountsCache];

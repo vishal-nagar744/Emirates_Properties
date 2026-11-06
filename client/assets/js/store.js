@@ -845,9 +845,12 @@ const Store = (() => {
       const bankName = String(payload.bankName || '').trim();
       const iban = String(payload.iban || '').trim().replace(/\s+/g, '');
       const accountNumber = String(payload.accountNumber || '').trim();
+      const mobile = String(payload.mobile || '').trim();
       if (!holder || !bankName) return { ok: false, error: 'Account holder and bank name are required.' };
       if (!iban && !accountNumber) return { ok: false, error: 'Enter an IBAN or account number.' };
-      account = { id: nextId('wd'), kind: 'bank', holder, bankName, iban, accountNumber };
+      const mobileDigits = mobile.replace(/\D/g, '');
+      if (mobileDigits.length < 6 || mobileDigits.length > 15) return { ok: false, error: 'Enter a valid mobile number.' };
+      account = { id: nextId('wd'), kind: 'bank', holder, bankName, iban, accountNumber, mobile };
     }
     db.withdrawal.accounts.push(account);
     save();

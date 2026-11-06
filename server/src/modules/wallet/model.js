@@ -26,6 +26,7 @@ const accountSchema = new mongoose.Schema(
     bankName: { type: String, default: '' },
     iban: { type: String, default: '' },
     accountNumber: { type: String, default: '' },
+    mobile: { type: String, default: '' },
   },
   { timestamps: true }
 );
@@ -42,5 +43,6 @@ export function viewAccount(row) {
     bankName: row.bankName || '',
     iban: row.iban || '',
     accountNumber: row.accountNumber || '',
+    mobile: row.mobile || '',
   };
 }

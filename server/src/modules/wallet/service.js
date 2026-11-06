@@ -93,10 +93,13 @@ export async function addAccount({ userId, body }) {
     const bankName = String(body.bankName || '').trim();
     const iban = String(body.iban || '').trim().replace(/\s+/g, '');
     const accountNumber = String(body.accountNumber || '').trim();
+    const mobile = String(body.mobile || '').trim();
     if (!holder || !bankName) return { status: 400, message: 'Account holder and bank name are required.' };
     if (!iban && !accountNumber) return { status: 400, message: 'Enter an IBAN or account number.' };
+    const mobileDigits = mobile.replace(/\D/g, '');
+    if (mobileDigits.length < 6 || mobileDigits.length > 15) return { status: 400, message: 'Enter a valid mobile number.' };
     account = await WithdrawalAccount.create({
-      userId: String(user._id), kind, holder, bankName, iban, accountNumber,
+      userId: String(user._id), kind, holder, bankName, iban, accountNumber, mobile,
     });
   }
   return { status: 201, data: { account: viewAccount(account) } };
