@@ -62,6 +62,7 @@ function navIcon(name) {
     clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l2.5 1.5"/>',
     list: '<path d="M8 7h12M8 12h12M8 17h12"/><circle cx="4.5" cy="7" r=".8" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="4.5" cy="17" r=".8" fill="currentColor" stroke="none"/>',
     chart: '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/>',
+    gauge: '<path d="M4.5 18a8.5 8.5 0 0 1 15 0"/><path d="m12 14 4.5-5"/><circle cx="12" cy="14" r="1.6"/>',
     wallet: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18"/><circle cx="16" cy="14.5" r="1"/>',
     user: '<circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.5c1.4-3 3.6-4.5 6.5-4.5s5.1 1.5 6.5 4.5"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',

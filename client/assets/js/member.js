@@ -1659,7 +1659,7 @@ const Member = (() => {
     if (!section && params.get('panel')) section = params.get('panel');
     if (!section && (params.get('tab') === 'bind' || params.get('bind'))) section = 'bind';
     if (!section && (params.get('type') || params.get('modal'))) section = 'records';
-    const known = ['records', 'bind', 'password', 'passwords', 'support', 'sessions', 'edit', 'deposit', 'terms'];
+    const known = ['records', 'credit', 'bind', 'password', 'passwords', 'support', 'sessions', 'edit', 'deposit', 'terms'];
     return known.includes(section) ? section : '';
   }
 
@@ -1672,6 +1672,7 @@ const Member = (() => {
   function accountMenu(active) {
     const rows = [
       ['records', 'list', 'Records', 'section'],
+      ['credit', 'gauge', 'Credit score', 'section'],
       ['cash-in', 'plus', 'Cash in', 'open-cash-in'],
       ['cash-out', 'card', 'Cash out', 'open-cash-out'],
       ['bind', 'wallet', 'Bind wallet', 'section'],
@@ -1723,6 +1724,7 @@ const Member = (() => {
     const person = user || {};
     const titles = {
       records: 'Records',
+      credit: 'Credit score',
       bind: 'Bind wallet',
       password: 'Change password',
       passwords: 'Withdrawal password',
@@ -1736,6 +1738,7 @@ const Member = (() => {
     const filter = new URLSearchParams(location.search).get('type') || 'all';
     let body = '';
     if (pane === 'records') body = txPanel(filter);
+    else if (pane === 'credit') body = creditScoreCard(person.creditScore);
     else if (pane === 'bind') body = bindPanel();
     else if (pane === 'password') {
       body = `
@@ -1845,9 +1848,9 @@ const Member = (() => {
   function creditScoreCard(value) {
     const score = creditScoreValue(value);
     const band = creditBand(score);
-    return `<section class="card credit-score-card tone-${band.key}">
+    return `<section class="credit-score-card tone-${band.key}">
       <div class="credit-score-copy">
-        <span class="smallcaps">Credit score</span>
+        <span class="smallcaps">Credit standing</span>
         <div class="credit-score-value"><b>${score}</b><span>out of 100</span></div>
         <span class="credit-score-label">${band.label}</span>
         <p>${band.note}</p>
@@ -1907,7 +1910,6 @@ const Member = (() => {
             </div>
           </div>
         </section>
-        ${creditScoreCard(user.creditScore)}
         <div class="account-body">
           <nav class="account-menu" aria-label="Account">${accountMenu(pane)}</nav>
           <section class="card account-detail">${pane ? accountDetail(pane, user) : ''}</section>
