@@ -12,6 +12,9 @@ const Member = (() => {
   let txCache = [];
   let accountsCache = [];
   let sessionsCache = [];
+  let announcementsCache = [];
+  let announcementSeenKeys = new Set();
+  let announcementPopupRetry = 0;
   let platform = {
     platformName: 'Alfardan Properties',
     welcomeBonusAmount: 100,
@@ -128,6 +131,100 @@ const Member = (() => {
     return false;
   }
 
+  function announcementBannerHtml() {
+    const items = announcementsCache.filter((item) => item.displayStyle === 'banner' || item.displayStyle === 'both');
+    if (!items.length) return '';
+    return `<div class="announcement-stack">${items.map((item) => {
+      markAnnouncementSeen(item);
+      return `<section class="announcement-banner" role="status" data-announcement-id="${esc(item.id)}" data-announcement-key="${esc(item.occurrenceKey)}">
+        <span class="announcement-banner-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4a1 1 0 0 0 1 1h2l7 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M18 9.5a4 4 0 0 1 0 5"/></svg>
+        </span>
+        <div class="announcement-banner-copy">
+          <p class="smallcaps">Announcement</p>
+          <h3>${esc(item.heading)}</h3>
+          <p>${esc(item.message).replace(/\n/g, '<br>')}</p>
+        </div>
+        <button class="announcement-banner-close" type="button" data-action="announcement-dismiss" data-id="${esc(item.id)}" data-key="${esc(item.occurrenceKey)}" aria-label="Dismiss announcement">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </section>`;
+    }).join('')}</div>`;
+  }
+
+  function announcementKey(item) {
+    return `${item.id}:${item.occurrenceKey}`;
+  }
+
+  function markAnnouncementSeen(item) {
+    const key = announcementKey(item);
+    if (announcementSeenKeys.has(key)) return;
+    announcementSeenKeys.add(key);
+    memberApi(`/api/announcements/${encodeURIComponent(item.id)}/seen`, {
+      method: 'POST',
+      body: { occurrenceKey: item.occurrenceKey },
+    }).catch(() => {});
+  }
+
+  function dismissAnnouncementItem(item) {
+    if (!item) return;
+    announcementsCache = announcementsCache.filter((row) => announcementKey(row) !== announcementKey(item));
+    document.querySelectorAll('.announcement-banner').forEach((node) => {
+      if (node.dataset.announcementId === item.id && node.dataset.announcementKey === item.occurrenceKey) node.remove();
+    });
+    memberApi(`/api/announcements/${encodeURIComponent(item.id)}/dismiss`, {
+      method: 'POST',
+      body: { occurrenceKey: item.occurrenceKey },
+    }).catch(() => {});
+  }
+
+  function showAnnouncementPopup(item) {
+    if (!item) return;
+    markAnnouncementSeen(item);
+    openModal(`
+      <div class="announcement-popup">
+        <span class="announcement-popup-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4a1 1 0 0 0 1 1h2l7 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M18 9.5a4 4 0 0 1 0 5"/><path d="M20 7a7 7 0 0 1 0 10"/></svg>
+        </span>
+        <p class="smallcaps">Announcement</p>
+        <h3 class="serif">${esc(item.heading)}</h3>
+        <p class="announcement-popup-message">${esc(item.message).replace(/\n/g, '<br>')}</p>
+        <button class="btn primary btn-full" type="button" data-dismiss>Got it</button>
+      </div>`, 'announcement-popup-modal');
+    const root = document.getElementById('modal-root');
+    if (!root) return;
+    const handle = (event) => {
+      const dismiss = event.target.closest('[data-dismiss]');
+      const backdrop = event.target.classList && event.target.classList.contains('modal-back');
+      if (!dismiss && !backdrop) return;
+      root.removeEventListener('click', handle, true);
+      dismissAnnouncementItem(item);
+      window.setTimeout(maybeAnnouncementPopup, 250);
+    };
+    root.addEventListener('click', handle, true);
+  }
+
+  function maybeAnnouncementPopup() {
+    const items = announcementsCache.filter((item) => item.displayStyle === 'popup' || item.displayStyle === 'both');
+    if (!items.length) {
+      if (announcementPopupRetry) window.clearTimeout(announcementPopupRetry);
+      announcementPopupRetry = 0;
+      return;
+    }
+    if (announcementPopupRetry) return;
+    announcementPopupRetry = window.setTimeout(() => {
+      announcementPopupRetry = 0;
+      const pending = announcementsCache.filter((item) => item.displayStyle === 'popup' || item.displayStyle === 'both');
+      if (!pending.length) return;
+      const root = document.getElementById('modal-root');
+      if (root && root.innerHTML.trim()) {
+        maybeAnnouncementPopup();
+        return;
+      }
+      showAnnouncementPopup(pending[0]);
+    }, 900);
+  }
+
   function renderDashboard() {
     const today = Store.dayKey(0);
     const todayCommission = commissionsCache.filter((c) => c.date === today).reduce((s, c) => s + c.amount, 0);
@@ -144,6 +241,7 @@ const Member = (() => {
     }).join('');
     pageEl().innerHTML = `
       ${accountNote()}
+      ${announcementBannerHtml()}
       <section class="welcome-banner desk-welcome">
         <h1 class="serif">${greeting()}.</h1>
         <div class="hero-ctas">
@@ -2122,6 +2220,12 @@ const Member = (() => {
     loadError = '';
     await refreshMember();
     if (typeof syncCurrencyPicker === 'function') syncCurrencyPicker();
+    try {
+      const data = await memberApi('/api/announcements/active');
+      announcementsCache = Array.isArray(data.announcements) ? data.announcements : [];
+    } catch {
+      announcementsCache = [];
+    }
     if (page === 'projects' || page === 'dashboard') {
       const groupId = page === 'projects' ? (new URLSearchParams(location.search).get('group') || '') : '';
       try {
@@ -2198,6 +2302,7 @@ const Member = (() => {
     paintPage();
     maybeTrialBonus();
     showUnlockNotices();
+    maybeAnnouncementPopup();
     startStatusWatch();
   }
 
@@ -2221,6 +2326,12 @@ const Member = (() => {
     }
     if (action === 'open-cash-out') {
       if (tapLoading(el, () => openCashOut())) return;
+    }
+    if (action === 'announcement-dismiss') {
+      const item = announcementsCache.find((row) => row.id === el.dataset.id && row.occurrenceKey === el.dataset.key);
+      dismissAnnouncementItem(item);
+      const banner = el.closest('.announcement-banner');
+      if (banner) banner.remove();
     }
     if (action === 'confirm-activate') {
       if (setBtnLoading(el, true)) return;

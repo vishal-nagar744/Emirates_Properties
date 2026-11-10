@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { normalizeCurrency } from '../../lib/currency.js';
 import { hashPassword } from '../../lib/password.js';
+import { AnnouncementReceipt } from '../announcements/model.js';
 import { Session } from '../auth/model.js';
 import { revokeUserSessions } from '../auth/session.js';
 import { Cashout } from '../cashouts/model.js';
@@ -208,6 +209,7 @@ export async function deleteMember(id) {
     Order.deleteMany({ userId }),
     Commission.deleteMany({ userId }),
     UserPremium.deleteMany({ userId }),
+    AnnouncementReceipt.deleteMany({ userId }),
     Referral.deleteMany({
       $or: [{ referrerUserId: userId }, { referredUserId: userId }],
     }),

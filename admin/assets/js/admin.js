@@ -11,6 +11,7 @@ const Admin = (() => {
   let referralRows = [];
   let cashoutRows = [];
   let txRows = [];
+  let announcementRows = [];
   let platform = null;
   let loadNote = '';
   let loading = false;
@@ -1686,6 +1687,358 @@ const Admin = (() => {
     });
   }
 
+  function announcementStateLabel(state) {
+    const labels = {
+      draft: 'Draft',
+      scheduled: 'Scheduled',
+      active: 'Active',
+      paused: 'Paused',
+      ended: 'Ended',
+    };
+    return labels[state] || 'Draft';
+  }
+
+  function announcementStateBadge(state) {
+    const map = {
+      draft: 'muted',
+      scheduled: 'pending',
+      active: 'ok',
+      paused: 'warn',
+      ended: 'muted',
+    };
+    return `<span class="status status-${map[state] || 'muted'}">${announcementStateLabel(state)}</span>`;
+  }
+
+  function announcementMoment(value, withTime = true) {
+    if (!value) return '—';
+    const when = new Date(value);
+    if (Number.isNaN(when.getTime())) return '—';
+    return when.toLocaleString('en-AE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
+    });
+  }
+
+  function announcementLocalInput(value) {
+    const date = value ? new Date(value) : new Date();
+    const pad = (number) => String(number).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function announcementAudienceText(row) {
+    if (row.audienceType === 'selected') {
+      const ids = row.audienceUserIds || [];
+      const names = ids.map((id) => {
+        const user = directory.find((item) => item.id === id);
+        return user ? user.fullName : '';
+      }).filter(Boolean);
+      if (!names.length) return `${ids.length} selected member${ids.length === 1 ? '' : 's'}`;
+      if (names.length <= 2) return names.join(', ');
+      return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+    }
+    if (row.audienceType === 'groups') {
+      const ids = row.audienceGroupIds || [];
+      const names = ids.map((id) => {
+        const group = groups.find((item) => item.id === id);
+        return group ? group.name : '';
+      }).filter(Boolean);
+      if (!names.length) return `${ids.length} selected group${ids.length === 1 ? '' : 's'}`;
+      if (names.length <= 2) return names.join(', ');
+      return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+    }
+    if (row.audienceType === 'status') {
+      const labels = { active: 'Active', pending: 'Pending', blocked: 'Blocked', suspended: 'Suspended' };
+      const values = (row.audienceStatuses || []).map((status) => labels[status] || status);
+      return values.length ? values.join(', ') : 'Selected statuses';
+    }
+    return 'All members';
+  }
+
+  function announcementScheduleText(row) {
+    if (row.scheduleType === 'daily') {
+      return `Daily · from ${announcementMoment(row.startAt)} until ${announcementMoment(row.endAt)}`;
+    }
+    if (row.scheduleType === 'weekly') {
+      return `Weekly · from ${announcementMoment(row.startAt)} until ${announcementMoment(row.endAt)}`;
+    }
+    return `Once · ${announcementMoment(row.startAt)}${row.endAt ? ` until ${announcementMoment(row.endAt)}` : ''}`;
+  }
+
+  function announcementStyleText(style) {
+    if (style === 'banner') return 'Banner';
+    if (style === 'both') return 'Popup + banner';
+    return 'Popup';
+  }
+
+  function announcementStatusActions(row) {
+    const canPublish = row.status !== 'active' && row.state !== 'ended';
+    const canPause = row.status === 'active' && row.state !== 'ended';
+    return `
+      <button class="btn light" type="button" data-action="announcement-edit" data-id="${esc(row.id)}">Edit</button>
+      ${canPublish ? `<button class="btn light" type="button" data-action="announcement-publish" data-id="${esc(row.id)}">Publish</button>` : ''}
+      ${canPause ? `<button class="btn light" type="button" data-action="announcement-pause" data-id="${esc(row.id)}">Pause</button>` : ''}
+      <button class="icon-btn" type="button" data-action="announcement-duplicate" data-id="${esc(row.id)}" aria-label="Duplicate ${esc(row.heading)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
+      <button class="icon-btn" type="button" data-action="announcement-delete" data-id="${esc(row.id)}" data-name="${esc(row.heading)}" aria-label="Delete ${esc(row.heading)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"/></svg></button>`;
+  }
+
+  function renderAnnouncements() {
+    pageEl().innerHTML = `
+      <div class="page-head">
+        <div>
+          <h2 class="serif">Announcements</h2>
+          <p class="page-sub">Send a popup, a dashboard banner, or both to your members.</p>
+        </div>
+        <button class="btn primary" type="button" data-action="announcement-new">New announcement</button>
+      </div>
+      ${loadNote ? `<div class="empty-wrap">${emptyState('megaphone', 'Could not load announcements', loadNote)}</div>` : `
+      <section class="card box">
+        ${announcementRows.length ? `<div class="tablewrap"><table class="data-table announcement-table">
+          <thead><tr><th>Announcement</th><th>Audience</th><th>Show as</th><th>Schedule</th><th>Status</th><th></th></tr></thead>
+          <tbody>${announcementRows.map((row) => `<tr>
+            <td>
+              <b class="announcement-title">${esc(row.heading)}</b>
+              <div class="announcement-excerpt">${esc(String(row.message || '').replace(/\s+/g, ' ').slice(0, 120))}${String(row.message || '').length > 120 ? '…' : ''}</div>
+            </td>
+            <td>${esc(announcementAudienceText(row))}</td>
+            <td>${esc(announcementStyleText(row.displayStyle))}</td>
+            <td class="announcement-schedule">${esc(announcementScheduleText(row))}</td>
+            <td>${announcementStateBadge(row.state)}</td>
+            <td><div class="row-actions announcement-actions">${announcementStatusActions(row)}</div></td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : `<div class="empty-wrap">${emptyState('megaphone', 'No announcements yet', 'Create an announcement to welcome, update, or guide your members.')}</div>`}
+      </section>`}`;
+  }
+
+  function announcementForm(row) {
+    const current = row || {
+      id: '',
+      heading: '',
+      message: '',
+      displayStyle: 'popup',
+      audienceType: 'all',
+      audienceUserIds: [],
+      audienceGroupIds: [],
+      audienceStatuses: [],
+      scheduleType: 'once',
+      startAt: new Date().toISOString(),
+      endAt: '',
+      status: 'draft',
+      state: 'draft',
+    };
+    const selectedMembers = new Set(current.audienceUserIds || []);
+    const selectedGroups = new Set(current.audienceGroupIds || []);
+    const selectedStatuses = new Set(current.audienceStatuses || []);
+    const statusOptions = [['active', 'Active'], ['pending', 'Pending'], ['blocked', 'Blocked'], ['suspended', 'Suspended']];
+    const memberOptions = directory.map((user) => {
+      const search = `${user.fullName || ''} ${user.mobile || ''} ${user.memberNo || ''}`.toLowerCase();
+      return `<label class="ann-check" data-search="${esc(search)}">
+        <input type="checkbox" value="${esc(user.id)}"${selectedMembers.has(user.id) ? ' checked' : ''}>
+        <span><b>${esc(user.fullName)}</b><small>${esc(user.mobile)}${user.memberNo ? ` · ID ${esc(user.memberNo)}` : ''}</small></span>
+      </label>`;
+    }).join('');
+
+    openModal(`
+      <div class="modal-title announcement-modal-head">
+        <div>
+          <h3>${row ? 'Edit announcement' : 'New announcement'}</h3>
+          <p class="muted">Choose who sees it, how it appears, and when it runs.</p>
+        </div>
+        <button class="icon-btn" type="button" data-dismiss aria-label="Close">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <form id="announcement-form" class="fields announcement-form">
+        <div class="form-2">
+          <div class="field"><label for="ann-heading">Heading</label><input id="ann-heading" maxlength="120" value="${esc(current.heading)}" placeholder="A short, clear heading" required></div>
+          <div class="field"><label for="ann-style">Show as</label>
+            <select id="ann-style">
+              <option value="popup"${current.displayStyle === 'popup' ? ' selected' : ''}>Popup</option>
+              <option value="banner"${current.displayStyle === 'banner' ? ' selected' : ''}>Dashboard banner</option>
+              <option value="both"${current.displayStyle === 'both' ? ' selected' : ''}>Popup and banner</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label for="ann-message">Message</label><textarea id="ann-message" rows="5" maxlength="4000" placeholder="Write the announcement message" required>${esc(current.message)}</textarea></div>
+        <div class="field"><label for="ann-audience">Audience</label>
+          <select id="ann-audience">
+            <option value="all"${current.audienceType === 'all' ? ' selected' : ''}>All members</option>
+            <option value="selected"${current.audienceType === 'selected' ? ' selected' : ''}>Selected members</option>
+            <option value="groups"${current.audienceType === 'groups' ? ' selected' : ''}>Members with access to groups</option>
+            <option value="status"${current.audienceType === 'status' ? ' selected' : ''}>Members by account status</option>
+          </select>
+        </div>
+        <div class="ann-audience-panel" data-ann-audience="selected" hidden>
+          <label class="search-bar announcement-search">
+            ${searchIcon()}
+            <input id="ann-member-search" type="search" placeholder="Search members" aria-label="Search members">
+          </label>
+          <div class="ann-check-list" id="ann-member-list">
+            ${memberOptions || '<p class="muted">No members yet.</p>'}
+          </div>
+        </div>
+        <div class="ann-audience-panel" data-ann-audience="groups" hidden>
+          <div class="ann-check-list">
+            ${groups.length ? groups.map((group) => `<label class="ann-check">
+              <input type="checkbox" value="${esc(group.id)}"${selectedGroups.has(group.id) ? ' checked' : ''}>
+              <span><b>${esc(group.name)}</b><small>${group.projectCount} project${group.projectCount === 1 ? '' : 's'}</small></span>
+            </label>`).join('') : '<p class="muted">No groups yet.</p>'}
+          </div>
+        </div>
+        <div class="ann-audience-panel" data-ann-audience="status" hidden>
+          <div class="ann-check-list ann-check-list-compact">
+            ${statusOptions.map(([id, label]) => `<label class="ann-check">
+              <input type="checkbox" value="${id}"${selectedStatuses.has(id) ? ' checked' : ''}>
+              <span><b>${label}</b></span>
+            </label>`).join('')}
+          </div>
+        </div>
+        <div class="form-2">
+          <div class="field"><label for="ann-schedule">Schedule</label>
+            <select id="ann-schedule">
+              <option value="once"${current.scheduleType === 'once' ? ' selected' : ''}>Once</option>
+              <option value="daily"${current.scheduleType === 'daily' ? ' selected' : ''}>Daily until end date</option>
+              <option value="weekly"${current.scheduleType === 'weekly' ? ' selected' : ''}>Weekly until end date</option>
+            </select>
+          </div>
+          <div class="field"><label for="ann-start">Start</label><input id="ann-start" type="datetime-local" value="${announcementLocalInput(current.startAt)}"></div>
+        </div>
+        <div class="field"><label for="ann-end">End</label><input id="ann-end" type="datetime-local" value="${current.endAt ? announcementLocalInput(current.endAt) : ''}"></div>
+        <p class="field-hint" id="ann-end-hint"></p>
+        <div class="announcement-preview" id="ann-preview">
+          <div class="announcement-preview-head"><span class="smallcaps">Preview</span><span id="ann-preview-style">${esc(announcementStyleText(current.displayStyle))}</span></div>
+          <h4 class="serif" id="ann-preview-heading">${esc(current.heading || 'Your announcement heading')}</h4>
+          <p id="ann-preview-message">${esc(current.message || 'Your message will appear here.')}</p>
+        </div>
+        <p class="field-error" id="ann-error" role="alert" hidden></p>
+        <div class="modal-actions announcement-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn light" type="submit" data-ann-mode="save">${row ? 'Save changes' : 'Save draft'}</button>
+          ${!row || row.status !== 'active' ? '<button class="btn primary" type="submit" data-ann-mode="publish">Publish now</button>' : ''}
+        </div>
+      </form>`, 'announcement-modal');
+
+    const form = document.getElementById('announcement-form');
+    const audience = document.getElementById('ann-audience');
+    const schedule = document.getElementById('ann-schedule');
+    const endInput = document.getElementById('ann-end');
+    const endHint = document.getElementById('ann-end-hint');
+    const error = document.getElementById('ann-error');
+    let mode = 'save';
+
+    function paintAudience() {
+      document.querySelectorAll('[data-ann-audience]').forEach((panel) => {
+        panel.hidden = panel.dataset.annAudience !== audience.value;
+      });
+    }
+
+    function paintSchedule() {
+      const repeating = schedule.value !== 'once';
+      endHint.textContent = repeating
+        ? 'The end date is required for daily and weekly announcements.'
+        : 'Optional. Leave blank to keep the announcement available until each member dismisses it.';
+      endInput.setAttribute('aria-required', repeating ? 'true' : 'false');
+    }
+
+    function paintPreview() {
+      const heading = document.getElementById('ann-heading');
+      const message = document.getElementById('ann-message');
+      const style = document.getElementById('ann-style');
+      document.getElementById('ann-preview-heading').textContent = heading.value.trim() || 'Your announcement heading';
+      document.getElementById('ann-preview-message').textContent = message.value.trim() || 'Your message will appear here.';
+      document.getElementById('ann-preview-style').textContent = announcementStyleText(style.value);
+    }
+
+    document.querySelectorAll('[data-ann-mode]').forEach((button) => {
+      button.addEventListener('click', () => { mode = button.dataset.annMode; });
+    });
+    audience.addEventListener('change', paintAudience);
+    schedule.addEventListener('change', paintSchedule);
+    ['ann-heading', 'ann-message', 'ann-style'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', paintPreview);
+      document.getElementById(id).addEventListener('change', paintPreview);
+    });
+    const memberSearch = document.getElementById('ann-member-search');
+    if (memberSearch) {
+      memberSearch.addEventListener('input', () => {
+        const query = memberSearch.value.trim().toLowerCase();
+        document.querySelectorAll('#ann-member-list .ann-check').forEach((item) => {
+          item.hidden = Boolean(query) && !item.dataset.search.includes(query);
+        });
+      });
+    }
+    paintAudience();
+    paintSchedule();
+    paintPreview();
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      error.hidden = true;
+      const heading = document.getElementById('ann-heading').value.trim();
+      const message = document.getElementById('ann-message').value.trim();
+      const audienceType = audience.value;
+      const audienceUserIds = audienceType === 'selected'
+        ? [...document.querySelectorAll('#ann-member-list input:checked')].map((input) => input.value)
+        : [];
+      const audienceGroupIds = audienceType === 'groups'
+        ? [...document.querySelector('[data-ann-audience="groups"]').querySelectorAll('input:checked')].map((input) => input.value)
+        : [];
+      const audienceStatuses = audienceType === 'status'
+        ? [...document.querySelector('[data-ann-audience="status"]').querySelectorAll('input:checked')].map((input) => input.value)
+        : [];
+      const startValue = document.getElementById('ann-start').value;
+      const endValue = endInput.value;
+      const startAt = startValue ? new Date(startValue) : null;
+      const endAt = endValue ? new Date(endValue) : null;
+
+      if (!heading) { error.hidden = false; error.textContent = 'Enter an announcement heading.'; return; }
+      if (!message) { error.hidden = false; error.textContent = 'Enter an announcement message.'; return; }
+      if (audienceType === 'selected' && !audienceUserIds.length) { error.hidden = false; error.textContent = 'Select at least one member.'; return; }
+      if (audienceType === 'groups' && !audienceGroupIds.length) { error.hidden = false; error.textContent = 'Select at least one group.'; return; }
+      if (audienceType === 'status' && !audienceStatuses.length) { error.hidden = false; error.textContent = 'Select at least one account status.'; return; }
+      if (!startAt || Number.isNaN(startAt.getTime())) { error.hidden = false; error.textContent = 'Choose a valid start date and time.'; return; }
+      if (schedule.value !== 'once' && !endAt) { error.hidden = false; error.textContent = 'Choose an end date for a daily or weekly announcement.'; return; }
+      if (endAt && Number.isNaN(endAt.getTime())) { error.hidden = false; error.textContent = 'Choose a valid end date and time.'; return; }
+      if (endAt && endAt.getTime() <= startAt.getTime()) { error.hidden = false; error.textContent = 'The end date must be after the start date.'; return; }
+
+      const payload = {
+        heading,
+        message,
+        displayStyle: document.getElementById('ann-style').value,
+        audienceType,
+        audienceUserIds,
+        audienceGroupIds,
+        audienceStatuses,
+        scheduleType: schedule.value,
+        startAt: startAt.toISOString(),
+        endAt: endAt ? endAt.toISOString() : null,
+      };
+      const buttons = [...form.querySelectorAll('button[type="submit"]')];
+      buttons.forEach((button) => { button.disabled = true; });
+      try {
+        const saved = row
+          ? await adminApi(`/api/announcements/${encodeURIComponent(row.id)}`, { method: 'PATCH', body: payload })
+          : await adminApi('/api/announcements', { method: 'POST', body: payload });
+        let announcement = saved.announcement;
+        if (mode === 'publish' && announcement.status !== 'active') {
+          const published = await adminApi(`/api/announcements/${encodeURIComponent(announcement.id)}/publish`, { method: 'POST' });
+          announcement = published.announcement;
+        }
+        announcementRows = row
+          ? announcementRows.map((item) => (item.id === announcement.id ? announcement : item))
+          : [announcement, ...announcementRows];
+        closeModal();
+        toast(mode === 'publish' ? 'Announcement published' : 'Announcement saved');
+        renderAnnouncements();
+      } catch (err) {
+        error.hidden = false;
+        error.textContent = err.message;
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    });
+  }
+
   function safeRender() {
     const el = document.getElementById('page');
     if (!el) return;
@@ -1725,6 +2078,16 @@ const Admin = (() => {
       if (page === 'transactions') {
         txRows = (await adminApi('/api/wallet/all')).transactions || [];
       }
+      if (page === 'announcements') {
+        const [announcementData, userData, groupData] = await Promise.all([
+          adminApi('/api/announcements'),
+          adminApi('/api/users'),
+          adminApi('/api/groups'),
+        ]);
+        announcementRows = Array.isArray(announcementData.announcements) ? announcementData.announcements : [];
+        directory = Array.isArray(userData.users) ? userData.users : [];
+        groups = (groupData.groups || []).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+      }
       if (page === 'settings') {
         platform = (await adminApi('/api/settings')).settings;
       }
@@ -1746,6 +2109,7 @@ const Admin = (() => {
       cashouts: renderCashouts,
       transactions: renderTransactions,
       referrals: renderReferrals,
+      announcements: renderAnnouncements,
       settings: renderSettings,
     };
     (map[page] || renderDashboard)();
@@ -1789,6 +2153,57 @@ const Admin = (() => {
     if (action === 'user-filter') {
       userStatus = el.dataset.status || 'all';
       renderUsers();
+    }
+    if (action === 'announcement-new') announcementForm(null);
+    if (action === 'announcement-edit') {
+      const row = announcementRows.find((item) => item.id === el.dataset.id);
+      if (row) announcementForm(row);
+    }
+    if (action === 'announcement-publish') {
+      adminApi(`/api/announcements/${encodeURIComponent(el.dataset.id)}/publish`, { method: 'POST' })
+        .then((data) => {
+          announcementRows = announcementRows.map((item) => (item.id === data.announcement.id ? data.announcement : item));
+          toast('Announcement published');
+          renderAnnouncements();
+        })
+        .catch((err) => toast(err.message));
+    }
+    if (action === 'announcement-pause') {
+      adminApi(`/api/announcements/${encodeURIComponent(el.dataset.id)}/pause`, { method: 'POST' })
+        .then((data) => {
+          announcementRows = announcementRows.map((item) => (item.id === data.announcement.id ? data.announcement : item));
+          toast('Announcement paused');
+          renderAnnouncements();
+        })
+        .catch((err) => toast(err.message));
+    }
+    if (action === 'announcement-duplicate') {
+      adminApi(`/api/announcements/${encodeURIComponent(el.dataset.id)}/duplicate`, { method: 'POST' })
+        .then((data) => {
+          announcementRows = [data.announcement, ...announcementRows];
+          toast('Announcement duplicated as a draft');
+          renderAnnouncements();
+        })
+        .catch((err) => toast(err.message));
+    }
+    if (action === 'announcement-delete') {
+      openModal(`
+        <h3>Delete announcement</h3>
+        <p class="muted">Delete ${esc(el.dataset.name || 'this announcement')}? Members will no longer see it.</p>
+        <div class="modal-actions">
+          <button class="btn light" type="button" data-dismiss>Cancel</button>
+          <button class="btn danger" type="button" data-action="confirm-delete-announcement" data-id="${esc(el.dataset.id)}">Delete</button>
+        </div>`);
+    }
+    if (action === 'confirm-delete-announcement') {
+      adminApi(`/api/announcements/${encodeURIComponent(el.dataset.id)}`, { method: 'DELETE' })
+        .then(() => {
+          announcementRows = announcementRows.filter((item) => item.id !== el.dataset.id);
+          closeModal();
+          toast('Announcement deleted');
+          renderAnnouncements();
+        })
+        .catch((err) => toast(err.message));
     }
     if (action === 'edit-group') editGroup(el.dataset.id);
     if (action === 'delete-group') {

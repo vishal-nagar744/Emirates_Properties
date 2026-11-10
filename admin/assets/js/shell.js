@@ -67,6 +67,7 @@ function navIcon(name) {
     users: '<circle cx="9" cy="8" r="3"/><path d="M3.5 19c1.2-2.6 3-4 5.5-4s4.3 1.4 5.5 4"/><circle cx="17" cy="9" r="2.2"/><path d="M16 15.2c1.6-.5 3-.2 4.2 1.3"/>',
     card: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/>',
     share: '<circle cx="7" cy="12" r="2.2"/><circle cx="17" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M9 11.2 14.8 8.2M9 12.8l5.8 3"/>',
+    megaphone: '<path d="M4 10v4a1 1 0 0 0 1 1h2l7 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M18 9.5a4 4 0 0 1 0 5"/><path d="M20 7a7 7 0 0 1 0 10"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"/>',
     lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     support: '<path d="M5 15v-2a7 7 0 0 1 14 0v2"/><rect x="4" y="14" width="4" height="5" rx="1"/><rect x="16" y="14" width="4" height="5" rx="1"/>',
@@ -95,6 +96,7 @@ function adminNav(active) {
     ['projects', 'projects.html', 'grid', 'Projects'],
     ['cashouts', 'cashouts.html', 'card', 'Cash out'],
     ['transactions', 'transactions.html', 'list', 'Transactions'],
+    ['announcements', 'announcements.html', 'megaphone', 'Announcements'],
     ['settings', 'settings.html', 'gear', 'Settings'],
   ];
   return items.map(([id, href, icon, label]) => (
@@ -144,6 +146,7 @@ function crumbLabel(page) {
     users: 'Users',
     cashouts: 'Cash out',
     transactions: 'Transactions',
+    announcements: 'Announcements',
     settings: 'Settings',
   };
   return labels[page] || 'Dashboard';

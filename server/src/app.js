@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
 import { adminAuth, memberAuth } from './modules/auth/routes.js';
+import { router as announcements } from './modules/announcements/routes.js';
 import { router as cashouts } from './modules/cashouts/routes.js';
 import { router as commissions } from './modules/commissions/routes.js';
 import { router as groups } from './modules/groups/routes.js';
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/auth', memberAuth);
   app.use('/api/admin/auth', adminAuth);
   app.use('/api/users', users);
+  app.use('/api/announcements', announcements);
   app.use('/api/groups', groups);
   app.use('/api/images', images);
   app.use('/api/projects', projects);

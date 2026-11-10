@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "cleanup:order-images": "node scripts/strip-order-images.mjs",
     "rebuild:orders": "node scripts/rebuild-orders-without-images.mjs"
   },
@@ -13,5 +14,8 @@
     "express": "^4.21.2",
     "mongoose": "^8.24.4",
     "multer": "^2.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
