@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { Settings } from '../settings/model.js';
 import { Transaction } from '../wallet/model.js';
 import { User } from '../users/model.js';
-import { openGroupIds, openSetKeys } from '../users/service.js';
+import { creditScoreValue, openGroupIds, openSetKeys } from '../users/service.js';
 import { nextMemberNo } from '../users/memberNo.js';
 import { groupCycleStarts } from '../../lib/workDate.js';
 import { ensureDailyReset } from '../users/daily.js';
@@ -37,6 +37,7 @@ function publicUser(user) {
     role: user.role,
     currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
+    creditScore: creditScoreValue(user),
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
     holdBalance: user.holdBalance || 0,

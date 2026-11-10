@@ -822,6 +822,7 @@ const Admin = (() => {
     const u = directory.find((x) => x.id === id);
     if (!u) return;
     const initial = String(u.fullName || '?').trim().charAt(0).toUpperCase() || '?';
+    const creditScore = Math.min(100, Math.max(1, Math.round(Number(u.creditScore) || 50)));
     openModal(`
       <div class="modal-title manage-modal-head">
         <div class="manage-identity">
@@ -889,6 +890,23 @@ const Admin = (() => {
             <button class="btn primary" type="submit">Save account changes</button>
           </div>
         </form>
+        <section class="manage-section credit-admin-section">
+          <div class="manage-section-head">
+            <h4>Credit score</h4>
+            <p>Set the score shown on this member's profile. Use a whole number from 1 to 100.</p>
+          </div>
+          <form id="credit-score-form" class="credit-score-form">
+            <div class="credit-score-editor">
+              <input id="credit-score-range" class="credit-score-range" type="range" min="1" max="100" step="1" value="${creditScore}" aria-label="Credit score">
+              <div class="credit-score-number">
+                <input id="credit-score-value" type="number" min="1" max="100" step="1" value="${creditScore}" aria-label="Credit score value">
+                <span>/ 100</span>
+              </div>
+            </div>
+            <div class="credit-score-scale"><span>1 · Needs attention</span><span>100 · Excellent</span></div>
+            <button class="btn light" type="submit">Save credit score</button>
+          </form>
+        </section>
       </div>
       <div id="manage-access" class="manage-panel" hidden>
         <section class="manage-section">
@@ -1126,6 +1144,50 @@ const Admin = (() => {
         renderUsers();
       }
     });
+    const creditForm = document.getElementById('credit-score-form');
+    if (creditForm) {
+      const range = document.getElementById('credit-score-range');
+      const number = document.getElementById('credit-score-value');
+      const paintCredit = (input) => {
+        const safe = Math.min(100, Math.max(1, Math.round(Number(input) || 50)));
+        range.value = safe;
+        number.value = safe;
+        range.setAttribute('value', String(safe));
+        number.setAttribute('value', String(safe));
+        range.setAttribute('aria-valuetext', `${safe} out of 100`);
+        range.style.setProperty('--credit-progress', `${safe}%`);
+      };
+      range.addEventListener('input', () => paintCredit(range.value));
+      number.addEventListener('change', () => paintCredit(number.value));
+      paintCredit(creditScore);
+      creditForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const raw = Number(number.value);
+        if (!Number.isFinite(raw) || raw < 1 || raw > 100) {
+          toast('Enter a credit score from 1 to 100.');
+          return;
+        }
+        const value = Math.round(raw);
+        paintCredit(value);
+        const save = creditForm.querySelector('button[type="submit"]');
+        save.disabled = true;
+        save.textContent = 'Saving…';
+        try {
+          const data = await adminApi(`/api/users/${id}/credit-score`, {
+            method: 'PATCH',
+            body: { creditScore: value },
+          });
+          const user = data.user;
+          directory = directory.map((row) => (row.id === user.id ? user : row));
+          toast('Credit score updated');
+        } catch (err) {
+          toast(err.message);
+        } finally {
+          save.disabled = false;
+          save.textContent = 'Save credit score';
+        }
+      });
+    }
   }
 
   function shown(value) {

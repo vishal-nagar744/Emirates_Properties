@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'pending', 'blocked', 'suspended'],
       default: 'pending',
     },
+    creditScore: { type: Number, default: 50, min: 1, max: 100 },
     welcomeBonusReceived: { type: Boolean, default: false },
     walletBalance: { type: Number, default: 0 },
     trialBalance: { type: Number, default: 0 },

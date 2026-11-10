@@ -1786,6 +1786,79 @@ const Member = (() => {
       ${body}`;
   }
 
+  function creditScoreValue(value) {
+    const score = Number(value);
+    if (!Number.isFinite(score)) return 50;
+    return Math.min(100, Math.max(1, Math.round(score)));
+  }
+
+  function creditBand(score) {
+    if (score >= 80) {
+      return { key: 'excellent', label: 'Excellent', note: 'Your account reflects a strong credit standing.' };
+    }
+    if (score >= 60) {
+      return { key: 'good', label: 'Good', note: 'Your account reflects a healthy credit standing.' };
+    }
+    if (score >= 40) {
+      return { key: 'fair', label: 'Fair', note: 'Your credit standing is developing steadily.' };
+    }
+    return { key: 'attention', label: 'Needs attention', note: 'Your credit standing needs attention.' };
+  }
+
+  function creditGauge(score) {
+    const cx = 110;
+    const cy = 108;
+    const radius = 78;
+    const point = (value, distance = radius) => {
+      const angle = (180 - (Math.min(100, Math.max(0, value)) / 100) * 180) * Math.PI / 180;
+      return {
+        x: cx + distance * Math.cos(angle),
+        y: cy - distance * Math.sin(angle),
+      };
+    };
+    const arc = (from, to, color) => {
+      const start = point(from);
+      const end = point(to);
+      return `<path d="M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 0 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}" fill="none" stroke="${color}" stroke-width="17" stroke-linecap="butt"/>`;
+    };
+    const bands = [
+      [0, 40, '#cf604f'],
+      [40, 60, '#d59a37'],
+      [60, 80, '#97ad4d'],
+      [80, 100, '#2f7c60'],
+    ];
+    const segments = bands.map(([from, to, color]) => arc(
+      from === 0 ? from : from + 1.4,
+      to === 100 ? to : to - 1.4,
+      color
+    )).join('');
+    const tip = point(score, 56);
+    return `<svg class="credit-gauge" viewBox="0 0 220 138" role="img" aria-label="Credit score ${score} out of 100">
+      <path d="M 32 108 A 78 78 0 0 1 188 108" fill="none" stroke="#f1ece8" stroke-width="19" stroke-linecap="round"/>
+      ${segments}
+      <line x1="${cx}" y1="${cy}" x2="${tip.x.toFixed(2)}" y2="${tip.y.toFixed(2)}" stroke="#1c1916" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="${cx}" cy="${cy}" r="10" fill="#fff" stroke="#1c1916" stroke-width="3"/>
+      <circle cx="${cx}" cy="${cy}" r="4" fill="#c89328"/>
+    </svg>`;
+  }
+
+  function creditScoreCard(value) {
+    const score = creditScoreValue(value);
+    const band = creditBand(score);
+    return `<section class="card credit-score-card tone-${band.key}">
+      <div class="credit-score-copy">
+        <span class="smallcaps">Credit score</span>
+        <div class="credit-score-value"><b>${score}</b><span>out of 100</span></div>
+        <span class="credit-score-label">${band.label}</span>
+        <p>${band.note}</p>
+      </div>
+      <div class="credit-score-visual">
+        ${creditGauge(score)}
+        <div class="credit-score-legend"><span>1</span><span>100</span></div>
+      </div>
+    </section>`;
+  }
+
   function renderAccount() {
     if (accountSection() === 'support') {
       location.replace('support.html');
@@ -1834,6 +1907,7 @@ const Member = (() => {
             </div>
           </div>
         </section>
+        ${creditScoreCard(user.creditScore)}
         <div class="account-body">
           <nav class="account-menu" aria-label="Account">${accountMenu(pane)}</nav>
           <section class="card account-detail">${pane ? accountDetail(pane, user) : ''}</section>

@@ -12,6 +12,7 @@ import {
   setMemberPasswords,
   setMemberSets,
   setMemberStatus,
+  setMemberCreditScore,
   setOwnCurrency,
   updateOwnProfile,
 } from './service.js';
@@ -128,6 +129,10 @@ router.get('/:id', requireAdmin, route(async (req, res) => {
 
 router.patch('/:id/status', requireAdmin, route(async (req, res) => {
   send(res, await setMemberStatus(req.params.id, (req.body || {}).accountStatus));
+}));
+
+router.patch('/:id/credit-score', requireAdmin, route(async (req, res) => {
+  send(res, await setMemberCreditScore(req.params.id, (req.body || {}).creditScore));
 }));
 
 router.patch('/:id/passwords', requireAdmin, route(async (req, res) => {

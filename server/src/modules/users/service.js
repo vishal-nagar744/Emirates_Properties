@@ -58,6 +58,12 @@ function pushUnlockNotice(user, notice) {
   user.unlockNotices = list.slice(-20);
 }
 
+export function creditScoreValue(user) {
+  const value = Number(user && user.creditScore);
+  if (!Number.isFinite(value)) return 50;
+  return Math.min(100, Math.max(1, Math.round(value)));
+}
+
 function viewUser(user, extra = {}) {
   return {
     id: String(user._id),
@@ -68,6 +74,7 @@ function viewUser(user, extra = {}) {
     role: user.role,
     currency: normalizeCurrency(user.currency),
     accountStatus: user.accountStatus,
+    creditScore: creditScoreValue(user),
     walletBalance: user.walletBalance,
     trialBalance: user.trialBalance || 0,
     holdBalance: user.holdBalance || 0,
@@ -162,6 +169,19 @@ export async function setMemberStatus(id, accountStatus) {
   if (accountStatus === 'blocked' || accountStatus === 'suspended') {
     await revokeUserSessions(String(user._id));
   }
+  const [view] = await decorate([user]);
+  return { status: 200, data: { user: view } };
+}
+
+export async function setMemberCreditScore(id, creditScore) {
+  const value = Number(creditScore);
+  if (!Number.isInteger(value) || value < 1 || value > 100) {
+    return { status: 400, message: 'Credit score must be a whole number between 1 and 100.' };
+  }
+  const user = await findMember(id);
+  if (!user) return { status: 404, message: 'User not found.' };
+  user.creditScore = value;
+  await user.save();
   const [view] = await decorate([user]);
   return { status: 200, data: { user: view } };
 }

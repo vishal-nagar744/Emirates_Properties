@@ -595,6 +595,14 @@ p {
   background: transparent;
 }
 
+.search-bar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--muted);
+}
+
 /* ── 12. Page Sections ────────────────────────────────────── */
 .section {
   padding: 86px 0;
@@ -2567,6 +2575,57 @@ a.back-btn:hover { transform: none; }
 .manage-action-row .btn { flex: 1 1 160px; }
 .manage-danger { border-color: #ead4cf; }
 .manage-danger .manage-section-head h4 { color: #8a3b2e; }
+
+.credit-score-form { display: grid; gap: 12px; }
+.credit-score-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.credit-score-range {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold) 0 var(--credit-progress, 50%), #ece6e4 var(--credit-progress, 50%) 100%);
+  outline: none;
+  cursor: pointer;
+}
+.credit-score-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: var(--g);
+  box-shadow: 0 1px 6px rgba(28, 25, 22, 0.25);
+}
+.credit-score-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: var(--g);
+  box-shadow: 0 1px 6px rgba(28, 25, 22, 0.25);
+}
+.credit-score-number { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 800; }
+.credit-score-number input {
+  width: 64px;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--pale);
+  color: var(--g);
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
+.credit-score-scale { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.credit-score-form .btn { justify-self: start; }
+
+@media (max-width: 520px) {
+  .credit-score-editor { grid-template-columns: 1fr; }
+  .credit-score-form .btn { width: 100%; }
+}
 
 .manage-modal-head { align-items: flex-start; }
 .manage-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
