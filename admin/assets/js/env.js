@@ -1,6 +1,6 @@
-window.EP_ENV = { API_BASE: "https://ioplolyuyu.onrender.com" };
+window.EP_ENV = { API_BASE: "https://api-alfardan-propertie.onrender.com" };
 window.apiBase = function apiBase() {
-  return String((window.EP_ENV && window.EP_ENV.API_BASE) || "https://ioplolyuyu.onrender.com").replace(/\/$/, '');
+  return String((window.EP_ENV && window.EP_ENV.API_BASE) || "https://api-alfardan-propertie.onrender.com").replace(/\/$/, '');
 };
 
 // Proactively wake up Render free-tier instance on page load so it's ready when user interacts
